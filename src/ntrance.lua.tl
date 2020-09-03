@@ -11,18 +11,17 @@
 @attach_buffer_current_buffer
 @detach_from_buffer
 
-@script_variable+=
+@script_variables+=
 local client
 
 @start_client+=
-function StartClient(appuri)
+function StartClient(appuri, port)
+	@set_port_as_80_if_not_provided
 	client = vim.loop.new_tcp()
 	@get_ip_address
-	client:connect(ipentry.addr, 80, vim.schedule_wrap(function(err) 
+	client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
 		client:read_start(vim.schedule_wrap(function(err, chunk)
-			if reading then
-				@read_response
-			end
+			@read_response
 		end))
 		@opening_handshake
 	end))
@@ -134,7 +133,7 @@ local websocketkey
 
 @opening_handshake+=
 client:write("GET / HTTP/1.1\r\n")
-client:write("Host: " .. appuri .. ":80\r\n")
+client:write("Host: " .. appuri .. ":" .. port .. "\r\n")
 client:write("Upgrade: websocket\r\n")
 client:write("Connection: Upgrade\r\n")
 websocketkey = ConvertToBase64(GenerateWebSocketKey())
@@ -266,8 +265,6 @@ table.insert(frames, "PAYLOAD LENGTH " .. paylen)
 @read_payload+=
 local text = string.sub(chunk, 2+paylenlen+1)
 
-@script_variables+=
-reading = false
 @send_close_frame+=
 @generate_mask
 local frame = {
@@ -314,7 +311,7 @@ else
 	end
 end
 
-@script_variable+=
+@script_variables+=
 local curbuf
 
 @attach_buffer_current_buffer+=
@@ -335,7 +332,7 @@ vim.api.nvim_buf_attach(bufnr, false, {
 	end
 })
 
-@script_variable+=
+@script_variables+=
 local detach = false
 
 @return_true_if_detach
@@ -365,7 +362,7 @@ SendText(encoded)
 
 @interpret_received_text+=
 @decode_json
-if decoded then
+if decoded and curbuf then
 	@get_changedtick_and_add_to_ignore
 	@set_lines
 else
@@ -375,7 +372,7 @@ end
 @decode_json+=
 local decoded = vim.fn.json_decode(text)
 
-@script_variable+=
+@script_variables+=
 local ignores = {}
 
 @get_changedtick_and_add_to_ignore+=
@@ -393,3 +390,6 @@ for line in vim.gsplit(decoded["text"], '\n') do
 	table.insert(lines, line)
 end
 vim.api.nvim_buf_set_lines(curbuf, decoded["start"], decoded["end"], true, lines)
+
+@set_port_as_80_if_not_provided+=
+port = port or 80

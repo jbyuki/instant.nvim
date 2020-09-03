@@ -1,3 +1,5 @@
+local client
+
 local base64 = {}
 
 local websocketkey
@@ -5,11 +7,21 @@ local websocketkey
 events = {}
 
 iptable = {}
-appuri = "livevim.herokuapp.com"
 
 frames = {}
 
 reading = false
+local curbuf
+
+local detach = false
+
+if detach then
+	table.insert(events, "Detached from buffer")
+	return true
+end
+
+local ignores = {}
+
 local b64 = 0
 for i=string.byte('a'), string.byte('z') do base64[b64] = string.char(i) b64 = b64+1 end
 for i=string.byte('A'), string.byte('Z') do base64[b64] = string.char(i) b64 = b64+1 end
@@ -153,7 +165,8 @@ function OpXor(a, b)
 end
 
 
-function StartClient()
+function StartClient(appuri, port)
+	port = port or 80
 	client = vim.loop.new_tcp()
 	iptable = vim.loop.getaddrinfo(appuri)
 	if #iptable == 0 then
@@ -162,7 +175,7 @@ function StartClient()
 	end
 	local ipentry = iptable[1]
 	
-	client:connect(ipentry.addr, 80, vim.schedule_wrap(function(err) 
+	client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
 		client:read_start(vim.schedule_wrap(function(err, chunk)
 			if reading then
 				table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
@@ -207,6 +220,7 @@ function StartClient()
 								table.insert(lines, line)
 							end
 							vim.api.nvim_buf_set_lines(curbuf, decoded["start"], decoded["end"], true, lines)
+							
 						else
 							table.insert(events, "Could not decode json " .. text)
 						end
@@ -255,7 +269,7 @@ function StartClient()
 			end
 		end))
 		client:write("GET / HTTP/1.1\r\n")
-		client:write("Host: " .. appuri .. ":80\r\n")
+		client:write("Host: " .. appuri .. ":" .. port .. "\r\n")
 		client:write("Upgrade: websocket\r\n")
 		client:write("Connection: Upgrade\r\n")
 		websocketkey = ConvertToBase64(GenerateWebSocketKey())

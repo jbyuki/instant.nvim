@@ -15,7 +15,9 @@ const server = http.createServer((req, res) => {
 });
 
 const port = process.env.PORT || 8080;
-server.listen(port, "0.0.0.0", () => {
+const host = "127.0.0.1"
+// const host = "0.0.0.0"
+server.listen(port, host, () => {
 	console.log(`Server is listening on port ${port}`);
 });
 
@@ -40,6 +42,7 @@ wsserver.on('request', (req) => {
 	conn.on('close', (reasonCode, desc) => {
 		console.log("Peer disconnected!");
 		@remove_client_list
+		console.log(clients.length, " clients remaining");
 	});
 	console.log("Peer connected");
 	@add_to_client_list
