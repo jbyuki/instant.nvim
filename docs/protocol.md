@@ -19,7 +19,7 @@ The protocol is as follows:
     * Websocket handshake
 	* Send an `available` message from client
 		* If available: close client with error
-	* If available send `request` message from client
+	* If not available send `request` message from client
 	* Server sends the request to another already connected client
 	* Client responds with `initial` message which contains the whole content
 	* Server broadcasts to clients
