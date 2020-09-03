@@ -25,12 +25,12 @@ Usage
 -----
 
 * Fire up the websocket server (server/ws_server.js)
-* `NTranceStart 127.0.0.1 8080` on each client
+* Connect the first client with `NTranceStart 127.0.0.1 8080`
+* `NTranceJoin 127.0.0.1 8080` on other clients
 * To stop `NTranceStop`
 
 Todo
 ----
 
-* First message complete source code send
 * Write documentation for protocol
 * Show id when editing

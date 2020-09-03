@@ -36,7 +36,11 @@ wsserver.on('request', (req) => {
 		console.log("Received message type ", msg.type);
 		if(msg.type == "utf8") {
 			console.log("Received message: " + msg.utf8Data);
-			@broadcast_to_others
+			@decode_message
+			@if_request_send_to_first_client_in_list
+			@if_text_broadcast_to_others
+			@if_initial_broadcast_to_others
+			@if_available_send_response_back
 		}
 	});
 	conn.on('close', (reasonCode, desc) => {
@@ -60,9 +64,46 @@ if(clientidx != -1) {
 	clients.splice(clientidx, 1);
 }
 
-@broadcast_to_others+=
-for(let o of clients) {
-	if(o != conn) {
-		o.sendUTF(msg.utf8Data);
+@if_text_broadcast_to_others+=
+if(decoded.type == "text") {
+	for(let o of clients) {
+		if(o != conn) {
+			o.sendUTF(msg.utf8Data);
+		}
 	}
+}
+
+@decode_message+=
+const decoded = JSON.parse(msg.utf8Data);
+
+@if_request_send_to_first_client_in_list+=
+if(decoded.type == "request") {
+	if(clients.length <= 1) {
+		@if_no_other_client_return_empty_initial
+	} else {
+		for(let o of clients) {
+			if(o != conn) {
+				o.sendUTF(msg.utf8Data);
+				break;
+			}
+		}
+	}
+}
+
+@if_initial_broadcast_to_others+=
+if(decoded.type == "initial") {
+	for(let o of clients) {
+		if(o != conn) {
+			o.sendUTF(msg.utf8Data);
+		}
+	}
+}
+
+@if_available_send_response_back+=
+if(decoded.type == "available") {
+	const response = {
+		type: "response",
+		is_first: clients.length == 1
+	};
+	conn.sendUTF(JSON.stringify(response));
 }

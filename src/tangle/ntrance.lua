@@ -8,6 +8,8 @@ events = {}
 
 iptable = {}
 
+local handshakeOK = false
+
 frames = {}
 
 local curbuf
@@ -15,6 +17,8 @@ local curbuf
 local detach = false
 
 local ignores = {}
+
+local initialized = false
 
 local b64 = 0
 for i=string.byte('a'), string.byte('z') do base64[b64] = string.char(i) b64 = b64+1 end
@@ -171,7 +175,7 @@ function OpXor(a, b)
 end
 
 
-local function StartClient(appuri, port)
+local function StartClient(first, appuri, port)
 	port = port or 80
 	
 	client = vim.loop.new_tcp()
@@ -186,90 +190,188 @@ local function StartClient(appuri, port)
 		client:read_start(vim.schedule_wrap(function(err, chunk)
 			table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
 			
+			table.insert(events, chunk)
 			if chunk then
-				local opcode
-				local b1 = string.byte(string.sub(chunk,1,1))
-				table.insert(frames, "FIN " .. OpAnd(b1, 0x80))
-				table.insert(frames, "OPCODE " .. OpAnd(b1, 0xF))
-				local b2 = string.byte(string.sub(chunk,2,2))
-				table.insert(frames, "MASK " .. OpAnd(b2, 0x80))
-				opcode = OpAnd(b1, 0xF)
-				
-				if opcode == 0x1 then -- TEXT
-					local paylen = OpAnd(b2, 0x7F)
-					local paylenlen = 0
-					if paylen == 126 then -- 16 bits length
-						local b3 = string.byte(string.sub(chunk,3,3))
-						local b4 = string.byte(string.sub(chunk,4,4))
-						paylen = OpLshift(b3, 8) + b4
-						paylenlen = 2
-					elseif paylen == 127 then
-						paylen = 0
-						for i=0,7 do -- 64 bits length
-							paylen = OpLshift(paylen, 8) 
-							paylen = paylen + string.byte(string.sub(chunk,i+3,i+3))
-						end
-						paylenlen = 8
+				if string.match(chunk, "^HTTP") then
+					if string.match(chunk, "Sec%-WebSocket%-Accept") then
+						handshakeOK = true
+						table.insert(events, "handshake was successful")
+						local encoded = vim.fn.json_encode({
+							["type"] = "available"
+						})
+						SendText(encoded)
+						
+						
 					end
-					table.insert(frames, "PAYLOAD LENGTH " .. paylen)
+				else
+					local opcode
+					local b1 = string.byte(string.sub(chunk,1,1))
+					table.insert(frames, "FIN " .. OpAnd(b1, 0x80))
+					table.insert(frames, "OPCODE " .. OpAnd(b1, 0xF))
+					local b2 = string.byte(string.sub(chunk,2,2))
+					table.insert(frames, "MASK " .. OpAnd(b2, 0x80))
+					opcode = OpAnd(b1, 0xF)
 					
-					local text = string.sub(chunk, 2+paylenlen+1)
-					
-					local decoded = vim.fn.json_decode(text)
-					
-					if decoded and curbuf then
-						local tick = vim.api.nvim_buf_get_changedtick(curbuf)+1
-						ignores[tick] = true
-						
-						local lines = {}
-						for line in vim.gsplit(decoded["text"], '\n') do
-							table.insert(lines, line)
+					if opcode == 0x1 then -- TEXT
+						local paylen = OpAnd(b2, 0x7F)
+						local paylenlen = 0
+						if paylen == 126 then -- 16 bits length
+							local b3 = string.byte(string.sub(chunk,3,3))
+							local b4 = string.byte(string.sub(chunk,4,4))
+							paylen = OpLshift(b3, 8) + b4
+							paylenlen = 2
+						elseif paylen == 127 then
+							paylen = 0
+							for i=0,7 do -- 64 bits length
+								paylen = OpLshift(paylen, 8) 
+								paylen = paylen + string.byte(string.sub(chunk,i+3,i+3))
+							end
+							paylenlen = 8
 						end
-						vim.api.nvim_buf_set_lines(curbuf, decoded["start"], decoded["end"], true, lines)
+						table.insert(frames, "PAYLOAD LENGTH " .. paylen)
 						
-					else
-						table.insert(events, "Could not decode json " .. text)
+						local text = string.sub(chunk, 2+paylenlen+1)
+						
+						local decoded = vim.fn.json_decode(text)
+						
+						if decoded and curbuf then
+							if decoded["type"] == "text" then
+								local tick = vim.api.nvim_buf_get_changedtick(curbuf)+1
+								ignores[tick] = true
+								
+								local lines = {}
+								for line in vim.gsplit(decoded["text"], '\n') do
+									table.insert(lines, line)
+								end
+								vim.api.nvim_buf_set_lines(curbuf, decoded["start"], decoded["end"], true, lines)
+								
+							end
+							
+							if decoded["type"] == "request" then
+								local numlines = vim.api.nvim_buf_line_count(curbuf)
+								
+								local lines = vim.api.nvim_buf_get_lines(curbuf, 0, numlines, true)
+								
+								local encoded = vim.fn.json_encode({
+									["type"] = "initial",
+									["text"] = table.concat(lines, '\n')
+								})
+								
+								SendText(encoded)
+								
+							end
+							
+							if decoded["type"] == "initial" and not initialized then
+								local lines = {}
+								for line in vim.gsplit(decoded["text"], '\n') do
+									table.insert(lines, line)
+								end
+								
+								vim.api.nvim_command("normal ggdG")
+								
+								vim.api.nvim_buf_set_lines(curbuf, 0, 0, true, lines)
+								
+								initialized = true
+							end
+							
+							if decoded["type"] == "response" then
+								if decoded["is_first"] and first then
+									initialized = true
+								elseif not decoded["is_first"] and not first then
+									local encoded = vim.fn.json_encode({
+										["type"] = "request",
+									})
+									SendText(encoded)
+									
+								elseif decoded["is_first"] and not first then
+									table.insert(events, "ERROR: Tried to join an empty server")
+									print("ERROR: Tried to join an empty server")
+									local mask = {}
+									for i=1,4 do
+										table.insert(mask, math.floor(math.random() * 255))
+									end
+									
+									local frame = {
+										0x88, 0x80,
+									}
+									for i=1,4 do 
+										table.insert(frame, mask[i])
+									end
+									local s = ConvertBytesToString(frame)
+									
+									client:write(s)
+									
+									
+									client:close()
+									
+								elseif not decoded["is_first"] and first then
+									table.insert(events, "ERROR: Tried to start a server which is already busy")
+									print("ERROR: Tried to start a server which is already busy")
+									local mask = {}
+									for i=1,4 do
+										table.insert(mask, math.floor(math.random() * 255))
+									end
+									
+									local frame = {
+										0x88, 0x80,
+									}
+									for i=1,4 do 
+										table.insert(frame, mask[i])
+									end
+									local s = ConvertBytesToString(frame)
+									
+									client:write(s)
+									
+									
+									client:close()
+									
+								end
+							end
+							
+						else
+							table.insert(events, "Could not decode json " .. text)
+						end
+						
+					end
+					
+					if opcode == 0x9 then -- PING
+						local paylen = OpAnd(b2, 0x7F)
+						local paylenlen = 0
+						if paylen == 126 then -- 16 bits length
+							local b3 = string.byte(string.sub(chunk,3,3))
+							local b4 = string.byte(string.sub(chunk,4,4))
+							paylen = OpLshift(b3, 8) + b4
+							paylenlen = 2
+						elseif paylen == 127 then
+							paylen = 0
+							for i=0,7 do -- 64 bits length
+								paylen = OpLshift(paylen, 8) 
+								paylen = paylen + string.byte(string.sub(chunk,i+3,i+3))
+							end
+							paylenlen = 8
+						end
+						table.insert(frames, "PAYLOAD LENGTH " .. paylen)
+						
+						table.insert(frames, "SENT PONG")
+						local mask = {}
+						for i=1,4 do
+							table.insert(mask, math.floor(math.random() * 255))
+						end
+						
+						local frame = {
+							0x8A, 0x80,
+						}
+						for i=1,4 do 
+							table.insert(frame, mask[i])
+						end
+						local s = ConvertBytesToString(frame)
+						
+						client:write(s)
+						
+						
 					end
 					
 				end
-				
-				if opcode == 0x9 then -- TEXT
-					local paylen = OpAnd(b2, 0x7F)
-					local paylenlen = 0
-					if paylen == 126 then -- 16 bits length
-						local b3 = string.byte(string.sub(chunk,3,3))
-						local b4 = string.byte(string.sub(chunk,4,4))
-						paylen = OpLshift(b3, 8) + b4
-						paylenlen = 2
-					elseif paylen == 127 then
-						paylen = 0
-						for i=0,7 do -- 64 bits length
-							paylen = OpLshift(paylen, 8) 
-							paylen = paylen + string.byte(string.sub(chunk,i+3,i+3))
-						end
-						paylenlen = 8
-					end
-					table.insert(frames, "PAYLOAD LENGTH " .. paylen)
-					
-					table.insert(frames, "SENT PONG")
-					local mask = {}
-					for i=1,4 do
-						table.insert(mask, math.floor(math.random() * 255))
-					end
-					
-					local frame = {
-						0x8A, 0x80,
-					}
-					for i=1,4 do 
-						table.insert(frame, mask[i])
-					end
-					local s = ConvertBytesToString(frame)
-					
-					client:write(s)
-					
-					
-				end
-				
 			end
 			
 		end))
@@ -326,6 +428,7 @@ local function AttachToBuffer()
 			local lines = vim.api.nvim_buf_get_lines(bufnr, firstline, new_lastline, true)
 			
 			local encoded = vim.fn.json_encode({
+				["type"] = "text",
 				["start"] = firstline,
 				["end"]   = lastline,
 				["text"] = table.concat(lines, '\n')
@@ -344,8 +447,8 @@ local function DetachFromBuffer()
 end
 
 
-local function Start(host, port)
-	StartClient(host, port)
+local function Start(first, host, port)
+	StartClient(first, host, port)
 	AttachToBuffer()
 	
 end
@@ -360,5 +463,6 @@ end
 return {
 Start = Start,
 Stop = Stop,
+
 }
 

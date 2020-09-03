@@ -28,10 +28,42 @@ wsserver.on('request', (req) => {
 		console.log("Received message type ", msg.type);
 		if(msg.type == "utf8") {
 			console.log("Received message: " + msg.utf8Data);
-			for(let o of clients) {
-				if(o != conn) {
-					o.sendUTF(msg.utf8Data);
+			const decoded = JSON.parse(msg.utf8Data);
+			
+			if(decoded.type == "request") {
+				if(clients.length <= 1) {
+				} else {
+					for(let o of clients) {
+						if(o != conn) {
+							o.sendUTF(msg.utf8Data);
+							break;
+						}
+					}
 				}
+			}
+			
+			if(decoded.type == "text") {
+				for(let o of clients) {
+					if(o != conn) {
+						o.sendUTF(msg.utf8Data);
+					}
+				}
+			}
+			
+			if(decoded.type == "initial") {
+				for(let o of clients) {
+					if(o != conn) {
+						o.sendUTF(msg.utf8Data);
+					}
+				}
+			}
+			
+			if(decoded.type == "available") {
+				const response = {
+					type: "response",
+					is_first: clients.length == 1
+				};
+				conn.sendUTF(JSON.stringify(response));
 			}
 		}
 	});

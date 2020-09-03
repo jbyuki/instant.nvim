@@ -39,12 +39,29 @@ function! StartWrapper(...)
 	endif
 
 	if a:0 == 1
-		call execute('lua ntrance.Start("' .. a:1 .. '")')
+		call execute('lua ntrance.Start(true, "' .. a:1 .. '")')
 	else
-		call execute('lua ntrance.Start("' .. a:1 .. '", ' .. a:2 .. ')')
+		call execute('lua ntrance.Start(true, "' .. a:1 .. '", ' .. a:2 .. ')')
 	endif
 endfunction
 
 @register_commands+=
 command! -nargs=* NTranceStart call StartWrapper(<f-args>)
 command! NTranceStop lua ntrance.Stop()
+
+@functions+=
+function! JoinWrapper(...)
+	if a:0 == 0 || a:0 > 2
+		echoerr "ARGUMENTS: [host] [port (default: 80)]"
+		return
+	endif
+
+	if a:0 == 1
+		call execute('lua ntrance.Start(false, "' .. a:1 .. '")')
+	else
+		call execute('lua ntrance.Start(false, "' .. a:1 .. '", ' .. a:2 .. ')')
+	endif
+endfunction
+
+@register_commands+=
+command! -nargs=* NTranceJoin call JoinWrapper(<f-args>)

@@ -7,6 +7,7 @@
 @functions
 
 @start_client
+@join_client
 @stop_client
 
 @attach_buffer_current_buffer
@@ -23,7 +24,7 @@ return {
 local client
 
 @start_client+=
-local function StartClient(appuri, port)
+local function StartClient(first, appuri, port)
 	@set_port_as_80_if_not_provided
 	client = vim.loop.new_tcp()
 	@get_ip_address
@@ -245,11 +246,23 @@ if #iptable == 0 then
 end
 local ipentry = iptable[1]
 
+@script_variables+=
+local handshakeOK = false
+
 @read_response+=
+table.insert(events, chunk)
 if chunk then
-	local opcode
-	@read_opcode
-	@do_opcode
+	if string.match(chunk, "^HTTP") then
+		if string.match(chunk, "Sec%-WebSocket%-Accept") then
+			handshakeOK = true
+			table.insert(events, "handshake was successful")
+			@handshake_finished
+		end
+	else
+		local opcode
+		@read_opcode
+		@do_opcode
+	end
 end
 
 @do_opcode+=
@@ -303,7 +316,7 @@ end
 @send_frame
 
 @do_opcode+=
-if opcode == 0x9 then -- TEXT
+if opcode == 0x9 then -- PING
 	@read_payload_length
 	@send_pong
 end
@@ -355,7 +368,7 @@ vim.api.nvim_buf_attach(bufnr, false, {
 		@if_ignore_tick_return
 		@retrieve_new_lines
 		@encode_in_json
-		@send_new_lines
+		@send_encoded
 	end
 })
 
@@ -379,21 +392,30 @@ local lines = vim.api.nvim_buf_get_lines(bufnr, firstline, new_lastline, true)
 
 @encode_in_json+=
 local encoded = vim.fn.json_encode({
+	["type"] = "text",
 	["start"] = firstline,
 	["end"]   = lastline,
 	["text"] = table.concat(lines, '\n')
 })
 
-@send_new_lines+=
+@send_encoded+=
 SendText(encoded)
 
 @interpret_received_text+=
 @decode_json
 if decoded and curbuf then
-	@get_changedtick_and_add_to_ignore
-	@set_lines
+	@if_text_add_new_lines_to_buffer
+	@if_request_send_all_lines
+	@if_initial_and_not_initialized_set_buffer_lines
+	@if_available_check_if_its_ok
 else
 	table.insert(events, "Could not decode json " .. text)
+end
+
+@if_text_add_new_lines_to_buffer+=
+if decoded["type"] == "text" then
+	@get_changedtick_and_add_to_ignore
+	@set_lines
 end
 
 @decode_json+=
@@ -425,12 +447,12 @@ port = port or 80
 local bufnr = vim.api.nvim_get_current_buf()
 
 @start_function+=
-local function Start(host, port)
+local function Start(first, host, port)
 	@start
 end
 
 @start+=
-StartClient(host, port)
+StartClient(first, host, port)
 AttachToBuffer()
 
 @stop_function+=
@@ -445,3 +467,77 @@ StopClient()
 @export_symbols+=
 Start = Start,
 Stop = Stop,
+
+@if_request_send_all_lines+=
+if decoded["type"] == "request" then
+	@fetch_number_of_lines
+	@retrieve_all_lines
+	@encode_initial_content
+	@send_encoded
+end
+
+@fetch_number_of_lines+=
+local numlines = vim.api.nvim_buf_line_count(curbuf)
+
+@retrieve_all_lines+=
+local lines = vim.api.nvim_buf_get_lines(curbuf, 0, numlines, true)
+
+@encode_initial_content+=
+local encoded = vim.fn.json_encode({
+	["type"] = "initial",
+	["text"] = table.concat(lines, '\n')
+})
+
+@handshake_finished+=
+local encoded = vim.fn.json_encode({
+	["type"] = "available"
+})
+@send_encoded
+
+@script_variables+=
+local initialized = false
+
+@if_initial_and_not_initialized_set_buffer_lines+=
+if decoded["type"] == "initial" and not initialized then
+	@get_lines_array
+	@clear_current_buffer
+	@set_lines_in_buffer
+	initialized = true
+end
+
+@get_lines_array+=
+local lines = {}
+for line in vim.gsplit(decoded["text"], '\n') do
+	table.insert(lines, line)
+end
+
+@set_lines_in_buffer+=
+vim.api.nvim_buf_set_lines(curbuf, 0, 0, true, lines)
+
+@clear_current_buffer+=
+vim.api.nvim_command("normal ggdG")
+
+@if_available_check_if_its_ok+=
+if decoded["type"] == "response" then
+	if decoded["is_first"] and first then
+		initialized = true
+	elseif not decoded["is_first"] and not first then
+		@send_request_for_initial_content
+	elseif decoded["is_first"] and not first then
+		table.insert(events, "ERROR: Tried to join an empty server")
+		print("ERROR: Tried to join an empty server")
+		@send_close_frame
+		@close_client
+	elseif not decoded["is_first"] and first then
+		table.insert(events, "ERROR: Tried to start a server which is already busy")
+		print("ERROR: Tried to start a server which is already busy")
+		@send_close_frame
+		@close_client
+	end
+end
+
+@send_request_for_initial_content+=
+local encoded = vim.fn.json_encode({
+	["type"] = "request",
+})
+@send_encoded
