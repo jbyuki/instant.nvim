@@ -39,7 +39,7 @@ All messages are encoded in JSON.
 
 The `available` message
 
-```
+```json
 {
 	type: "available"
 }
@@ -47,7 +47,7 @@ The `available` message
 
 The `response` message sent by the server when an `available` message is received
 
-```
+```json
 {
 	type: "response",
 	is_first: boolean
@@ -55,14 +55,14 @@ The `response` message sent by the server when an `available` message is receive
 ```
 
 The `request` message
-```
+```json
 {
 	type: "request"
 }
 ```
 
 The `initial` message
-```
+```json
 {
 	type: "initial",
 	text: string
@@ -70,7 +70,7 @@ The `initial` message
 ```
 
 The `text` message. start and end designates the first and last lines where the edit takes place.
-```
+```json
 {
 	type: "text",
 
