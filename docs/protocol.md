@@ -69,12 +69,14 @@ The `initial` message
 }
 '''
 
-The `text` message
+The `text` message. start and end designates the first and last lines where the edit takes place.
 '''
 {
 	type: "text",
-	firstline: integer,
-	lastline: integer,
+
+	start: integer,
+	end: integer,
+
 	text: string
 }
 '''

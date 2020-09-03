@@ -6,6 +6,7 @@ ntrance is a collaborative remote editing plugin for Neovim written in Lua with 
 **This is in prototype stage. It should work but some important features are still missing!**
 
 * [Design document](docs/design.md)
+* [Protocol](docs/protocol.md)
 
 Requirements
 ------------
@@ -32,5 +33,4 @@ Usage
 Todo
 ----
 
-* Write documentation for protocol
 * Show id when editing
