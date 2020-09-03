@@ -1,4 +1,4 @@
-" Vim global plugin for remote collaborative editing
+" Vim global plugin for remote collaborative editing haha
 " Last Change: 2020 Sep 3
 " Maintainer:  jbyuki
 " License:     This file is placed in the public domain 
