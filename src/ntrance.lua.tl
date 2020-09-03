@@ -24,11 +24,13 @@ return {
 local client
 
 @start_client+=
-local function StartClient(first, appuri, port)
+function StartClient(first, appuri, port)
+	@init_client
 	@set_port_as_80_if_not_provided
 	client = vim.loop.new_tcp()
 	@get_ip_address
 	client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
+		@check_for_connection_errors
 		client:read_start(vim.schedule_wrap(function(err, chunk)
 			@read_response
 		end))
@@ -246,15 +248,29 @@ if #iptable == 0 then
 end
 local ipentry = iptable[1]
 
-@script_variables+=
-local handshakeOK = false
+@declare_functions+=
+local nocase
+
+@functions+=
+function nocase (s)
+	s = string.gsub(s, "%a", function (c)
+		if string.match(c, "[a-zA-Z]") then
+			return string.format("[%s%s]", 
+				string.lower(c),
+				string.upper(c))
+		else
+			return c
+		end
+	end)
+	return s
+end
 
 @read_response+=
 table.insert(events, chunk)
 if chunk then
-	if string.match(chunk, "^HTTP") then
-		if string.match(chunk, "Sec%-WebSocket%-Accept") then
-			handshakeOK = true
+	if string.match(chunk, nocase("^HTTP")) then
+		-- can be Sec-WebSocket-Accept or Sec-Websocket-Accept
+		if string.match(chunk, nocase("Sec%-WebSocket%-Accept")) then
 			table.insert(events, "handshake was successful")
 			@handshake_finished
 		end
@@ -350,14 +366,11 @@ else
 	end
 end
 
-@script_variables+=
-local curbuf
-
 @attach_buffer_current_buffer+=
 local function AttachToBuffer()
 	@get_current_buffer
+	vim.b.attached = true
 	table.insert(events, "Attaching to buffer " .. bufnr)
-	curbuf = bufnr
 	@register_buf_change_callback
 end
 
@@ -372,11 +385,11 @@ vim.api.nvim_buf_attach(bufnr, false, {
 	end
 })
 
-@script_variables+=
-local detach = false
+@init_client+=
+vim.b.detach = false
 
 @return_true_if_detach+=
-if detach then
+if vim.b.detach then
 	table.insert(events, "Detached from buffer")
 	return true
 end
@@ -384,7 +397,7 @@ end
 @detach_from_buffer+=
 local function DetachFromBuffer()
 	table.insert(events, "Detaching from buffer...")
-	detach = true
+	vim.b.detach = true
 end
 
 @retrieve_new_lines+=
@@ -403,7 +416,7 @@ SendText(encoded)
 
 @interpret_received_text+=
 @decode_json
-if decoded and curbuf then
+if decoded and vim.b.attached then
 	@if_text_add_new_lines_to_buffer
 	@if_request_send_all_lines
 	@if_initial_and_not_initialized_set_buffer_lines
@@ -422,14 +435,18 @@ end
 local decoded = vim.fn.json_decode(text)
 
 @script_variables+=
-local ignores = {}
+local ignores
+
+@init_client+=
+ignores = {}
 
 @get_changedtick_and_add_to_ignore+=
-local tick = vim.api.nvim_buf_get_changedtick(curbuf)+1
+local tick = vim.api.nvim_buf_get_changedtick(vim.api.nvim_get_current_buf())+1
 ignores[tick] = true
 
 @if_ignore_tick_return+=
 if ignores[changedtick] then
+	ignores[changedtick] = nil
 	return
 end
 
@@ -438,7 +455,12 @@ local lines = {}
 for line in vim.gsplit(decoded["text"], '\n') do
 	table.insert(lines, line)
 end
-vim.api.nvim_buf_set_lines(curbuf, decoded["start"], decoded["end"], true, lines)
+vim.api.nvim_buf_set_lines(
+	vim.api.nvim_get_current_buf(), 
+	decoded["start"], 
+	decoded["end"], 
+	true, 
+	lines)
 
 @set_port_as_80_if_not_provided+=
 port = port or 80
@@ -477,10 +499,14 @@ if decoded["type"] == "request" then
 end
 
 @fetch_number_of_lines+=
-local numlines = vim.api.nvim_buf_line_count(curbuf)
+local numlines = vim.api.nvim_buf_line_count(vim.api.nvim_get_current_buf())
 
 @retrieve_all_lines+=
-local lines = vim.api.nvim_buf_get_lines(curbuf, 0, numlines, true)
+local lines = vim.api.nvim_buf_get_lines(
+	vim.api.nvim_get_current_buf(), 
+	0, 
+	numlines, 
+	true)
 
 @encode_initial_content+=
 local encoded = vim.fn.json_encode({
@@ -494,15 +520,18 @@ local encoded = vim.fn.json_encode({
 })
 @send_encoded
 
-@script_variables+=
-local initialized = false
+@init_client+=
+vim.b.initialized = false
 
 @if_initial_and_not_initialized_set_buffer_lines+=
-if decoded["type"] == "initial" and not initialized then
+if decoded["type"] == "initial" and not vim.b.initialized then
 	@get_lines_array
+	@get_changedtick_and_add_to_ignore
 	@clear_current_buffer
+	@get_changedtick_and_add_to_ignore
 	@set_lines_in_buffer
-	initialized = true
+	print("Connected!")
+	vim.b.initialized = true
 end
 
 @get_lines_array+=
@@ -512,7 +541,12 @@ for line in vim.gsplit(decoded["text"], '\n') do
 end
 
 @set_lines_in_buffer+=
-vim.api.nvim_buf_set_lines(curbuf, 0, 0, true, lines)
+vim.api.nvim_buf_set_lines(
+	vim.api.nvim_get_current_buf(), 
+	0, 
+	#lines, 
+	false, 
+	lines)
 
 @clear_current_buffer+=
 vim.api.nvim_command("normal ggdG")
@@ -520,7 +554,8 @@ vim.api.nvim_command("normal ggdG")
 @if_available_check_if_its_ok+=
 if decoded["type"] == "response" then
 	if decoded["is_first"] and first then
-		initialized = true
+		print("Connected!")
+		vim.b.initialized = true
 	elseif not decoded["is_first"] and not first then
 		@send_request_for_initial_content
 	elseif decoded["is_first"] and not first then
@@ -537,7 +572,15 @@ if decoded["type"] == "response" then
 end
 
 @send_request_for_initial_content+=
+table.insert(events, "sending request")
 local encoded = vim.fn.json_encode({
 	["type"] = "request",
 })
 @send_encoded
+
+@check_for_connection_errors+=
+if err then
+	table.insert(events, "connection err " .. vim.inspect(err))
+	error("There was an error during connection: " .. err)
+	return
+end

@@ -34,3 +34,8 @@ Todo
 ----
 
 * Show id when editing
+
+Known Issues
+------------
+
+* The connection cannot be per-buffer because for some reason the handle returned by the TCP connection `vim.loop.new_tcp` cannot be assigned to a buffer scope variable `vim.b`. It returns `Cannot convert userdata`.
