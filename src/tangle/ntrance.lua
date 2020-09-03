@@ -14,11 +14,6 @@ local curbuf
 
 local detach = false
 
-if detach then
-	table.insert(events, "Detached from buffer")
-	return true
-end
-
 local ignores = {}
 
 local b64 = 0
@@ -28,6 +23,18 @@ for i=string.byte('0'), string.byte('9') do base64[b64] = string.char(i) b64 = b
 base64[b64] = '+' b64 = b64+1
 base64[b64] = '/'
 
+
+local GenerateWebSocketKey -- we must forward declare local functions because otherwise it picks the global one
+
+local OpAnd, OpOr, OpRshift, OpLshift
+
+local ConvertToBase64
+
+local ConvertBytesToString
+
+local SendText
+
+local OpXor
 
 function GenerateWebSocketKey()
 	key = {}
@@ -164,8 +171,9 @@ function OpXor(a, b)
 end
 
 
-function StartClient(appuri, port)
+local function StartClient(appuri, port)
 	port = port or 80
+	
 	client = vim.loop.new_tcp()
 	iptable = vim.loop.getaddrinfo(appuri)
 	if #iptable == 0 then
@@ -277,7 +285,7 @@ function StartClient(appuri, port)
 	end))
 end
 
-function StopClient()
+local function StopClient()
 	local mask = {}
 	for i=1,4 do
 		table.insert(mask, math.floor(math.random() * 255))
@@ -299,11 +307,18 @@ function StopClient()
 end
 
 
-function AttachToBuffer(bufnr)
+local function AttachToBuffer()
+	local bufnr = vim.api.nvim_get_current_buf()
+	
 	table.insert(events, "Attaching to buffer " .. bufnr)
 	curbuf = bufnr
 	vim.api.nvim_buf_attach(bufnr, false, {
 		on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
+			if detach then
+				table.insert(events, "Detached from buffer")
+				return true
+			end
+			
 			if ignores[changedtick] then
 				return
 			end
@@ -323,9 +338,27 @@ function AttachToBuffer(bufnr)
 	
 end
 
-function DetachToBuffer(bufnr)
+local function DetachFromBuffer()
 	table.insert(events, "Detaching from buffer...")
 	detach = true
 end
 
+
+local function Start(host, port)
+	StartClient(host, port)
+	AttachToBuffer()
+	
+end
+
+local function Stop()
+	DetachFromBuffer()
+	StopClient()
+	
+end
+
+
+return {
+Start = Start,
+Stop = Stop,
+}
 

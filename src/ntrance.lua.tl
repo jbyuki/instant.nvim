@@ -3,6 +3,7 @@
 @script_variables
 @fill_base64_table
 
+@declare_functions
 @functions
 
 @start_client
@@ -11,11 +12,18 @@
 @attach_buffer_current_buffer
 @detach_from_buffer
 
+@start_function
+@stop_function
+
+return {
+@export_symbols
+}
+
 @script_variables+=
 local client
 
 @start_client+=
-function StartClient(appuri, port)
+local function StartClient(appuri, port)
 	@set_port_as_80_if_not_provided
 	client = vim.loop.new_tcp()
 	@get_ip_address
@@ -28,13 +36,16 @@ function StartClient(appuri, port)
 end
 
 @stop_client+=
-function StopClient()
+local function StopClient()
 	@send_close_frame
 	@close_client
 end
 
 @close_client+=
 client:close()
+
+@declare_functions+=
+local GenerateWebSocketKey -- we must forward declare local functions because otherwise it picks the global one
 
 @functions+=
 function GenerateWebSocketKey()
@@ -59,6 +70,9 @@ for i=string.byte('0'), string.byte('9') do base64[b64] = string.char(i) b64 = b
 base64[b64] = '+' b64 = b64+1
 base64[b64] = '/'
 
+@declare_functions+=
+local OpAnd, OpOr, OpRshift, OpLshift
+
 @functions+=
 function OpAnd(a, b)
 	return vim.api.nvim_call_function("and", {a, b})
@@ -75,6 +89,9 @@ end
 function OpLshift(a, b)
 	return a*math.pow(2, b)
 end
+
+@declare_functions+=
+local ConvertToBase64
 
 @functions+=
 function ConvertToBase64(array)
@@ -144,6 +161,9 @@ client:write("\r\n")
 @client_connected+=
 print("client connected!")
 
+@declare_functions+=
+local ConvertBytesToString
+
 @functions+=
 function ConvertBytesToString(tab)
 	local s = ""
@@ -165,6 +185,9 @@ events = {}
 @read_response+=
 table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
 
+@declare_functions+=
+local SendText
+
 @functions+=
 function SendText(str)
 	@generate_mask
@@ -179,6 +202,9 @@ local mask = {}
 for i=1,4 do
 	table.insert(mask, math.floor(math.random() * 255))
 end
+
+@declare_functions+=
+local OpXor
 
 @functions+=
 function OpXor(a, b)
@@ -315,7 +341,8 @@ end
 local curbuf
 
 @attach_buffer_current_buffer+=
-function AttachToBuffer(bufnr)
+local function AttachToBuffer()
+	@get_current_buffer
 	table.insert(events, "Attaching to buffer " .. bufnr)
 	curbuf = bufnr
 	@register_buf_change_callback
@@ -335,14 +362,14 @@ vim.api.nvim_buf_attach(bufnr, false, {
 @script_variables+=
 local detach = false
 
-@return_true_if_detach
+@return_true_if_detach+=
 if detach then
 	table.insert(events, "Detached from buffer")
 	return true
 end
 
 @detach_from_buffer+=
-function DetachToBuffer(bufnr)
+local function DetachFromBuffer()
 	table.insert(events, "Detaching from buffer...")
 	detach = true
 end
@@ -393,3 +420,28 @@ vim.api.nvim_buf_set_lines(curbuf, decoded["start"], decoded["end"], true, lines
 
 @set_port_as_80_if_not_provided+=
 port = port or 80
+
+@get_current_buffer+=
+local bufnr = vim.api.nvim_get_current_buf()
+
+@start_function+=
+local function Start(host, port)
+	@start
+end
+
+@start+=
+StartClient(host, port)
+AttachToBuffer()
+
+@stop_function+=
+local function Stop()
+	@stop
+end
+
+@stop+=
+DetachFromBuffer()
+StopClient()
+
+@export_symbols+=
+Start = Start,
+Stop = Stop,

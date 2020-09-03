@@ -24,10 +24,13 @@ Plug 'jbuyki/ntrance.nvim'
 Usage
 -----
 
-todo
+* Fire up the websocket server (server/ws_server.js)
+* `NTranceStart 127.0.0.1 8080` on each client
+* To stop `NTranceStop`
 
 Todo
 ----
 
-* Detach from buffer
+* First message complete source code send
+* Write documentation for protocol
 * Show id when editing

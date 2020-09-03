@@ -2,7 +2,9 @@
 @header
 @save_line_continuation
 @plugin_load_guard
+@requires
 @script_variables
+@functions
 @register_commands
 @restore_line_continuation
 
@@ -25,3 +27,24 @@ if exists("g:loaded_ntrance")
 	finish
 endif
 let g:loaded_ntrance = 1
+
+@requires+=
+lua ntrance = require("ntrance")
+
+@functions+=
+function! StartWrapper(...)
+	if a:0 == 0 || a:0 > 2
+		echoerr "ARGUMENTS: [host] [port (default: 80)]"
+		return
+	endif
+
+	if a:0 == 1
+		call execute('lua ntrance.Start("' .. a:1 .. '")')
+	else
+		call execute('lua ntrance.Start("' .. a:1 .. '", ' .. a:2 .. ')')
+	endif
+endfunction
+
+@register_commands+=
+command! -nargs=* NTranceStart call StartWrapper(<f-args>)
+command! NTranceStop lua ntrance.Stop()
