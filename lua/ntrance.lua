@@ -181,6 +181,17 @@ function nocase (s)
 	return s
 end
 
+local function Refresh()
+	vim.b.initialized = false
+	table.insert(events, "sending request")
+	local encoded = vim.fn.json_encode({
+		["type"] = "request",
+	})
+	SendText(encoded)
+	
+	
+end
+
 
 function StartClient(first, appuri, port)
 	vim.b.detach = false
@@ -205,6 +216,7 @@ function StartClient(first, appuri, port)
 			error("There was an error during connection: " .. err)
 			return
 		end
+		
 		client:read_start(vim.schedule_wrap(function(err, chunk)
 			table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
 			
@@ -522,5 +534,6 @@ return {
 Start = Start,
 Stop = Stop,
 
+Refresh = Refresh,
 }
 

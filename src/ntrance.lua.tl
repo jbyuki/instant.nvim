@@ -9,6 +9,7 @@
 @start_client
 @join_client
 @stop_client
+@refresh_client
 
 @attach_buffer_current_buffer
 @detach_from_buffer
@@ -599,3 +600,12 @@ if err then
 	error("There was an error during connection: " .. err)
 	return
 end
+
+@functions+=
+local function Refresh()
+	vim.b.initialized = false
+	@send_request_for_initial_content
+end
+
+@export_symbols+=
+Refresh = Refresh,

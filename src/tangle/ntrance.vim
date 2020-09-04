@@ -43,6 +43,8 @@ command! -nargs=* NTranceStart call StartWrapper(<f-args>)
 command! NTranceStop lua ntrance.Stop()
 
 command! -nargs=* NTranceJoin call JoinWrapper(<f-args>)
+
+command! NTranceRefresh lua ntrance.Refresh()
 let &cpo = s:save_cpo
 unlet s:save_cpo
 

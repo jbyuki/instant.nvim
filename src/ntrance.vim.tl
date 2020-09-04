@@ -65,3 +65,6 @@ endfunction
 
 @register_commands+=
 command! -nargs=* NTranceJoin call JoinWrapper(<f-args>)
+
+@register_commands+=
+command! NTranceRefresh lua ntrance.Refresh()
