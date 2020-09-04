@@ -44,6 +44,7 @@ Todo
 ----
 
 * Multiple sessions on the same server
+* Try to reconnect after connection failure
 
 Known Issues
 ------------

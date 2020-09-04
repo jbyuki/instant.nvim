@@ -230,25 +230,9 @@ function StartClient(first, appuri, port)
 				table.insert(events, "connection err " .. vim.inspect(err))
 				error("There was an error during connection: " .. err)
 			
-				local mask = {}
-				for i=1,4 do
-					table.insert(mask, math.floor(math.random() * 255))
-				end
+				DetachFromBuffer()
+				StopClient()
 				
-				local frame = {
-					0x88, 0x80,
-				}
-				for i=1,4 do 
-					table.insert(frame, mask[i])
-				end
-				local s = ConvertBytesToString(frame)
-				
-				client:write(s)
-				
-				
-				client:close()
-				
-			
 				return
 			end
 			table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
@@ -403,44 +387,14 @@ function StartClient(first, appuri, port)
 								elseif decoded["is_first"] and not first then
 									table.insert(events, "ERROR: Tried to join an empty server")
 									print("ERROR: Tried to join an empty server")
-									local mask = {}
-									for i=1,4 do
-										table.insert(mask, math.floor(math.random() * 255))
-									end
-									
-									local frame = {
-										0x88, 0x80,
-									}
-									for i=1,4 do 
-										table.insert(frame, mask[i])
-									end
-									local s = ConvertBytesToString(frame)
-									
-									client:write(s)
-									
-									
-									client:close()
+									DetachFromBuffer()
+									StopClient()
 									
 								elseif not decoded["is_first"] and first then
 									table.insert(events, "ERROR: Tried to start a server which is already busy")
 									print("ERROR: Tried to start a server which is already busy")
-									local mask = {}
-									for i=1,4 do
-										table.insert(mask, math.floor(math.random() * 255))
-									end
-									
-									local frame = {
-										0x88, 0x80,
-									}
-									for i=1,4 do 
-										table.insert(frame, mask[i])
-									end
-									local s = ConvertBytesToString(frame)
-									
-									client:write(s)
-									
-									
-									client:close()
+									DetachFromBuffer()
+									StopClient()
 									
 								end
 							end

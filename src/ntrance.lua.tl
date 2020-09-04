@@ -584,13 +584,11 @@ if decoded["type"] == "response" then
 	elseif decoded["is_first"] and not first then
 		table.insert(events, "ERROR: Tried to join an empty server")
 		print("ERROR: Tried to join an empty server")
-		@send_close_frame
-		@close_client
+		@stop
 	elseif not decoded["is_first"] and first then
 		table.insert(events, "ERROR: Tried to start a server which is already busy")
 		print("ERROR: Tried to start a server which is already busy")
-		@send_close_frame
-		@close_client
+		@stop
 	end
 end
 
@@ -651,8 +649,6 @@ if err then
 	table.insert(events, "connection err " .. vim.inspect(err))
 	error("There was an error during connection: " .. err)
 
-	@send_close_frame
-	@close_client
-
+	@stop
 	return
 end
