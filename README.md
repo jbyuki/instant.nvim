@@ -43,7 +43,6 @@ lua vim.g.ntrance_username = "YOUR USERNAME"
 Todo
 ----
 
-* Should display a message when connection is lost
 * Multiple sessions on the same server
 
 Known Issues

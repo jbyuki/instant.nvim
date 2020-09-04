@@ -226,6 +226,31 @@ function StartClient(first, appuri, port)
 		end
 		
 		client:read_start(vim.schedule_wrap(function(err, chunk)
+			if err then
+				table.insert(events, "connection err " .. vim.inspect(err))
+				error("There was an error during connection: " .. err)
+			
+				local mask = {}
+				for i=1,4 do
+					table.insert(mask, math.floor(math.random() * 255))
+				end
+				
+				local frame = {
+					0x88, 0x80,
+				}
+				for i=1,4 do 
+					table.insert(frame, mask[i])
+				end
+				local s = ConvertBytesToString(frame)
+				
+				client:write(s)
+				
+				
+				client:close()
+				
+			
+				return
+			end
 			table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
 			
 			table.insert(events, chunk)
@@ -294,7 +319,7 @@ function StartClient(first, appuri, port)
 										table.insert(lines, line)
 									end
 								end
-								table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
+								-- table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
 								vim.api.nvim_buf_set_lines(
 									vim.api.nvim_get_current_buf(), 
 									decoded["start"], 
@@ -317,6 +342,7 @@ function StartClient(first, appuri, port)
 										math.max(decoded["last"]-1, 0), 
 										{{ " | " .. decoded["author"], "Special" }}, 
 										{})
+								
 							end
 							
 							if decoded["type"] == "request" then

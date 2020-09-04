@@ -36,6 +36,7 @@ function StartClient(first, appuri, port)
 	client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
 		@check_for_connection_errors
 		client:read_start(vim.schedule_wrap(function(err, chunk)
+			@check_for_connection_errors_when_connected
 			@read_response
 		end))
 		@opening_handshake
@@ -476,7 +477,7 @@ else
 		table.insert(lines, line)
 	end
 end
-table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
+-- table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
 vim.api.nvim_buf_set_lines(
 	vim.api.nvim_get_current_buf(), 
 	decoded["start"], 
@@ -644,3 +645,14 @@ old_namespace[decoded["author"]] =
 		math.max(decoded["last"]-1, 0), 
 		{{ " | " .. decoded["author"], "Special" }}, 
 		{})
+
+@check_for_connection_errors_when_connected+=
+if err then
+	table.insert(events, "connection err " .. vim.inspect(err))
+	error("There was an error during connection: " .. err)
+
+	@send_close_frame
+	@close_client
+
+	return
+end
