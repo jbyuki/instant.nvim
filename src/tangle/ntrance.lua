@@ -294,7 +294,7 @@ function StartClient(first, appuri, port)
 										table.insert(lines, line)
 									end
 								end
-								-- table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
+								table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
 								vim.api.nvim_buf_set_lines(
 									vim.api.nvim_get_current_buf(), 
 									decoded["start"], 
@@ -314,7 +314,7 @@ function StartClient(first, appuri, port)
 									vim.api.nvim_buf_set_virtual_text(
 										vim.api.nvim_get_current_buf(),
 										0, 
-										decoded["last"]-1, 
+										math.max(decoded["last"]-1, 0), 
 										{{ " | " .. decoded["author"], "Special" }}, 
 										{})
 							end
