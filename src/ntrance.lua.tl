@@ -408,6 +408,7 @@ local encoded = vim.fn.json_encode({
 	["type"] = "text",
 	["start"] = firstline,
 	["end"]   = lastline,
+	["last"]   = new_lastline,
 	["text"] = table.concat(lines, '\n')
 })
 
@@ -452,14 +453,28 @@ end
 
 @set_lines+=
 local lines = {}
-for line in vim.gsplit(decoded["text"], '\n') do
-	table.insert(lines, line)
+-- if it's an empty string, fill lines with an empty array
+-- otherwise with gsplit it will put an empty string into
+-- the array like : { "" }
+if string.len(decoded["text"]) == 0 then
+	if decoded["start"] == decoded["end"] then -- new line
+		lines = { "" }
+	elseif decoded["end"] == decoded["last"] then -- just delete line content but keep it
+		lines = { "" }
+	else -- delete lines
+		lines = {}
+	end
+else 
+	for line in vim.gsplit(decoded["text"], '\n') do
+		table.insert(lines, line)
+	end
 end
+table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
 vim.api.nvim_buf_set_lines(
 	vim.api.nvim_get_current_buf(), 
 	decoded["start"], 
 	decoded["end"], 
-	true, 
+	false, 
 	lines)
 
 @set_port_as_80_if_not_provided+=
