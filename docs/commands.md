@@ -3,7 +3,7 @@ Commands
 
 This is a list of commands defined by the ntrance plugin.
 
-### `NTranceStart [host] [port (default: 80]`
+### `NTranceStart [host] [port (default: 80)]`
 
 This command is used by the first client which connects to the server.
 The ntrance instance is attached to the current buffer.
@@ -24,7 +24,7 @@ To connect to a remote server:
 
 Prints a `connected!` message in case of a successful connection. Otherwise it should display an error.
 
-### `NTranceJoin [host] [port (default: 80]`
+### `NTranceJoin [host] [port (default: 80)]`
 
 This command is used by subsequent clients who wants to connect to a server. It will
 issue a special `request` message which will tell the other clients to send the initial content.
