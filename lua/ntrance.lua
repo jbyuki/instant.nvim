@@ -12,6 +12,8 @@ frames = {}
 
 local ignores
 
+local old_namespace
+
 local b64 = 0
 for i=string.byte('a'), string.byte('z') do base64[b64] = string.char(i) b64 = b64+1 end
 for i=string.byte('A'), string.byte('Z') do base64[b64] = string.char(i) b64 = b64+1 end
@@ -194,11 +196,17 @@ end
 
 
 function StartClient(first, appuri, port)
+	if not vim.g.ntrance_username or string.len(vim.g.ntrance_username) == 0 then
+		error("Please specify a username in vim.g.ntrance_username")
+	end
+	
 	vim.b.detach = false
 	
 	ignores = {}
 	
 	vim.b.initialized = false
+	
+	old_namespace = {}
 	
 	port = port or 80
 	
@@ -286,7 +294,7 @@ function StartClient(first, appuri, port)
 										table.insert(lines, line)
 									end
 								end
-								table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
+								-- table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
 								vim.api.nvim_buf_set_lines(
 									vim.api.nvim_get_current_buf(), 
 									decoded["start"], 
@@ -294,6 +302,21 @@ function StartClient(first, appuri, port)
 									false, 
 									lines)
 								
+								if old_namespace[decoded["author"]] then
+									vim.api.nvim_buf_clear_namespace(
+										vim.api.nvim_get_current_buf(),
+										old_namespace[decoded["author"]],
+										0, -1)
+									old_namespace[decoded["author"]] = nil
+								end
+								
+								old_namespace[decoded["author"]] = 
+									vim.api.nvim_buf_set_virtual_text(
+										vim.api.nvim_get_current_buf(),
+										0, 
+										decoded["last"]-1, 
+										{{ " | " .. decoded["author"], "Special" }}, 
+										{})
 							end
 							
 							if decoded["type"] == "request" then
@@ -477,6 +500,7 @@ local function StopClient()
 end
 
 
+
 local function AttachToBuffer()
 	local bufnr = vim.api.nvim_get_current_buf()
 	
@@ -501,6 +525,7 @@ local function AttachToBuffer()
 				["start"] = firstline,
 				["end"]   = lastline,
 				["last"]   = new_lastline,
+				["author"] = vim.g.ntrance_username,
 				["text"] = table.concat(lines, '\n')
 			})
 			
@@ -535,5 +560,6 @@ Start = Start,
 Stop = Stop,
 
 Refresh = Refresh,
+
 }
 

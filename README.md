@@ -35,7 +35,6 @@ Todo
 ----
 
 * Should display a message when connection is lost
-* Show id when editing
 
 Known Issues
 ------------

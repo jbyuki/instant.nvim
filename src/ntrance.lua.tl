@@ -11,6 +11,8 @@
 @stop_client
 @refresh_client
 
+@set_username
+
 @attach_buffer_current_buffer
 @detach_from_buffer
 
@@ -26,6 +28,7 @@ local client
 
 @start_client+=
 function StartClient(first, appuri, port)
+	@check_if_has_username
 	@init_client
 	@set_port_as_80_if_not_provided
 	client = vim.loop.new_tcp()
@@ -410,6 +413,7 @@ local encoded = vim.fn.json_encode({
 	["start"] = firstline,
 	["end"]   = lastline,
 	["last"]   = new_lastline,
+	["author"] = vim.g.ntrance_username,
 	["text"] = table.concat(lines, '\n')
 })
 
@@ -431,6 +435,8 @@ end
 if decoded["type"] == "text" then
 	@get_changedtick_and_add_to_ignore
 	@set_lines
+	@clear_virtual_for_username
+	@set_virtual_text_for_usernames
 end
 
 @decode_json+=
@@ -470,7 +476,7 @@ else
 		table.insert(lines, line)
 	end
 end
-table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
+-- table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
 vim.api.nvim_buf_set_lines(
 	vim.api.nvim_get_current_buf(), 
 	decoded["start"], 
@@ -609,3 +615,32 @@ end
 
 @export_symbols+=
 Refresh = Refresh,
+
+@check_if_has_username+=
+if not vim.g.ntrance_username or string.len(vim.g.ntrance_username) == 0 then
+	error("Please specify a username in vim.g.ntrance_username")
+end
+
+@script_variables+=
+local old_namespace
+
+@init_client+=
+old_namespace = {}
+
+@clear_virtual_for_username+=
+if old_namespace[decoded["author"]] then
+	vim.api.nvim_buf_clear_namespace(
+		vim.api.nvim_get_current_buf(),
+		old_namespace[decoded["author"]],
+		0, -1)
+	old_namespace[decoded["author"]] = nil
+end
+
+@set_virtual_text_for_usernames+=
+old_namespace[decoded["author"]] = 
+	vim.api.nvim_buf_set_virtual_text(
+		vim.api.nvim_get_current_buf(),
+		0, 
+		decoded["last"]-1, 
+		{{ " | " .. decoded["author"], "Special" }}, 
+		{})
