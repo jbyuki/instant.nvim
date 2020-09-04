@@ -26,10 +26,19 @@ Plug 'jbuyki/ntrance.nvim'
 Usage
 -----
 
+* First time user, you have to setup your username. Put this in your $MYVIMRC
+
+```
+lua vim.g.ntrance_username = "YOUR USERNAME"
+```
+
 * Fire up the websocket server (server/ws_server.js)
-* Connect the first client with `NTranceStart 127.0.0.1 8080`
-* `NTranceJoin 127.0.0.1 8080` on other clients
-* To stop `NTranceStop`
+* Connect the first client with:
+	* `:NTranceStart 127.0.0.1 8080`
+* Connect another client with:
+	* `:NTranceJoin 127.0.0.1 8080`
+* To stop the connection:
+	* `:NTranceStop`
 
 Todo
 ----
