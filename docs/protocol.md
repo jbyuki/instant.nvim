@@ -76,6 +76,7 @@ The `text` message. start and end designates the first and last lines where the 
 
 	start: integer,
 	end: integer,
+	last: integer,
 
 	text: string
 }
