@@ -68,3 +68,11 @@ command! -nargs=* NTranceJoin call JoinWrapper(<f-args>)
 
 @register_commands+=
 command! NTranceRefresh lua ntrance.Refresh()
+
+@register_commands+=
+augroup ntrance
+	autocmd!
+	autocmd BufReadPost,BufWritePost * lua ntrance.AttachToBuffer()
+	autocmd ExitPre * lua ntrance.Stop()
+augroup END
+

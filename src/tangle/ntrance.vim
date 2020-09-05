@@ -45,6 +45,13 @@ command! NTranceStop lua ntrance.Stop()
 command! -nargs=* NTranceJoin call JoinWrapper(<f-args>)
 
 command! NTranceRefresh lua ntrance.Refresh()
+
+augroup ntrance
+	autocmd!
+	autocmd BufReadPost,BufWritePost * lua ntrance.AttachToBuffer()
+	autocmd ExitPre * lua ntrance.Stop()
+augroup END
+
 let &cpo = s:save_cpo
 unlet s:save_cpo
 

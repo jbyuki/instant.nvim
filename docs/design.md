@@ -25,6 +25,12 @@ Security
 
 * No communication over TLS is possible in the current state. It is planned to be supported in the future.
 
+Multi-document editing
+----------------------
+
+* Edits in documents which are open should be intantenous
+* Edits in documents which are not open in client should be buffered and applied only in a fixed interval
+
 UI
 --
 

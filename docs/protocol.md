@@ -29,7 +29,9 @@ The protocol is as follows:
 * During text edit:
 	* Client send `text` message with edits
 	* Server broadcast to other clients
-	* Client receive and edit the text accordingly
+	* Client receive the edit
+		* If the edit is in a open buffer apply the edit
+		* Otherwise queue up the edit and apply it eventually
 
 
 Messages
@@ -65,7 +67,10 @@ The `initial` message
 ```javascript
 {
 	type: "initial",
-	text: string
+	contents : [
+		filename : string,
+		text : string
+	]
 }
 ```
 
@@ -79,6 +84,7 @@ The `text` message. start and end designates the first and last lines where the 
 	last: integer,
 
 	text: string,
-	author: string
+	author: string,
+	filename : string
 }
 ```

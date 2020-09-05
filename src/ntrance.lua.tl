@@ -13,8 +13,9 @@
 
 @set_username
 
-@attach_buffer_current_buffer
+@attach_buffer
 @detach_from_buffer
+@write_queued_changes
 
 @start_function
 @stop_function
@@ -271,7 +272,6 @@ function nocase (s)
 end
 
 @read_response+=
-table.insert(events, chunk)
 if chunk then
 	if string.match(chunk, nocase("^HTTP")) then
 		-- can be Sec-WebSocket-Accept or Sec-Websocket-Accept
@@ -371,45 +371,65 @@ else
 	end
 end
 
-@attach_buffer_current_buffer+=
-local function AttachToBuffer()
-	@get_current_buffer
-	vim.b.attached = true
-	table.insert(events, "Attaching to buffer " .. bufnr)
-	@register_buf_change_callback
-end
+@script_variables+=
+-- this global variable can be set to a local scope once 
+-- autocommands registration is natively supported in
+-- lua
+has_attached = {} 
 
 @register_buf_change_callback+=
-vim.api.nvim_buf_attach(bufnr, false, {
+local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
 	on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
 		@return_true_if_detach
 		@if_ignore_tick_return
 		@retrieve_new_lines
 		@encode_in_json
 		@send_encoded
+	end,
+	on_detach = function(_, buf)
+		table.insert(events, "detached " .. bufhandle)
+		has_attached[bufhandle] = nil
 	end
 })
 
+if attach_success then
+	has_attached[bufhandle] = true
+	table.insert(events, "has_attached[" .. bufhandle .. "] = true")
+end
+
+@check_if_buffer_is_not_attached_already+=
+table.insert(events, "bufhandle is " .. vim.inspect(bufhandle))
+table.insert(events, "has_attached[bufhandle] is " .. vim.inspect(has_attached[bufhandle]))
+if has_attached[bufhandle] then
+	table.insert(events, "buffer is already attached")
+	return
+end
+
+@script_variables+=
+local detach
+
 @init_client+=
-vim.b.detach = false
+detach = {}
 
 @return_true_if_detach+=
-if vim.b.detach then
-	table.insert(events, "Detached from buffer")
+if detach[buf] then
+	table.insert(events, "Detached from buffer " .. buf)
+	detach[buf] = nil
 	return true
 end
 
 @detach_from_buffer+=
-local function DetachFromBuffer()
+local function DetachFromBuffer(bufnr)
 	table.insert(events, "Detaching from buffer...")
-	vim.b.detach = true
+	detach[bufnr] = true
 end
 
 @retrieve_new_lines+=
-local lines = vim.api.nvim_buf_get_lines(bufnr, firstline, new_lastline, true)
+local lines = vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, true)
 
 @encode_in_json+=
 local encoded = vim.fn.json_encode({
+	["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #NTranceRoot+1),
 	["type"] = "text",
 	["start"] = firstline,
 	["end"]   = lastline,
@@ -423,7 +443,7 @@ SendText(encoded)
 
 @interpret_received_text+=
 @decode_json
-if decoded and vim.b.attached then
+if decoded then
 	@if_text_add_new_lines_to_buffer
 	@if_request_send_all_lines
 	@if_initial_and_not_initialized_set_buffer_lines
@@ -434,28 +454,63 @@ end
 
 @if_text_add_new_lines_to_buffer+=
 if decoded["type"] == "text" then
-	@get_changedtick_and_add_to_ignore
-	@set_lines
-	@clear_virtual_for_username
-	@set_virtual_text_for_usernames
+	@check_if_text_edit_is_in_buffer
+	@check_if_file_is_in_directory
+	if in_buffer and in_directory then
+		@get_buffer_number_of_filename
+		@get_changedtick_and_add_to_ignore
+		@set_lines
+		@clear_virtual_for_username
+		@set_virtual_text_for_usernames
+	elseif in_directory then
+		@if_file_does_not_exist_create_empty_file
+		@queue_up_text_edit_for_later_use
+	end
 end
+
+@check_if_text_edit_is_in_buffer+=
+local filename = vim.api.nvim_call_function("simplify", {NTranceRoot .. decoded["filename"]})
+local in_buffer = vim.api.nvim_call_function("bufnr", { filename .. "$" }) ~= -1
+
+@check_if_file_is_in_directory+=
+local in_directory = string.len(filename) > 0 and string.sub(filename, 1, #NTranceRoot) == NTranceRoot
+
+@get_buffer_number_of_filename+=
+local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
+
+@if_file_does_not_exist_create_empty_file+=
+if string.len(vim.api.nvim_call_function("glob", { filename })) == 0 then
+	local new_file = io.open(filename, "w")
+	table.insert(events, "created new file " .. filename)
+	new_file:close()
+end
+
+@script_variables+=
+local queue
+
+@init_client+=
+queue = {}
+
+@queue_up_text_edit_for_later_use+=
+table.insert(events, "queue up edits for " .. filename)
+table.insert(queue, decoded)
 
 @decode_json+=
 local decoded = vim.fn.json_decode(text)
 
 @script_variables+=
-local ignores
+local ignores = {}
 
-@init_client+=
-ignores = {}
+@init_buffer_attach+=
+ignores[bufhandle] = {}
 
 @get_changedtick_and_add_to_ignore+=
 local tick = vim.api.nvim_buf_get_changedtick(vim.api.nvim_get_current_buf())+1
-ignores[tick] = true
+ignores[buf][tick] = true
 
 @if_ignore_tick_return+=
-if ignores[changedtick] then
-	ignores[changedtick] = nil
+if ignores[buf][changedtick] then
+	ignores[buf][changedtick] = nil
 	return
 end
 
@@ -477,7 +532,7 @@ else
 		table.insert(lines, line)
 	end
 end
--- table.insert(events, "set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
+table.insert(events, "buf " .. vim.api.nvim_get_current_buf() .. " set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
 vim.api.nvim_buf_set_lines(
 	vim.api.nvim_get_current_buf(), 
 	decoded["start"], 
@@ -488,25 +543,41 @@ vim.api.nvim_buf_set_lines(
 @set_port_as_80_if_not_provided+=
 port = port or 80
 
-@get_current_buffer+=
-local bufnr = vim.api.nvim_get_current_buf()
-
 @start_function+=
 local function Start(first, host, port)
+	@check_if_directory_exists_and_set_it
+	@check_if_there_is_settings_or_empty_directory
+	@if_not_settings_create_one
 	@start
+	@attach_to_running_buffers
 end
+
+@script_variables+=
+local NTranceRoot
+
+@check_if_directory_exists_and_set_it+=
+local directory = vim.api.nvim_call_function("getcwd", {})
+if vim.api.nvim_call_function("isdirectory", { directory }) == 0 then
+	error("The directory " .. directory .. " has not been found")
+end
+NTranceRoot = vim.api.nvim_call_function("fnamemodify", {directory, ":p"})
+table.insert(events, "The ntrance directory root is " .. NTranceRoot)
 
 @start+=
 StartClient(first, host, port)
-AttachToBuffer()
 
 @stop_function+=
 local function Stop()
 	@stop
+	print("Disconnected!")
 end
 
 @stop+=
-DetachFromBuffer()
+for _,bufhandle in ipairs(vim.api.nvim_list_bufs()) do
+	if vim.api.nvim_buf_is_loaded(bufhandle) then
+		DetachFromBuffer(bufhandle)
+	end
+end
 StopClient()
 
 @export_symbols+=
@@ -515,26 +586,56 @@ Stop = Stop,
 
 @if_request_send_all_lines+=
 if decoded["type"] == "request" then
-	@fetch_number_of_lines
-	@retrieve_all_lines
+	@glob_all_files_in_ntrance_root_directory
+	local contents = {}
+	for _,file in ipairs(files) do
+		@check_if_file_is_open_in_buffer
+		@if_it_is_retrieve_lines_from_buffer
+		@otherwise_read_file
+		@add_lines_to_contents
+	end
 	@encode_initial_content
 	@send_encoded
 end
 
-@fetch_number_of_lines+=
-local numlines = vim.api.nvim_buf_line_count(vim.api.nvim_get_current_buf())
+@glob_all_files_in_ntrance_root_directory+=
+local filelist = vim.api.nvim_call_function("glob", { NTranceRoot .. "**" })
+local files = {}
+if string.len(filelist) > 0 then
+	for file in vim.gsplit(filelist, '\n') do
+		table.insert(files, file)
+	end
+end
+table.insert(events, "files found : " .. table.concat(files, " "))
 
-@retrieve_all_lines+=
-local lines = vim.api.nvim_buf_get_lines(
-	vim.api.nvim_get_current_buf(), 
-	0, 
-	numlines, 
-	true)
+@check_if_file_is_open_in_buffer+=
+local in_buffer = vim.api.nvim_call_function("bufnr", { file .. "$" }) ~= -1
+
+@if_it_is_retrieve_lines_from_buffer+=
+local lines
+if in_buffer then
+	lines = vim.api.nvim_buf_get_lines(
+		vim.api.nvim_call_function("bufnr", { file  .. "$" }), 
+		0, -1, true)
+@otherwise_read_file+=
+else 
+	lines = {}
+	for line in io.lines(file) do
+		table.insert(lines, line)
+	end
+end
+
+@add_lines_to_contents+=
+local content = {
+	filename = string.sub(file, string.len(NTranceRoot)+1),
+	text = table.concat(lines, '\n')
+}
+table.insert(contents, content)
 
 @encode_initial_content+=
 local encoded = vim.fn.json_encode({
 	["type"] = "initial",
-	["text"] = table.concat(lines, '\n')
+	["contents"] = contents
 })
 
 @handshake_finished+=
@@ -543,42 +644,59 @@ local encoded = vim.fn.json_encode({
 })
 @send_encoded
 
+@script_variables+=
+local initialized
+
 @init_client+=
-vim.b.initialized = false
+initialized = false
 
 @if_initial_and_not_initialized_set_buffer_lines+=
-if decoded["type"] == "initial" and not vim.b.initialized then
-	@get_lines_array
-	@get_changedtick_and_add_to_ignore
-	@clear_current_buffer
-	@get_changedtick_and_add_to_ignore
-	@set_lines_in_buffer
+if decoded["type"] == "initial" and not initialized then
+	for _,content in ipairs(decoded["contents"]) do 
+		@check_if_filename_is_already_in_buffer
+		@get_lines_array
+		if in_buffer then
+			@get_buffer_number_of_filename
+			@get_changedtick_and_add_to_ignore
+			@set_lines_in_buffer
+		else 
+			@write_file_with_lines
+		end
+	end
 	print("Connected!")
-	vim.b.initialized = true
+	initialized = true
 end
+
+@check_if_filename_is_already_in_buffer+=
+local filename = NTranceRoot .. content["filename"]
+local in_buffer = vim.api.nvim_call_function("bufnr", { filename .. "$" }) ~= -1
 
 @get_lines_array+=
 local lines = {}
-for line in vim.gsplit(decoded["text"], '\n') do
+for line in vim.gsplit(content["text"], '\n') do
 	table.insert(lines, line)
 end
 
 @set_lines_in_buffer+=
 vim.api.nvim_buf_set_lines(
-	vim.api.nvim_get_current_buf(), 
+	vim.api.nvim_call_function("bufnr", { filename .. "$" }),
 	0, 
-	#lines, 
+	-1, 
 	false, 
 	lines)
 
-@clear_current_buffer+=
-vim.api.nvim_command("normal ggdG")
+@write_file_with_lines+=
+local syncfile = io.open(filename, "w")
+for _,line in ipairs(lines) do
+	syncfile:write(line .. '\n')
+end
+syncfile:close()
 
 @if_available_check_if_its_ok+=
 if decoded["type"] == "response" then
 	if decoded["is_first"] and first then
 		print("Connected!")
-		vim.b.initialized = true
+		initialized = true
 	elseif not decoded["is_first"] and not first then
 		@send_request_for_initial_content
 	elseif decoded["is_first"] and not first then
@@ -608,7 +726,7 @@ end
 
 @functions+=
 local function Refresh()
-	vim.b.initialized = false
+	initialized = false
 	@send_request_for_initial_content
 end
 
@@ -652,3 +770,178 @@ if err then
 	@stop
 	return
 end
+
+@attach_to_running_buffers+=
+for _,bufhandle in ipairs(vim.api.nvim_list_bufs()) do
+	if vim.api.nvim_buf_is_loaded(bufhandle) then
+		@check_if_buffer_is_in_ntrangle_root
+		@if_it_is_attach_callback
+	end
+end
+
+@check_if_buffer_is_in_ntrangle_root+=
+local buf_filename = vim.api.nvim_buf_get_name(bufhandle)
+local is_in_root = string.len(buf_filename) > 0 and string.sub(buf_filename, 1, #NTranceRoot) == NTranceRoot
+
+@if_it_is_attach_callback+=
+if is_in_root then
+	table.insert(events, "Attaching to buffer " .. bufhandle)
+	@init_buffer_attach
+	@register_buf_change_callback
+end
+
+@attach_buffer+=
+local function AttachToBuffer()
+	@check_if_client_is_initialized
+	local bufhandle = vim.api.nvim_get_current_buf()
+	@check_if_buffer_is_not_attached_already
+	@check_if_buffer_is_in_ntrangle_root
+	@ignore_if_settings_file
+	if is_in_root then
+		table.insert(events, "Attaching callback to " .. bufhandle)
+		@init_buffer_attach
+		@apply_queued_edits_if_they_are
+		@send_whole_buffer
+		@register_buf_change_callback
+		table.insert(events, "Attach was " .. vim.inspect(attach_success))
+	end
+end
+
+@check_if_client_is_initialized+=
+if not initialized then
+	return
+end
+
+@export_symbols+=
+AttachToBuffer = AttachToBuffer,
+
+@apply_queued_edits_if_they_are+=
+for i,decoded in ipairs(queue) do
+	local filename = vim.api.nvim_call_function("simplify", {NTranceRoot .. decoded["filename"]})
+	@get_buffer_number_of_filename
+	if bufhandle == buf then
+		@get_changedtick_and_add_to_ignore
+		@set_lines
+		queue[i] = nil
+	end
+end
+
+@check_if_there_is_settings_or_empty_directory+=
+if string.len(vim.api.nvim_call_function("glob", { NTranceRoot .. "*" })) ~= 0 and string.len(vim.api.nvim_call_function("glob", { NTranceRoot .. "ntrance.json" })) == 0 then
+	error("The current directory is not empty nor does it contain a ntrance.json settings file")
+	return
+end
+
+
+@if_not_settings_create_one+=
+if string.len(vim.api.nvim_call_function("glob", { "**" })) == 0 then
+	local settings = {}
+	@init_settings
+	local settingsFile = io.open("ntrance.json", "w")
+	settingsFile:write(vim.fn.json_encode(settings))
+	settingsFile:close()
+end
+
+@init_settings+=
+settings["createddate"] = os.date("!%c") .. " UTC"
+settings["author"] = vim.g.ntrance_username
+
+@ignore_if_settings_file+=
+if string.match(buf_filename, "ntrance.json$") then
+	return
+end
+
+@declare_functions+=
+local writeChanges
+
+@write_queued_changes+=
+function writeChanges()
+	@collect_filename_list_of_queued
+	for file,_ in pairs(files) do
+		@get_absolute_filename
+		@read_lines_from_file
+		i = 1
+		while i <= #queue do 
+			local decoded = queue[i]
+			if decoded["filename"] == file then
+				@apply_edits_to_list_of_lines
+				table.remove(queue, i)
+			else 
+				i = i + 1
+			end
+		end
+		@write_lines_to_file
+	end
+end
+
+@collect_filename_list_of_queued+=
+local files = {}
+for _,decoded in ipairs(queue) do
+	files[decoded["filename"]] = true
+end
+
+@get_absolute_filename+=
+local filename = vim.api.nvim_call_function("simplify", {NTranceRoot .. file})
+
+@read_lines_from_file+=
+local filelines = {}
+for line in io.lines(filename) do
+	table.insert(filelines, line)
+end
+
+@write_lines_to_file+=
+local outfile = io.open(filename, "w")
+for _,line in ipairs(filelines) do
+	outfile:write(line .. "\n")
+end
+outfile:close()
+
+@apply_edits_to_list_of_lines+=
+local lines = {}
+-- if it's an empty string, fill lines with an empty array
+-- otherwise with gsplit it will put an empty string into
+-- the array like : { "" }
+if string.len(decoded["text"]) == 0 then
+	if decoded["start"] == decoded["end"] then -- new line
+		lines = { "" }
+	elseif decoded["end"] == decoded["last"] then -- just delete line content but keep it
+		lines = { "" }
+	else -- delete lines
+		lines = {}
+	end
+else 
+	for line in vim.gsplit(decoded["text"], '\n') do
+		table.insert(lines, line)
+	end
+end
+
+@remove_lines_in_range_in_lines
+@insert_new_lines_in_lines
+
+@remove_lines_in_range_in_lines+=
+for i=decoded["start"], decoded["end"]-1 do
+	table.remove(filelines, i+1)
+end
+
+@insert_new_lines_in_lines+=
+for i,line in ipairs(lines) do
+	table.insert(filelines, decoded["start"]+i, line)
+end
+
+@stop+=
+writeChanges()
+
+@send_whole_buffer+=
+local lines = vim.api.nvim_buf_get_lines(
+	bufhandle,
+	0, -1, true)
+local encoded = vim.fn.json_encode({
+	["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #NTranceRoot+1),
+	["type"] = "text",
+	["start"] = 0,
+	["end"]   = -1,
+	["last"]   = -1,
+	["author"] = vim.g.ntrance_username,
+	["text"] = table.concat(lines, '\n')
+})
+@send_encoded
