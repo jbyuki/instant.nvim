@@ -1,4 +1,4 @@
-NTrance Client-Client Protocol
+instant.nvim Client-Client Protocol
 ==============================
 
 **This is a prototype. All protocol decisions are subject to change rapidely!**
