@@ -48,9 +48,11 @@ mkdir client1
 cd client1/
 neovim
 ```
+	
 	* Make sure the current folder is correct with `:pwd`. The sharing folder needs to be correct otherwise
 	  it will put the wrong files on the server! Don't worry if the folder is not empty, it will not be able
 	  to create the server.
+
 4. Connect the first client with `NTranceStart`
 ```
 :NTranceStart 127.0.0.1 8080
