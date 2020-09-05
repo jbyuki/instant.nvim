@@ -28,7 +28,7 @@ Requirements
 Install
 -------
 
-Install using a plugin manager usuch as [vim-plug](https://github.com/junegunn/vim-plug)
+Install using a plugin manager such as [vim-plug](https://github.com/junegunn/vim-plug).
 
 ```
 Plug 'jbuyki/instant.nvim'
