@@ -141,8 +141,8 @@ if rest == 8 then
 	str = str .. "="
 
 elseif rest == 16 then
-	local b1 = array[i+0+1]
-	local b2 = array[i+1+1]
+	local b1 = array[#array-1]
+	local b2 = array[#array]
 
 	local c1 = OpRshift(b1, 2)
 	local c2 = OpLshift(OpAnd(b1, 0x3), 4)+OpRshift(b2, 4)
@@ -694,14 +694,18 @@ if decoded["type"] == "initial" and not initialized then
 	else 
 		@check_if_not_sent_for_single
 		for _,content in ipairs(decoded["contents"]) do 
-			@check_if_filename_is_already_in_buffer
-			@get_lines_array
-			if in_buffer then
-				@get_buffer_number_of_filename
-				@get_changedtick_and_add_to_ignore
-				@set_lines_in_buffer
-			else 
-				@write_file_with_lines
+			@if_settings_check_id_match_and_continue
+			-- doing weird ifs because lua doesn't have a "continue" statement
+			if skip_read then
+				@check_if_filename_is_already_in_buffer
+				@get_lines_array
+				if in_buffer then
+					@get_buffer_number_of_filename
+					@get_changedtick_and_add_to_ignore
+					@set_lines_in_buffer
+				else 
+					@write_file_with_lines
+				end
 			end
 		end
 	end
@@ -1034,5 +1038,44 @@ vim.api.nvim_buf_set_lines(
 
 @check_if_in_directory_sharing+=
 if single_buffer then
+	return
+end
+
+@init_settings+=
+local key = {}
+for i =0,4 do
+	table.insert(key, math.floor(math.random()*255))
+end
+settings.id = ConvertToBase64(key)
+
+@if_settings_check_id_match_and_continue+=
+local skip_read = false
+if string.match(content["filename"], "instant.json$") then
+	local filename = vim.api.nvim_call_function("simplify", { InstantRoot .. content["filename"] })
+	if string.len(vim.api.nvim_call_function("glob", { filename })) > 0 then
+		@check_if_both_settings_ids_match
+		skip_read = true
+	end
+end
+
+@declare_functions+=
+local getContent
+
+@functions+=
+function getContent(filename) 
+	local lines = {}
+	for line in io.lines(filename) do
+		table.insert(lines, line)
+	end
+	return table.concat(lines, "\n")
+end
+
+@check_if_both_settings_ids_match+=
+local other_settings = vim.fn.json_decode(content["text"])
+local cur_settings = vim.fn.json_decode(getContent(filename))
+
+if other_settings.id ~= cur_settings.id then
+	error("Sharing id mismatch!")
+	@stop
 	return
 end

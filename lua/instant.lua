@@ -53,6 +53,8 @@ local nocase
 
 local writeChanges
 
+local getContent
+
 function GenerateWebSocketKey()
 	key = {}
 	for i =0,15 do
@@ -110,8 +112,8 @@ function ConvertToBase64(array)
 		str = str .. "="
 	
 	elseif rest == 16 then
-		local b1 = array[i+0+1]
-		local b2 = array[i+1+1]
+		local b1 = array[#array-1]
+		local b2 = array[#array]
 	
 		local c1 = OpRshift(b1, 2)
 		local c2 = OpLshift(OpAnd(b1, 0x3), 4)+OpRshift(b2, 4)
@@ -209,6 +211,14 @@ local function Refresh()
 	SendText(encoded)
 	
 	
+end
+
+function getContent(filename) 
+	local lines = {}
+	for line in io.lines(filename) do
+		table.insert(lines, line)
+	end
+	return table.concat(lines, "\n")
 end
 
 
@@ -503,34 +513,61 @@ function StartClient(first, appuri, port)
 									end
 									
 									for _,content in ipairs(decoded["contents"]) do 
-										local filename = InstantRoot .. content["filename"]
-										local in_buffer = vim.api.nvim_call_function("bufnr", { filename .. "$" }) ~= -1
-										
-										local lines = {}
-										for line in vim.gsplit(content["text"], '\n') do
-											table.insert(lines, line)
+										local skip_read = false
+										if string.match(content["filename"], "instant.json$") then
+											local filename = vim.api.nvim_call_function("simplify", { InstantRoot .. content["filename"] })
+											if string.len(vim.api.nvim_call_function("glob", { filename })) > 0 then
+												local other_settings = vim.fn.json_decode(content["text"])
+												local cur_settings = vim.fn.json_decode(getContent(filename))
+												
+												if other_settings.id ~= cur_settings.id then
+													error("Sharing id mismatch!")
+													for _,bufhandle in ipairs(vim.api.nvim_list_bufs()) do
+														if vim.api.nvim_buf_is_loaded(bufhandle) then
+															DetachFromBuffer(bufhandle)
+														end
+													end
+													StopClient()
+													
+													writeChanges()
+													
+													return
+												end
+												skip_read = true
+											end
 										end
 										
-										if in_buffer then
-											local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
+										-- doing weird ifs because lua doesn't have a "continue" statement
+										if skip_read then
+											local filename = InstantRoot .. content["filename"]
+											local in_buffer = vim.api.nvim_call_function("bufnr", { filename .. "$" }) ~= -1
 											
-											local tick = vim.api.nvim_buf_get_changedtick(buf)+1
-											ignores[buf][tick] = true
-											
-											vim.api.nvim_buf_set_lines(
-												vim.api.nvim_call_function("bufnr", { filename .. "$" }),
-												0, 
-												-1, 
-												false, 
-												lines)
-											
-										else 
-											local syncfile = io.open(filename, "w")
-											for _,line in ipairs(lines) do
-												syncfile:write(line .. '\n')
+											local lines = {}
+											for line in vim.gsplit(content["text"], '\n') do
+												table.insert(lines, line)
 											end
-											syncfile:close()
 											
+											if in_buffer then
+												local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
+												
+												local tick = vim.api.nvim_buf_get_changedtick(buf)+1
+												ignores[buf][tick] = true
+												
+												vim.api.nvim_buf_set_lines(
+													vim.api.nvim_call_function("bufnr", { filename .. "$" }),
+													0, 
+													-1, 
+													false, 
+													lines)
+												
+											else 
+												local syncfile = io.open(filename, "w")
+												for _,line in ipairs(lines) do
+													syncfile:write(line .. '\n')
+												end
+												syncfile:close()
+												
+											end
 										end
 									end
 								end
@@ -667,6 +704,7 @@ local function AttachToBuffer()
 	if single_buffer then
 		return
 	end
+	
 	local bufhandle = vim.api.nvim_get_current_buf()
 	table.insert(events, "bufhandle is " .. vim.inspect(bufhandle))
 	table.insert(events, "has_attached[bufhandle] is " .. vim.inspect(has_attached[bufhandle]))
@@ -876,6 +914,12 @@ local function Start(first, cur_buffer, host, port)
 			local settings = {}
 			settings["createddate"] = os.date("!%c") .. " UTC"
 			settings["author"] = vim.g.instant_username
+			
+			local key = {}
+			for i =0,4 do
+				table.insert(key, math.floor(math.random()*255))
+			end
+			settings.id = ConvertToBase64(key)
 			
 			local settingsFile = io.open("instant.json", "w")
 			settingsFile:write(vim.fn.json_encode(settings))
