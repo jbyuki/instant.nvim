@@ -21,6 +21,8 @@ local queue
 
 local ignores = {}
 
+local single_buffer
+
 local InstantRoot
 
 local initialized
@@ -304,15 +306,9 @@ function StartClient(first, appuri, port)
 						
 						if decoded then
 							if decoded["type"] == "text" then
-								local filename = vim.api.nvim_call_function("simplify", {InstantRoot .. decoded["filename"]})
-								local in_buffer = vim.api.nvim_call_function("bufnr", { filename .. "$" }) ~= -1
-								
-								local in_directory = string.len(filename) > 0 and string.sub(filename, 1, #InstantRoot) == InstantRoot
-								
-								if in_buffer and in_directory then
-									local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
-									
-									local tick = vim.api.nvim_buf_get_changedtick(vim.api.nvim_get_current_buf())+1
+								if single_buffer then
+									local buf = vim.api.nvim_get_current_buf()
+									local tick = vim.api.nvim_buf_get_changedtick(buf)+1
 									ignores[buf][tick] = true
 									
 									local lines = {}
@@ -332,9 +328,9 @@ function StartClient(first, appuri, port)
 											table.insert(lines, line)
 										end
 									end
-									table.insert(events, "buf " .. vim.api.nvim_get_current_buf() .. " set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
+									-- table.insert(events, "buf " .. buf .. " set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
 									vim.api.nvim_buf_set_lines(
-										vim.api.nvim_get_current_buf(), 
+										buf, 
 										decoded["start"], 
 										decoded["end"], 
 										false, 
@@ -356,91 +352,186 @@ function StartClient(first, appuri, port)
 											{{ " | " .. decoded["author"], "Special" }}, 
 											{})
 									
-								elseif in_directory then
-									if string.len(vim.api.nvim_call_function("glob", { filename })) == 0 then
-										local new_file = io.open(filename, "w")
-										table.insert(events, "created new file " .. filename)
-										new_file:close()
+								else 
+									local filename = vim.api.nvim_call_function("simplify", {InstantRoot .. decoded["filename"]})
+									local in_buffer = vim.api.nvim_call_function("bufnr", { filename .. "$" }) ~= -1
+									
+									local in_directory = string.len(filename) > 0 and string.sub(filename, 1, #InstantRoot) == InstantRoot
+									
+									if in_buffer and in_directory then
+										local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
+										
+										local tick = vim.api.nvim_buf_get_changedtick(buf)+1
+										ignores[buf][tick] = true
+										
+										local lines = {}
+										-- if it's an empty string, fill lines with an empty array
+										-- otherwise with gsplit it will put an empty string into
+										-- the array like : { "" }
+										if string.len(decoded["text"]) == 0 then
+											if decoded["start"] == decoded["end"] then -- new line
+												lines = { "" }
+											elseif decoded["end"] == decoded["last"] then -- just delete line content but keep it
+												lines = { "" }
+											else -- delete lines
+												lines = {}
+											end
+										else 
+											for line in vim.gsplit(decoded["text"], '\n') do
+												table.insert(lines, line)
+											end
+										end
+										-- table.insert(events, "buf " .. buf .. " set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
+										vim.api.nvim_buf_set_lines(
+											buf, 
+											decoded["start"], 
+											decoded["end"], 
+											false, 
+											lines)
+										
+										if old_namespace[decoded["author"]] then
+											vim.api.nvim_buf_clear_namespace(
+												vim.api.nvim_get_current_buf(),
+												old_namespace[decoded["author"]],
+												0, -1)
+											old_namespace[decoded["author"]] = nil
+										end
+										
+										old_namespace[decoded["author"]] = 
+											vim.api.nvim_buf_set_virtual_text(
+												vim.api.nvim_get_current_buf(),
+												0, 
+												math.max(decoded["last"]-1, 0), 
+												{{ " | " .. decoded["author"], "Special" }}, 
+												{})
+										
+									elseif in_directory then
+										if string.len(vim.api.nvim_call_function("glob", { filename })) == 0 then
+											local new_file = io.open(filename, "w")
+											table.insert(events, "created new file " .. filename)
+											new_file:close()
+										end
+										
+										table.insert(events, "queue up edits for " .. filename)
+										table.insert(queue, decoded)
+										
 									end
-									
-									table.insert(events, "queue up edits for " .. filename)
-									table.insert(queue, decoded)
-									
 								end
 							end
 							
 							if decoded["type"] == "request" then
-								local filelist = vim.api.nvim_call_function("glob", { InstantRoot .. "**" })
-								local files = {}
-								if string.len(filelist) > 0 then
-									for file in vim.gsplit(filelist, '\n') do
-										table.insert(files, file)
-									end
-								end
-								table.insert(events, "files found : " .. table.concat(files, " "))
-								
-								local contents = {}
-								for _,file in ipairs(files) do
-									local in_buffer = vim.api.nvim_call_function("bufnr", { file .. "$" }) ~= -1
+								if single_buffer then
+									local lines = vim.api.nvim_buf_get_lines(
+										bufhandle,
+										0, -1, true)
 									
-									local lines
-									if in_buffer then
-										lines = vim.api.nvim_buf_get_lines(
-											vim.api.nvim_call_function("bufnr", { file  .. "$" }), 
-											0, -1, true)
-									else 
-										lines = {}
-										for line in io.lines(file) do
-											table.insert(lines, line)
+									local encoded = vim.fn.json_encode({
+										["type"] = "initial",
+										["content"] = table.concat(lines, '\n')
+									})
+									
+									SendText(encoded)
+									
+								else 
+									local filelist = vim.api.nvim_call_function("glob", { InstantRoot .. "**" })
+									local files = {}
+									if string.len(filelist) > 0 then
+										for file in vim.gsplit(filelist, '\n') do
+											table.insert(files, file)
 										end
 									end
+									table.insert(events, "files found : " .. table.concat(files, " "))
 									
-									local content = {
-										filename = string.sub(file, string.len(InstantRoot)+1),
-										text = table.concat(lines, '\n')
-									}
-									table.insert(contents, content)
+									local contents = {}
+									for _,file in ipairs(files) do
+										local in_buffer = vim.api.nvim_call_function("bufnr", { file .. "$" }) ~= -1
+										
+										local lines
+										if in_buffer then
+											lines = vim.api.nvim_buf_get_lines(
+												vim.api.nvim_call_function("bufnr", { file  .. "$" }), 
+												0, -1, true)
+										else 
+											lines = {}
+											for line in io.lines(file) do
+												table.insert(lines, line)
+											end
+										end
+										
+										local content = {
+											filename = string.sub(file, string.len(InstantRoot)+1),
+											text = table.concat(lines, '\n')
+										}
+										table.insert(contents, content)
+										
+									end
+									local encoded = vim.fn.json_encode({
+										["type"] = "initial",
+										["contents"] = contents
+									})
+									
+									SendText(encoded)
 									
 								end
-								local encoded = vim.fn.json_encode({
-									["type"] = "initial",
-									["contents"] = contents
-								})
-								
-								SendText(encoded)
-								
 							end
 							
 							if decoded["type"] == "initial" and not initialized then
-								for _,content in ipairs(decoded["contents"]) do 
-									local filename = InstantRoot .. content["filename"]
-									local in_buffer = vim.api.nvim_call_function("bufnr", { filename .. "$" }) ~= -1
+								if single_buffer then
+									table.insert(events, "setting initial content for single buffer")
+									if decoded["contents"] then 
+										table.insert(events, "ERROR: Initial content for directory sharing but in single buffer sharing")
+										error("Initial content for directory sharing but in single buffer sharing")
+									end
 									
 									local lines = {}
-									for line in vim.gsplit(content["text"], '\n') do
+									for line in vim.gsplit(decoded["content"], "\n") do
 										table.insert(lines, line)
 									end
 									
-									if in_buffer then
-										local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
+									local buf = vim.api.nvim_get_current_buf()
+									local tick = vim.api.nvim_buf_get_changedtick(buf)+1
+									ignores[buf][tick] = true
+									
+									vim.api.nvim_buf_set_lines(
+										vim.api.nvim_get_current_buf(),
+										0, -1, false, lines)
+									
+								else 
+									if decoded["content"] then 
+										table.insert(events, "ERROR: Initial content for single buffer sharing but in directory sharing")
+										error("ERROR: Initial content for single buffer sharing but in directory sharing")
+									end
+									
+									for _,content in ipairs(decoded["contents"]) do 
+										local filename = InstantRoot .. content["filename"]
+										local in_buffer = vim.api.nvim_call_function("bufnr", { filename .. "$" }) ~= -1
 										
-										local tick = vim.api.nvim_buf_get_changedtick(vim.api.nvim_get_current_buf())+1
-										ignores[buf][tick] = true
-										
-										vim.api.nvim_buf_set_lines(
-											vim.api.nvim_call_function("bufnr", { filename .. "$" }),
-											0, 
-											-1, 
-											false, 
-											lines)
-										
-									else 
-										local syncfile = io.open(filename, "w")
-										for _,line in ipairs(lines) do
-											syncfile:write(line .. '\n')
+										local lines = {}
+										for line in vim.gsplit(content["text"], '\n') do
+											table.insert(lines, line)
 										end
-										syncfile:close()
 										
+										if in_buffer then
+											local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
+											
+											local tick = vim.api.nvim_buf_get_changedtick(buf)+1
+											ignores[buf][tick] = true
+											
+											vim.api.nvim_buf_set_lines(
+												vim.api.nvim_call_function("bufnr", { filename .. "$" }),
+												0, 
+												-1, 
+												false, 
+												lines)
+											
+										else 
+											local syncfile = io.open(filename, "w")
+											for _,line in ipairs(lines) do
+												syncfile:write(line .. '\n')
+											end
+											syncfile:close()
+											
+										end
 									end
 								end
 								print("Connected!")
@@ -573,6 +664,9 @@ local function AttachToBuffer()
 		return
 	end
 	
+	if single_buffer then
+		return
+	end
 	local bufhandle = vim.api.nvim_get_current_buf()
 	table.insert(events, "bufhandle is " .. vim.inspect(bufhandle))
 	table.insert(events, "has_attached[bufhandle] is " .. vim.inspect(has_attached[bufhandle]))
@@ -592,12 +686,14 @@ local function AttachToBuffer()
 		table.insert(events, "Attaching callback to " .. bufhandle)
 		ignores[bufhandle] = {}
 		
-		for i,decoded in ipairs(queue) do
+		local i = 0
+		while i <= #queue do
+			local decoded = queue[i]
 			local filename = vim.api.nvim_call_function("simplify", {InstantRoot .. decoded["filename"]})
 			local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
 			
 			if bufhandle == buf then
-				local tick = vim.api.nvim_buf_get_changedtick(vim.api.nvim_get_current_buf())+1
+				local tick = vim.api.nvim_buf_get_changedtick(buf)+1
 				ignores[buf][tick] = true
 				
 				local lines = {}
@@ -617,15 +713,17 @@ local function AttachToBuffer()
 						table.insert(lines, line)
 					end
 				end
-				table.insert(events, "buf " .. vim.api.nvim_get_current_buf() .. " set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
+				-- table.insert(events, "buf " .. buf .. " set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
 				vim.api.nvim_buf_set_lines(
-					vim.api.nvim_get_current_buf(), 
+					buf, 
 					decoded["start"], 
 					decoded["end"], 
 					false, 
 					lines)
 				
-				queue[i] = nil
+				table.remove(queue, i)
+			else
+				i = i + 1
 			end
 		end
 		
@@ -643,6 +741,7 @@ local function AttachToBuffer()
 		})
 		SendText(encoded)
 		
+		
 		local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
 			on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
 				if detach[buf] then
@@ -658,8 +757,13 @@ local function AttachToBuffer()
 				
 				local lines = vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, true)
 				
+				local filename
+				if not single_buffer then
+					filename = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1)
+				end
+				
 				local encoded = vim.fn.json_encode({
-					["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1),
+					["filename"] = filename,
 					["type"] = "text",
 					["start"] = firstline,
 					["end"]   = lastline,
@@ -751,85 +855,145 @@ function writeChanges()
 end
 
 
-local function Start(first, host, port)
-	local directory = vim.api.nvim_call_function("getcwd", {})
-	if vim.api.nvim_call_function("isdirectory", { directory }) == 0 then
-		error("The directory " .. directory .. " has not been found")
-	end
-	InstantRoot = vim.api.nvim_call_function("fnamemodify", {directory, ":p"})
-	table.insert(events, "The instant directory root is " .. InstantRoot)
-	
-	if string.len(vim.api.nvim_call_function("glob", { InstantRoot .. "*" })) ~= 0 and string.len(vim.api.nvim_call_function("glob", { InstantRoot .. "instant.json" })) == 0 then
-		error("The current directory is not empty nor does it contain a instant.json settings file")
-		return
-	end
-	
-	
-	if string.len(vim.api.nvim_call_function("glob", { "**" })) == 0 then
-		local settings = {}
-		settings["createddate"] = os.date("!%c") .. " UTC"
-		settings["author"] = vim.g.instant_username
+local function Start(first, cur_buffer, host, port)
+	single_buffer = cur_buffer
+
+	if not cur_buffer then
+		local directory = vim.api.nvim_call_function("getcwd", {})
+		if vim.api.nvim_call_function("isdirectory", { directory }) == 0 then
+			error("The directory " .. directory .. " has not been found")
+		end
+		InstantRoot = vim.api.nvim_call_function("fnamemodify", {directory, ":p"})
+		table.insert(events, "The instant directory root is " .. InstantRoot)
 		
-		local settingsFile = io.open("instant.json", "w")
-		settingsFile:write(vim.fn.json_encode(settings))
-		settingsFile:close()
+		if string.len(vim.api.nvim_call_function("glob", { InstantRoot .. "*" })) ~= 0 and string.len(vim.api.nvim_call_function("glob", { InstantRoot .. "instant.json" })) == 0 then
+			error("The current directory is not empty nor does it contain a instant.json settings file")
+			return
+		end
+		
+		
+		if string.len(vim.api.nvim_call_function("glob", { "**" })) == 0 then
+			local settings = {}
+			settings["createddate"] = os.date("!%c") .. " UTC"
+			settings["author"] = vim.g.instant_username
+			
+			local settingsFile = io.open("instant.json", "w")
+			settingsFile:write(vim.fn.json_encode(settings))
+			settingsFile:close()
+		end
+		
 	end
-	
 	StartClient(first, host, port)
 	
-	for _,bufhandle in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_loaded(bufhandle) then
-			local buf_filename = vim.api.nvim_buf_get_name(bufhandle)
-			local is_in_root = string.len(buf_filename) > 0 and string.sub(buf_filename, 1, #InstantRoot) == InstantRoot
-			
-			if is_in_root then
-				table.insert(events, "Attaching to buffer " .. bufhandle)
-				ignores[bufhandle] = {}
+	if not cur_buffer then
+		for _,bufhandle in ipairs(vim.api.nvim_list_bufs()) do
+			if vim.api.nvim_buf_is_loaded(bufhandle) then
+				local buf_filename = vim.api.nvim_buf_get_name(bufhandle)
+				local is_in_root = string.len(buf_filename) > 0 and string.sub(buf_filename, 1, #InstantRoot) == InstantRoot
 				
-				local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
-					on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
-						if detach[buf] then
-							table.insert(events, "Detached from buffer " .. buf)
-							detach[buf] = nil
-							return true
+				if is_in_root then
+					table.insert(events, "Attaching to buffer " .. bufhandle)
+					ignores[bufhandle] = {}
+					
+					local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
+						on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
+							if detach[buf] then
+								table.insert(events, "Detached from buffer " .. buf)
+								detach[buf] = nil
+								return true
+							end
+							
+							if ignores[buf][changedtick] then
+								ignores[buf][changedtick] = nil
+								return
+							end
+							
+							local lines = vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, true)
+							
+							local filename
+							if not single_buffer then
+								filename = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1)
+							end
+							
+							local encoded = vim.fn.json_encode({
+								["filename"] = filename,
+								["type"] = "text",
+								["start"] = firstline,
+								["end"]   = lastline,
+								["last"]   = new_lastline,
+								["author"] = vim.g.instant_username,
+								["text"] = table.concat(lines, '\n')
+							})
+							
+							SendText(encoded)
+							
+						end,
+						on_detach = function(_, buf)
+							table.insert(events, "detached " .. bufhandle)
+							has_attached[bufhandle] = nil
 						end
-						
-						if ignores[buf][changedtick] then
-							ignores[buf][changedtick] = nil
-							return
-						end
-						
-						local lines = vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, true)
-						
-						local encoded = vim.fn.json_encode({
-							["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1),
-							["type"] = "text",
-							["start"] = firstline,
-							["end"]   = lastline,
-							["last"]   = new_lastline,
-							["author"] = vim.g.instant_username,
-							["text"] = table.concat(lines, '\n')
-						})
-						
-						SendText(encoded)
-						
-					end,
-					on_detach = function(_, buf)
-						table.insert(events, "detached " .. bufhandle)
-						has_attached[bufhandle] = nil
+					})
+					
+					if attach_success then
+						has_attached[bufhandle] = true
+						table.insert(events, "has_attached[" .. bufhandle .. "] = true")
 					end
-				})
-				
-				if attach_success then
-					has_attached[bufhandle] = true
-					table.insert(events, "has_attached[" .. bufhandle .. "] = true")
+					
 				end
 				
 			end
-			
 		end
+		
+	else 
+		local bufhandle = vim.api.nvim_get_current_buf()
+		ignores[bufhandle] = {}
+		
+		local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
+			on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
+				if detach[buf] then
+					table.insert(events, "Detached from buffer " .. buf)
+					detach[buf] = nil
+					return true
+				end
+				
+				if ignores[buf][changedtick] then
+					ignores[buf][changedtick] = nil
+					return
+				end
+				
+				local lines = vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, true)
+				
+				local filename
+				if not single_buffer then
+					filename = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1)
+				end
+				
+				local encoded = vim.fn.json_encode({
+					["filename"] = filename,
+					["type"] = "text",
+					["start"] = firstline,
+					["end"]   = lastline,
+					["last"]   = new_lastline,
+					["author"] = vim.g.instant_username,
+					["text"] = table.concat(lines, '\n')
+				})
+				
+				SendText(encoded)
+				
+			end,
+			on_detach = function(_, buf)
+				table.insert(events, "detached " .. bufhandle)
+				has_attached[bufhandle] = nil
+			end
+		})
+		
+		if attach_success then
+			has_attached[bufhandle] = true
+			table.insert(events, "has_attached[" .. bufhandle .. "] = true")
+		end
+		
+		
 	end
-	
 end
 
 local function Stop()

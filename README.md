@@ -46,6 +46,21 @@ lua vim.g.instant_username = "YOUR USERNAME"
 Usage
 -----
 
+### Buffer sharing
+
+1. Fire up the server using [node.js](https://nodejs.org/en/) (server/ws_server.js).
+2. Open an instance and connect to the server.
+```
+:InstantStartSingle 127.0.0.1 8080
+```
+3. Open another instance and join.
+```
+:InstantJoinSingle 127.0.0.1 8080
+```
+4. Now the two buffers are synced
+
+### Directory sharing
+
 1. Fire up the server using [node.js](https://nodejs.org/en/) (server/ws_server.js).
 2. Create a sharing folder and name it **client1**.
 ```

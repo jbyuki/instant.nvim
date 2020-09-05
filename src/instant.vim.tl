@@ -10,7 +10,7 @@
 
 @header+=
 " Vim global plugin for remote collaborative editing
-" Last Change: 2020 Sep 3
+" Creation Date: 2020 Sep 3
 " Maintainer:  jbyuki
 " License:     This file is placed in the public domain 
 
@@ -39,9 +39,9 @@ function! StartWrapper(...)
 	endif
 
 	if a:0 == 1
-		call execute('lua instant.Start(true, "' .. a:1 .. '")')
+		call execute('lua instant.Start(true, false, "' .. a:1 .. '")')
 	else
-		call execute('lua instant.Start(true, "' .. a:1 .. '", ' .. a:2 .. ')')
+		call execute('lua instant.Start(true, false, "' .. a:1 .. '", ' .. a:2 .. ')')
 	endif
 endfunction
 
@@ -57,9 +57,9 @@ function! JoinWrapper(...)
 	endif
 
 	if a:0 == 1
-		call execute('lua instant.Start(false, "' .. a:1 .. '")')
+		call execute('lua instant.Start(false, false, "' .. a:1 .. '")')
 	else
-		call execute('lua instant.Start(false, "' .. a:1 .. '", ' .. a:2 .. ')')
+		call execute('lua instant.Start(false, false, "' .. a:1 .. '", ' .. a:2 .. ')')
 	endif
 endfunction
 
@@ -76,3 +76,36 @@ augroup instant
 	autocmd ExitPre * lua instant.Stop()
 augroup END
 
+@functions+=
+function! StartSingleWrapper(...)
+	if a:0 == 0 || a:0 > 2
+		echoerr "ARGUMENTS: [host] [port (default: 80)]"
+		return
+	endif
+
+	if a:0 == 1
+		call execute('lua instant.Start(true, true, "' .. a:1 .. '")')
+	else
+		call execute('lua instant.Start(true, true, "' .. a:1 .. '", ' .. a:2 .. ')')
+	endif
+endfunction
+
+@register_commands+=
+command! -nargs=* InstantStartSingle call StartSingleWrapper(<f-args>)
+
+@functions+=
+function! JoinSingleWrapper(...)
+	if a:0 == 0 || a:0 > 2
+		echoerr "ARGUMENTS: [host] [port (default: 80)]"
+		return
+	endif
+
+	if a:0 == 1
+		call execute('lua instant.Start(false, true, "' .. a:1 .. '")')
+	else
+		call execute('lua instant.Start(false, true, "' .. a:1 .. '", ' .. a:2 .. ')')
+	endif
+endfunction
+
+@register_commands+=
+command! -nargs=* InstantJoinSingle call JoinSingleWrapper(<f-args>)

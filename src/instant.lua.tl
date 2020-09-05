@@ -383,6 +383,7 @@ local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
 		@return_true_if_detach
 		@if_ignore_tick_return
 		@retrieve_new_lines
+		@retrieve_filename_relative_to_instant_root
 		@encode_in_json
 		@send_encoded
 	end,
@@ -427,9 +428,15 @@ end
 @retrieve_new_lines+=
 local lines = vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, true)
 
+@retrieve_filename_relative_to_instant_root+=
+local filename
+if not single_buffer then
+	filename = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1)
+end
+
 @encode_in_json+=
 local encoded = vim.fn.json_encode({
-	["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1),
+	["filename"] = filename,
 	["type"] = "text",
 	["start"] = firstline,
 	["end"]   = lastline,
@@ -454,17 +461,25 @@ end
 
 @if_text_add_new_lines_to_buffer+=
 if decoded["type"] == "text" then
-	@check_if_text_edit_is_in_buffer
-	@check_if_file_is_in_directory
-	if in_buffer and in_directory then
-		@get_buffer_number_of_filename
+	if single_buffer then
+		local buf = vim.api.nvim_get_current_buf()
 		@get_changedtick_and_add_to_ignore
 		@set_lines
 		@clear_virtual_for_username
 		@set_virtual_text_for_usernames
-	elseif in_directory then
-		@if_file_does_not_exist_create_empty_file
-		@queue_up_text_edit_for_later_use
+	else 
+		@check_if_text_edit_is_in_buffer
+		@check_if_file_is_in_directory
+		if in_buffer and in_directory then
+			@get_buffer_number_of_filename
+			@get_changedtick_and_add_to_ignore
+			@set_lines
+			@clear_virtual_for_username
+			@set_virtual_text_for_usernames
+		elseif in_directory then
+			@if_file_does_not_exist_create_empty_file
+			@queue_up_text_edit_for_later_use
+		end
 	end
 end
 
@@ -505,7 +520,7 @@ local ignores = {}
 ignores[bufhandle] = {}
 
 @get_changedtick_and_add_to_ignore+=
-local tick = vim.api.nvim_buf_get_changedtick(vim.api.nvim_get_current_buf())+1
+local tick = vim.api.nvim_buf_get_changedtick(buf)+1
 ignores[buf][tick] = true
 
 @if_ignore_tick_return+=
@@ -532,9 +547,9 @@ else
 		table.insert(lines, line)
 	end
 end
-table.insert(events, "buf " .. vim.api.nvim_get_current_buf() .. " set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
+-- table.insert(events, "buf " .. buf .. " set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
 vim.api.nvim_buf_set_lines(
-	vim.api.nvim_get_current_buf(), 
+	buf, 
 	decoded["start"], 
 	decoded["end"], 
 	false, 
@@ -543,13 +558,24 @@ vim.api.nvim_buf_set_lines(
 @set_port_as_80_if_not_provided+=
 port = port or 80
 
+@script_variables+=
+local single_buffer
+
 @start_function+=
-local function Start(first, host, port)
-	@check_if_directory_exists_and_set_it
-	@check_if_there_is_settings_or_empty_directory
-	@if_not_settings_create_one
+local function Start(first, cur_buffer, host, port)
+	single_buffer = cur_buffer
+
+	if not cur_buffer then
+		@check_if_directory_exists_and_set_it
+		@check_if_there_is_settings_or_empty_directory
+		@if_not_settings_create_one
+	end
 	@start
-	@attach_to_running_buffers
+	if not cur_buffer then
+		@attach_to_running_buffers
+	else 
+		@attach_to_current_buffer
+	end
 end
 
 @script_variables+=
@@ -586,16 +612,22 @@ Stop = Stop,
 
 @if_request_send_all_lines+=
 if decoded["type"] == "request" then
-	@glob_all_files_in_instant_root_directory
-	local contents = {}
-	for _,file in ipairs(files) do
-		@check_if_file_is_open_in_buffer
-		@if_it_is_retrieve_lines_from_buffer
-		@otherwise_read_file
-		@add_lines_to_contents
+	if single_buffer then
+		@get_all_lines_in_current_buffer
+		@encode_initial_content_single
+		@send_encoded
+	else 
+		@glob_all_files_in_instant_root_directory
+		local contents = {}
+		for _,file in ipairs(files) do
+			@check_if_file_is_open_in_buffer
+			@if_it_is_retrieve_lines_from_buffer
+			@otherwise_read_file
+			@add_lines_to_contents
+		end
+		@encode_initial_content
+		@send_encoded
 	end
-	@encode_initial_content
-	@send_encoded
 end
 
 @glob_all_files_in_instant_root_directory+=
@@ -652,15 +684,25 @@ initialized = false
 
 @if_initial_and_not_initialized_set_buffer_lines+=
 if decoded["type"] == "initial" and not initialized then
-	for _,content in ipairs(decoded["contents"]) do 
-		@check_if_filename_is_already_in_buffer
-		@get_lines_array
-		if in_buffer then
-			@get_buffer_number_of_filename
-			@get_changedtick_and_add_to_ignore
-			@set_lines_in_buffer
-		else 
-			@write_file_with_lines
+	if single_buffer then
+		table.insert(events, "setting initial content for single buffer")
+		@check_if_not_sent_for_multiple
+		@get_lines_of_initial_single
+		local buf = vim.api.nvim_get_current_buf()
+		@get_changedtick_and_add_to_ignore
+		@set_lines_in_current_buffer
+	else 
+		@check_if_not_sent_for_single
+		for _,content in ipairs(decoded["contents"]) do 
+			@check_if_filename_is_already_in_buffer
+			@get_lines_array
+			if in_buffer then
+				@get_buffer_number_of_filename
+				@get_changedtick_and_add_to_ignore
+				@set_lines_in_buffer
+			else 
+				@write_file_with_lines
+			end
 		end
 	end
 	print("Connected!")
@@ -793,6 +835,7 @@ end
 @attach_buffer+=
 local function AttachToBuffer()
 	@check_if_client_is_initialized
+	@check_if_in_directory_sharing
 	local bufhandle = vim.api.nvim_get_current_buf()
 	@check_if_buffer_is_not_attached_already
 	@check_if_buffer_is_in_ntrangle_root
@@ -816,13 +859,17 @@ end
 AttachToBuffer = AttachToBuffer,
 
 @apply_queued_edits_if_they_are+=
-for i,decoded in ipairs(queue) do
+local i = 0
+while i <= #queue do
+	local decoded = queue[i]
 	local filename = vim.api.nvim_call_function("simplify", {InstantRoot .. decoded["filename"]})
 	@get_buffer_number_of_filename
 	if bufhandle == buf then
 		@get_changedtick_and_add_to_ignore
 		@set_lines
-		queue[i] = nil
+		table.remove(queue, i)
+	else
+		i = i + 1
 	end
 end
 
@@ -945,3 +992,47 @@ local encoded = vim.fn.json_encode({
 	["text"] = table.concat(lines, '\n')
 })
 @send_encoded
+
+@attach_to_current_buffer+=
+local bufhandle = vim.api.nvim_get_current_buf()
+@init_buffer_attach
+@register_buf_change_callback
+
+@get_all_lines_in_current_buffer+=
+local lines = vim.api.nvim_buf_get_lines(
+	bufhandle,
+	0, -1, true)
+
+@encode_initial_content_single+=
+local encoded = vim.fn.json_encode({
+	["type"] = "initial",
+	["content"] = table.concat(lines, '\n')
+})
+
+@check_if_not_sent_for_multiple+=
+if decoded["contents"] then 
+	table.insert(events, "ERROR: Initial content for directory sharing but in single buffer sharing")
+	error("Initial content for directory sharing but in single buffer sharing")
+end
+
+@check_if_not_sent_for_single+=
+if decoded["content"] then 
+	table.insert(events, "ERROR: Initial content for single buffer sharing but in directory sharing")
+	error("ERROR: Initial content for single buffer sharing but in directory sharing")
+end
+
+@get_lines_of_initial_single+=
+local lines = {}
+for line in vim.gsplit(decoded["content"], "\n") do
+	table.insert(lines, line)
+end
+
+@set_lines_in_current_buffer+=
+vim.api.nvim_buf_set_lines(
+	vim.api.nvim_get_current_buf(),
+	0, -1, false, lines)
+
+@check_if_in_directory_sharing+=
+if single_buffer then
+	return
+end
