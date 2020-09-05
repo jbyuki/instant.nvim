@@ -16,6 +16,8 @@ Features
 
 * Live editing with multiple users
 
+* Share a buffer
+
 * Share a whole directory
 
 * See who is editing

@@ -15,7 +15,7 @@ frames = {}
 -- lua
 has_attached = {} 
 
-local detach
+local detach = {}
 
 local queue
 
@@ -686,7 +686,7 @@ local function AttachToBuffer()
 		table.insert(events, "Attaching callback to " .. bufhandle)
 		ignores[bufhandle] = {}
 		
-		local i = 0
+		local i = 1
 		while i <= #queue do
 			local decoded = queue[i]
 			local filename = vim.api.nvim_call_function("simplify", {InstantRoot .. decoded["filename"]})

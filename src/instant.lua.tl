@@ -407,7 +407,7 @@ if has_attached[bufhandle] then
 end
 
 @script_variables+=
-local detach
+local detach = {}
 
 @init_client+=
 detach = {}
@@ -859,7 +859,7 @@ end
 AttachToBuffer = AttachToBuffer,
 
 @apply_queued_edits_if_they_are+=
-local i = 0
+local i = 1
 while i <= #queue do
 	local decoded = queue[i]
 	local filename = vim.api.nvim_call_function("simplify", {InstantRoot .. decoded["filename"]})
