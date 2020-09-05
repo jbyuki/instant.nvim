@@ -21,7 +21,7 @@ local queue
 
 local ignores = {}
 
-local NTranceRoot
+local InstantRoot
 
 local initialized
 
@@ -211,8 +211,8 @@ end
 
 
 function StartClient(first, appuri, port)
-	if not vim.g.ntrance_username or string.len(vim.g.ntrance_username) == 0 then
-		error("Please specify a username in vim.g.ntrance_username")
+	if not vim.g.instant_username or string.len(vim.g.instant_username) == 0 then
+		error("Please specify a username in vim.g.instant_username")
 	end
 	
 	detach = {}
@@ -304,10 +304,10 @@ function StartClient(first, appuri, port)
 						
 						if decoded then
 							if decoded["type"] == "text" then
-								local filename = vim.api.nvim_call_function("simplify", {NTranceRoot .. decoded["filename"]})
+								local filename = vim.api.nvim_call_function("simplify", {InstantRoot .. decoded["filename"]})
 								local in_buffer = vim.api.nvim_call_function("bufnr", { filename .. "$" }) ~= -1
 								
-								local in_directory = string.len(filename) > 0 and string.sub(filename, 1, #NTranceRoot) == NTranceRoot
+								local in_directory = string.len(filename) > 0 and string.sub(filename, 1, #InstantRoot) == InstantRoot
 								
 								if in_buffer and in_directory then
 									local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
@@ -370,7 +370,7 @@ function StartClient(first, appuri, port)
 							end
 							
 							if decoded["type"] == "request" then
-								local filelist = vim.api.nvim_call_function("glob", { NTranceRoot .. "**" })
+								local filelist = vim.api.nvim_call_function("glob", { InstantRoot .. "**" })
 								local files = {}
 								if string.len(filelist) > 0 then
 									for file in vim.gsplit(filelist, '\n') do
@@ -396,7 +396,7 @@ function StartClient(first, appuri, port)
 									end
 									
 									local content = {
-										filename = string.sub(file, string.len(NTranceRoot)+1),
+										filename = string.sub(file, string.len(InstantRoot)+1),
 										text = table.concat(lines, '\n')
 									}
 									table.insert(contents, content)
@@ -413,7 +413,7 @@ function StartClient(first, appuri, port)
 							
 							if decoded["type"] == "initial" and not initialized then
 								for _,content in ipairs(decoded["contents"]) do 
-									local filename = NTranceRoot .. content["filename"]
+									local filename = InstantRoot .. content["filename"]
 									local in_buffer = vim.api.nvim_call_function("bufnr", { filename .. "$" }) ~= -1
 									
 									local lines = {}
@@ -582,9 +582,9 @@ local function AttachToBuffer()
 	end
 	
 	local buf_filename = vim.api.nvim_buf_get_name(bufhandle)
-	local is_in_root = string.len(buf_filename) > 0 and string.sub(buf_filename, 1, #NTranceRoot) == NTranceRoot
+	local is_in_root = string.len(buf_filename) > 0 and string.sub(buf_filename, 1, #InstantRoot) == InstantRoot
 	
-	if string.match(buf_filename, "ntrance.json$") then
+	if string.match(buf_filename, "instant.json$") then
 		return
 	end
 	
@@ -593,7 +593,7 @@ local function AttachToBuffer()
 		ignores[bufhandle] = {}
 		
 		for i,decoded in ipairs(queue) do
-			local filename = vim.api.nvim_call_function("simplify", {NTranceRoot .. decoded["filename"]})
+			local filename = vim.api.nvim_call_function("simplify", {InstantRoot .. decoded["filename"]})
 			local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
 			
 			if bufhandle == buf then
@@ -633,12 +633,12 @@ local function AttachToBuffer()
 			bufhandle,
 			0, -1, true)
 		local encoded = vim.fn.json_encode({
-			["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #NTranceRoot+1),
+			["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1),
 			["type"] = "text",
 			["start"] = 0,
 			["end"]   = -1,
 			["last"]   = -1,
-			["author"] = vim.g.ntrance_username,
+			["author"] = vim.g.instant_username,
 			["text"] = table.concat(lines, '\n')
 		})
 		SendText(encoded)
@@ -659,12 +659,12 @@ local function AttachToBuffer()
 				local lines = vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, true)
 				
 				local encoded = vim.fn.json_encode({
-					["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #NTranceRoot+1),
+					["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1),
 					["type"] = "text",
 					["start"] = firstline,
 					["end"]   = lastline,
 					["last"]   = new_lastline,
-					["author"] = vim.g.ntrance_username,
+					["author"] = vim.g.instant_username,
 					["text"] = table.concat(lines, '\n')
 				})
 				
@@ -698,7 +698,7 @@ function writeChanges()
 	end
 	
 	for file,_ in pairs(files) do
-		local filename = vim.api.nvim_call_function("simplify", {NTranceRoot .. file})
+		local filename = vim.api.nvim_call_function("simplify", {InstantRoot .. file})
 		
 		local filelines = {}
 		for line in io.lines(filename) do
@@ -756,11 +756,11 @@ local function Start(first, host, port)
 	if vim.api.nvim_call_function("isdirectory", { directory }) == 0 then
 		error("The directory " .. directory .. " has not been found")
 	end
-	NTranceRoot = vim.api.nvim_call_function("fnamemodify", {directory, ":p"})
-	table.insert(events, "The ntrance directory root is " .. NTranceRoot)
+	InstantRoot = vim.api.nvim_call_function("fnamemodify", {directory, ":p"})
+	table.insert(events, "The instant directory root is " .. InstantRoot)
 	
-	if string.len(vim.api.nvim_call_function("glob", { NTranceRoot .. "*" })) ~= 0 and string.len(vim.api.nvim_call_function("glob", { NTranceRoot .. "ntrance.json" })) == 0 then
-		error("The current directory is not empty nor does it contain a ntrance.json settings file")
+	if string.len(vim.api.nvim_call_function("glob", { InstantRoot .. "*" })) ~= 0 and string.len(vim.api.nvim_call_function("glob", { InstantRoot .. "instant.json" })) == 0 then
+		error("The current directory is not empty nor does it contain a instant.json settings file")
 		return
 	end
 	
@@ -768,9 +768,9 @@ local function Start(first, host, port)
 	if string.len(vim.api.nvim_call_function("glob", { "**" })) == 0 then
 		local settings = {}
 		settings["createddate"] = os.date("!%c") .. " UTC"
-		settings["author"] = vim.g.ntrance_username
+		settings["author"] = vim.g.instant_username
 		
-		local settingsFile = io.open("ntrance.json", "w")
+		local settingsFile = io.open("instant.json", "w")
 		settingsFile:write(vim.fn.json_encode(settings))
 		settingsFile:close()
 	end
@@ -780,7 +780,7 @@ local function Start(first, host, port)
 	for _,bufhandle in ipairs(vim.api.nvim_list_bufs()) do
 		if vim.api.nvim_buf_is_loaded(bufhandle) then
 			local buf_filename = vim.api.nvim_buf_get_name(bufhandle)
-			local is_in_root = string.len(buf_filename) > 0 and string.sub(buf_filename, 1, #NTranceRoot) == NTranceRoot
+			local is_in_root = string.len(buf_filename) > 0 and string.sub(buf_filename, 1, #InstantRoot) == InstantRoot
 			
 			if is_in_root then
 				table.insert(events, "Attaching to buffer " .. bufhandle)
@@ -802,12 +802,12 @@ local function Start(first, host, port)
 						local lines = vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, true)
 						
 						local encoded = vim.fn.json_encode({
-							["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #NTranceRoot+1),
+							["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1),
 							["type"] = "text",
 							["start"] = firstline,
 							["end"]   = lastline,
 							["last"]   = new_lastline,
-							["author"] = vim.g.ntrance_username,
+							["author"] = vim.g.instant_username,
 							["text"] = table.concat(lines, '\n')
 						})
 						

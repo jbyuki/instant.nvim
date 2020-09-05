@@ -1,15 +1,13 @@
 Design Document
 ===============
 
-ntrance (entrance) is a collaborative text editing plugin for Neovim. It should allow multiple users to edit the same document at the same time remotely. The plugin infrastructure should simple. It should provide the bare minimum to get started. Installing third-party tools should be avoided when possible to provide the best setup experience. Ideally the user could add the plugin to his list and immediatly get started.
+instant.nvim is a collaborative text editing plugin for Neovim. It should allow multiple users to edit the same document at the same time remotely. The plugin infrastructure should simple. Installing third-party tools should be avoided when possible to provide the best setup experience.
 
 Plugin
 ------
 
-* It should avoid third-party tools or libraries as the plugins in Neovim has no dependency management system
 * Plugin is written in lua
-* Support only Neovim at the moment
-* The plugin should be immediatly useable after its installation
+* Support only Neovim at the moment because functions such as nvim_buf_attach are not present in vim
 
 Architecture
 ------------
@@ -29,7 +27,7 @@ Multi-document editing
 ----------------------
 
 * Edits in documents which are open should be intantenous
-* Edits in documents which are not open in client should be buffered and applied only in a fixed interval
+* Edits in documents which are not open in client should be buffered and are applied eventually (either when the user quits or the file is opened)
 
 UI
 --

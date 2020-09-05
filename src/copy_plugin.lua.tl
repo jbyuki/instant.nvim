@@ -4,14 +4,14 @@
 @copy_files
 
 @copy_files+=
-local plugvim = io.open("plugin/ntrance.vim", "w")
-for line in io.lines("src/tangle/ntrance.vim") do
+local plugvim = io.open("plugin/instant.vim", "w")
+for line in io.lines("src/tangle/instant.vim") do
 	plugvim:write(line .. '\n')
 end
 plugvim:close()
 
-local pluglua = io.open("lua/ntrance.lua", "w")
-for line in io.lines("src/tangle/ntrance.lua") do
+local pluglua = io.open("lua/instant.lua", "w")
+for line in io.lines("src/tangle/instant.lua") do
 	pluglua:write(line .. '\n')
 end
 pluglua:close()

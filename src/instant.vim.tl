@@ -23,13 +23,13 @@ let &cpo = s:save_cpo
 unlet s:save_cpo
 
 @plugin_load_guard+=
-if exists("g:loaded_ntrance")
+if exists("g:loaded_instant")
 	finish
 endif
-let g:loaded_ntrance = 1
+let g:loaded_instant = 1
 
 @requires+=
-lua ntrance = require("ntrance")
+lua instant = require("instant")
 
 @functions+=
 function! StartWrapper(...)
@@ -39,15 +39,15 @@ function! StartWrapper(...)
 	endif
 
 	if a:0 == 1
-		call execute('lua ntrance.Start(true, "' .. a:1 .. '")')
+		call execute('lua instant.Start(true, "' .. a:1 .. '")')
 	else
-		call execute('lua ntrance.Start(true, "' .. a:1 .. '", ' .. a:2 .. ')')
+		call execute('lua instant.Start(true, "' .. a:1 .. '", ' .. a:2 .. ')')
 	endif
 endfunction
 
 @register_commands+=
-command! -nargs=* NTranceStart call StartWrapper(<f-args>)
-command! NTranceStop lua ntrance.Stop()
+command! -nargs=* InstantStart call StartWrapper(<f-args>)
+command! InstantStop lua instant.Stop()
 
 @functions+=
 function! JoinWrapper(...)
@@ -57,22 +57,22 @@ function! JoinWrapper(...)
 	endif
 
 	if a:0 == 1
-		call execute('lua ntrance.Start(false, "' .. a:1 .. '")')
+		call execute('lua instant.Start(false, "' .. a:1 .. '")')
 	else
-		call execute('lua ntrance.Start(false, "' .. a:1 .. '", ' .. a:2 .. ')')
+		call execute('lua instant.Start(false, "' .. a:1 .. '", ' .. a:2 .. ')')
 	endif
 endfunction
 
 @register_commands+=
-command! -nargs=* NTranceJoin call JoinWrapper(<f-args>)
+command! -nargs=* InstantJoin call JoinWrapper(<f-args>)
 
 @register_commands+=
-command! NTranceRefresh lua ntrance.Refresh()
+command! InstantRefresh lua instant.Refresh()
 
 @register_commands+=
-augroup ntrance
+augroup instant
 	autocmd!
-	autocmd BufReadPost,BufWritePost * lua ntrance.AttachToBuffer()
-	autocmd ExitPre * lua ntrance.Stop()
+	autocmd BufReadPost,BufWritePost * lua instant.AttachToBuffer()
+	autocmd ExitPre * lua instant.Stop()
 augroup END
 

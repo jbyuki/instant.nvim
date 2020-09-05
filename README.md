@@ -1,7 +1,7 @@
-ntrance.nvim
+instant.nvim
 ============
 
-ntrance is a collaborative remote editing plugin for Neovim written in Lua with no dependencies.
+**instant.nvim** is a **collaborative** remote editing plugin for **Neovim** written in **Lua** with no dependencies.
 
 **This is in prototype stage. It should work but some important features are still missing!**
 **The transfer protocol is not optimized for large files transfer!**
@@ -11,6 +11,12 @@ ntrance is a collaborative remote editing plugin for Neovim written in Lua with 
 * [Commands](docs/commands.md)
 
 ![showcase](docs/images/showcase1.PNG)
+
+Features
+--------
+
+* Share a whole directory
+* Visual indicator of live text edits
 
 Requirements
 ------------
@@ -23,7 +29,7 @@ Install
 The easiest is to install using a plugin manager such as [vim-plug](https://github.com/junegunn/vim-plug)
 
 ```
-Plug 'jbuyki/ntrance.nvim'
+Plug 'jbuyki/instant.nvim'
 ```
 
 Configurations
@@ -32,13 +38,13 @@ Configurations
 * To configure your username, put this in your $MYVIMRC. This **must be** set to start or join a server.
 
 ```
-lua vim.g.ntrance_username = "YOUR USERNAME"
+lua vim.g.instant_username = "YOUR USERNAME"
 ```
 
 Usage
 -----
 
-1. Fire up the websocket server (server/ws_server.js)
+1. Fire up the websocket server using [node.js (server/ws_server.js)
 2. Create a sharing folder
 ```
 mkdir client1
@@ -50,9 +56,9 @@ neovim
 ```
 4. Make sure the current folder is correct with `:pwd`. The sharing folder needs to be correct otherwise it will put the wrong files on the server! Don't worry if the folder is not empty, it will not be able to create the server.
 
-5. Connect the first client with `NTranceStart`
+5. Connect the first client with `InstantStart`
 ```
-:NTranceStart 127.0.0.1 8080
+:InstantStart 127.0.0.1 8080
 ```
 
 6. Create another folder client2 and start the other instance of neovim
@@ -61,9 +67,9 @@ cd client1/
 neovim
 ```
 
-7. Join the connection with the second client with `NTranceJoin`
+7. Join the connection with the second client with `InstantJoin`
 ```
-:NTranceJoin 127.0.0.1 8080
+:InstantJoin 127.0.0.1 8080
 ```
 
 8. Now all files should be sync up!
