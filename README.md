@@ -63,7 +63,7 @@ Usage
 
 ### Directory sharing
 
-1. Fire up the server using [node.js](https://nodejs.org/en/) (server/ws_server.js).
+1. Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/en/).
 2. Create a sharing folder and name it **client1**.
 ```
 mkdir client1
