@@ -10,13 +10,17 @@ instant.nvim
 * [Protocol](docs/protocol.md)
 * [Commands](docs/commands.md)
 
-![showcase](docs/images/showcase1.PNG)
 
 Features
 --------
 
+* Live editing with multiple users
+
+![showcase](docs/images/showcase1.PNG)
+
 * Share a whole directory
-* Visual indicator of live text edits
+
+* See who is editing
 
 Requirements
 ------------
@@ -45,7 +49,7 @@ Usage
 -----
 
 1. Fire up the websocket server using [node.js (server/ws_server.js)
-2. Create a sharing folder
+2. Create a sharing folder **client1**
 ```
 mkdir client1
 ```
@@ -61,9 +65,10 @@ neovim
 :InstantStart 127.0.0.1 8080
 ```
 
-6. Create another folder client2 and start the other instance of neovim
+6. Create another folder **client2** and start the other instance of neovim
 ```
-cd client1/
+mkdir client2
+cd client2/
 neovim
 ```
 
