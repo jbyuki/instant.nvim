@@ -1,7 +1,7 @@
 instant.nvim
 ============
 
-**instant.nvim** is a **collaborative** remote editing plugin for **Neovim** written in **Lua** with no dependencies.
+**instant.nvim** is a **collaborative** editing plugin for **Neovim** written in **Lua** with no dependencies.
 
 **This is in prototype stage. It should work but some important features are still missing!**
 **The transfer protocol is not optimized for large files transfer!**
@@ -23,12 +23,12 @@ Features
 Requirements
 ------------
 
-* Neovim (tested on 0.5 but should work on previous versions)
+* Neovim 0.5 (but might work on previous versions)
 
 Install
 -------
 
-The easiest is to install using a plugin manager such as [vim-plug](https://github.com/junegunn/vim-plug)
+Install using a plugin manager usuch as [vim-plug](https://github.com/junegunn/vim-plug)
 
 ```
 Plug 'jbuyki/instant.nvim'
@@ -37,7 +37,7 @@ Plug 'jbuyki/instant.nvim'
 Configurations
 --------------
 
-* To configure your username, put this in your $MYVIMRC. This **must be** set to start or join a server.
+* Set your username in your $MYVIMRC. This **must be** set to start or join a server.
 
 ```
 lua vim.g.instant_username = "YOUR USERNAME"
@@ -46,31 +46,31 @@ lua vim.g.instant_username = "YOUR USERNAME"
 Usage
 -----
 
-1. Fire up the websocket server using [node.js (server/ws_server.js)
-2. Create a sharing folder **client1**
+1. Fire up the server using [node.js](https://nodejs.org/en/) (server/ws_server.js).
+2. Create a sharing folder and name it **client1**.
 ```
 mkdir client1
 ```
-3. Start neovim into this folder
+3. Start neovim into this folder.
 ```
 cd client1/
 neovim
 ```
-4. Make sure the current folder is correct with `:pwd`. The sharing folder needs to be correct otherwise it will put the wrong files on the server! Don't worry if the folder is not empty, it will not be able to create the server.
+4. Make sure the current folder is correct with `:pwd`. It will put all the files on the server! But don't worry if the folder is not empty, it will display an error.
 
-5. Connect the first client with `InstantStart`
+5. Connect the first client with `InstantStart`.
 ```
 :InstantStart 127.0.0.1 8080
 ```
 
-6. Create another folder **client2** and start the other instance of neovim
+6. Create another folder and name it **client2**. Start the second instance of neovim.
 ```
 mkdir client2
 cd client2/
 neovim
 ```
 
-7. Join the connection with the second client with `InstantJoin`
+7. Join the connection with `InstantJoin`.
 ```
 :InstantJoin 127.0.0.1 8080
 ```
@@ -82,3 +82,5 @@ Todo
 
 * Multiple sessions on the same server
 * Try to reconnect after connection failure
+* TLS support
+* tests
