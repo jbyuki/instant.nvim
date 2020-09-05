@@ -16,8 +16,6 @@ Features
 
 * Live editing with multiple users
 
-![showcase](docs/images/showcase1.PNG)
-
 * Share a whole directory
 
 * See who is editing
