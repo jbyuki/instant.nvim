@@ -39,7 +39,7 @@ Usage
 -----
 
 1. Fire up the websocket server (server/ws_server.js)
-2. Create a sharing folder (for example: test)
+2. Create a sharing folder
 ```
 mkdir client1
 ```
