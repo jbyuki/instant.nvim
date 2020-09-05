@@ -594,8 +594,11 @@ StartClient(first, host, port)
 
 @stop_function+=
 local function Stop()
-	@stop
-	print("Disconnected!")
+	if initialized then
+		@stop
+		print("Disconnected!")
+		initialized = false
+	end
 end
 
 @stop+=

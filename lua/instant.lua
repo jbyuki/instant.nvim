@@ -1041,16 +1041,19 @@ local function Start(first, cur_buffer, host, port)
 end
 
 local function Stop()
-	for _,bufhandle in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_loaded(bufhandle) then
-			DetachFromBuffer(bufhandle)
+	if initialized then
+		for _,bufhandle in ipairs(vim.api.nvim_list_bufs()) do
+			if vim.api.nvim_buf_is_loaded(bufhandle) then
+				DetachFromBuffer(bufhandle)
+			end
 		end
+		StopClient()
+		
+		writeChanges()
+		
+		print("Disconnected!")
+		initialized = false
 	end
-	StopClient()
-	
-	writeChanges()
-	
-	print("Disconnected!")
 end
 
 
