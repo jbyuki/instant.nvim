@@ -50,7 +50,7 @@ Usage
 
 ### Buffer sharing
 
-1. Fire up the server using [node.js](https://nodejs.org/en/) (server/ws_server.js).
+1. Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/en/).
 2. Open an instance and connect to the server.
 ```
 :InstantStartSingle 127.0.0.1 8080
