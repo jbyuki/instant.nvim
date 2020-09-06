@@ -10,6 +10,7 @@ instant.nvim
 * [Protocol](docs/protocol.md)
 * [Commands](docs/commands.md)
 
+[showcase.gif](https://postimg.cc/ZvbQdYGf)
 
 Features
 --------
@@ -93,11 +94,3 @@ neovim
 ```
 
 8. Now all files should be sync up!
-
-Todo
-----
-
-* Multiple sessions on the same server
-* Try to reconnect after connection failure
-* TLS support
-* tests
