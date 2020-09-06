@@ -10,7 +10,7 @@ instant.nvim
 * [Protocol](docs/protocol.md)
 * [Commands](docs/commands.md)
 
-[showcase.gif](https://postimg.cc/ZvbQdYGf)
+[showcase.gif](https://i.postimg.cc/d3rcgL4K/showcase.gif)
 
 Features
 --------
