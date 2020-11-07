@@ -1,2 +1,4 @@
 node_modules/
 tangle/
+*.pem
+wss_server.js.tl

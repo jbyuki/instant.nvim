@@ -7,11 +7,7 @@
 @functions
 
 @start_client
-@join_client
 @stop_client
-@refresh_client
-
-@set_username
 
 @attach_buffer
 @detach_from_buffer
@@ -34,6 +30,7 @@ function StartClient(first, appuri, port)
 	@set_port_as_80_if_not_provided
 	client = vim.loop.new_tcp()
 	@get_ip_address
+
 	client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
 		@check_for_connection_errors
 		client:read_start(vim.schedule_wrap(function(err, chunk)
@@ -435,22 +432,25 @@ if not single_buffer then
 end
 
 @encode_in_json+=
-local encoded = vim.fn.json_encode({
+local obj = {
 	["filename"] = filename,
 	["type"] = "text",
 	["start"] = firstline,
 	["end"]   = lastline,
 	["last"]   = new_lastline,
-	["author"] = vim.g.instant_username,
+	["author"] = vim.api.nvim_get_var("instant_username"),
 	["text"] = table.concat(lines, '\n')
-})
+}
+local encoded = vim.api.nvim_call_function("json_encode", { obj })
 
 @send_encoded+=
 SendText(encoded)
+table.insert(events, "sent " .. encoded)
 
 @interpret_received_text+=
 @decode_json
 if decoded then
+	table.insert(events, "received " .. text)
 	@if_text_add_new_lines_to_buffer
 	@if_request_send_all_lines
 	@if_initial_and_not_initialized_set_buffer_lines
@@ -511,7 +511,7 @@ table.insert(events, "queue up edits for " .. filename)
 table.insert(queue, decoded)
 
 @decode_json+=
-local decoded = vim.fn.json_decode(text)
+local decoded = vim.api.nvim_call_function("json_decode", {text})
 
 @script_variables+=
 local ignores = {}
@@ -668,15 +668,17 @@ local content = {
 table.insert(contents, content)
 
 @encode_initial_content+=
-local encoded = vim.fn.json_encode({
+local obj = {
 	["type"] = "initial",
 	["contents"] = contents
-})
+}
+local encoded = vim.api.nvim_call_function("json_encode", { obj })
 
 @handshake_finished+=
-local encoded = vim.fn.json_encode({
+local obj = {
 	["type"] = "available"
-})
+}
+local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
 
 @script_variables+=
@@ -761,9 +763,10 @@ end
 
 @send_request_for_initial_content+=
 table.insert(events, "sending request")
-local encoded = vim.fn.json_encode({
+local obj = {
 	["type"] = "request",
-})
+}
+local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
 
 @check_for_connection_errors+=
@@ -783,8 +786,9 @@ end
 Refresh = Refresh,
 
 @check_if_has_username+=
-if not vim.g.instant_username or string.len(vim.g.instant_username) == 0 then
-	error("Please specify a username in vim.g.instant_username")
+local v, username = pcall(function() return vim.api.nvim_get_var("instant_username") end)
+if not v then
+	error("Please specify a username in g:instant_username")
 end
 
 @script_variables+=
@@ -898,7 +902,7 @@ end
 
 @init_settings+=
 settings["createddate"] = os.date("!%c") .. " UTC"
-settings["author"] = vim.g.instant_username
+settings["author"] = vim.api.nvim_get_var("instant_username")
 
 @ignore_if_settings_file+=
 if string.match(buf_filename, "instant.json$") then
@@ -989,15 +993,17 @@ writeChanges()
 local lines = vim.api.nvim_buf_get_lines(
 	bufhandle,
 	0, -1, true)
-local encoded = vim.fn.json_encode({
+local obj = {
 	["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1),
 	["type"] = "text",
 	["start"] = 0,
 	["end"]   = -1,
 	["last"]   = -1,
-	["author"] = vim.g.instant_username,
+	["author"] = vim.api.nvim_get_var("instant_username"),
 	["text"] = table.concat(lines, '\n')
-})
+}
+
+local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
 
 @attach_to_current_buffer+=
@@ -1011,10 +1017,11 @@ local lines = vim.api.nvim_buf_get_lines(
 	0, -1, true)
 
 @encode_initial_content_single+=
-local encoded = vim.fn.json_encode({
+local obj = {
 	["type"] = "initial",
 	["content"] = table.concat(lines, '\n')
-})
+}
+local encoded = vim.api.nvim_call_function("json_encode", { obj })
 
 @check_if_not_sent_for_multiple+=
 if decoded["contents"] then 
@@ -1074,8 +1081,8 @@ function getContent(filename)
 end
 
 @check_if_both_settings_ids_match+=
-local other_settings = vim.fn.json_decode(content["text"])
-local cur_settings = vim.fn.json_decode(getContent(filename))
+local other_settings = vim.api.nvim_call_function("json_decode", { content["text"] })
+local cur_settings = vim.api.nvim_call_function("json_decode", { getContent(filename) })
 
 if other_settings.id ~= cur_settings.id then
 	error("Sharing id mismatch!")

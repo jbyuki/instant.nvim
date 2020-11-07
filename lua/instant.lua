@@ -205,10 +205,12 @@ end
 local function Refresh()
 	initialized = false
 	table.insert(events, "sending request")
-	local encoded = vim.fn.json_encode({
+	local obj = {
 		["type"] = "request",
-	})
+	}
+	local encoded = vim.api.nvim_call_function("json_encode", { obj })
 	SendText(encoded)
+	table.insert(events, "sent " .. encoded)
 	
 	
 end
@@ -223,8 +225,9 @@ end
 
 
 function StartClient(first, appuri, port)
-	if not vim.g.instant_username or string.len(vim.g.instant_username) == 0 then
-		error("Please specify a username in vim.g.instant_username")
+	local v, username = pcall(function() return vim.api.nvim_get_var("instant_username") end)
+	if not v then
+		error("Please specify a username in g:instant_username")
 	end
 	
 	detach = {}
@@ -245,6 +248,7 @@ function StartClient(first, appuri, port)
 	end
 	local ipentry = iptable[1]
 	
+
 	client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
 		if err then
 			table.insert(events, "connection err " .. vim.inspect(err))
@@ -276,10 +280,12 @@ function StartClient(first, appuri, port)
 					-- can be Sec-WebSocket-Accept or Sec-Websocket-Accept
 					if string.match(chunk, nocase("Sec%-WebSocket%-Accept")) then
 						table.insert(events, "handshake was successful")
-						local encoded = vim.fn.json_encode({
+						local obj = {
 							["type"] = "available"
-						})
+						}
+						local encoded = vim.api.nvim_call_function("json_encode", { obj })
 						SendText(encoded)
+						table.insert(events, "sent " .. encoded)
 						
 						
 					end
@@ -312,9 +318,10 @@ function StartClient(first, appuri, port)
 						
 						local text = string.sub(chunk, 2+paylenlen+1)
 						
-						local decoded = vim.fn.json_decode(text)
+						local decoded = vim.api.nvim_call_function("json_decode", {text})
 						
 						if decoded then
+							table.insert(events, "received " .. text)
 							if decoded["type"] == "text" then
 								if single_buffer then
 									local buf = vim.api.nvim_get_current_buf()
@@ -435,12 +442,14 @@ function StartClient(first, appuri, port)
 										bufhandle,
 										0, -1, true)
 									
-									local encoded = vim.fn.json_encode({
+									local obj = {
 										["type"] = "initial",
 										["content"] = table.concat(lines, '\n')
-									})
+									}
+									local encoded = vim.api.nvim_call_function("json_encode", { obj })
 									
 									SendText(encoded)
+									table.insert(events, "sent " .. encoded)
 									
 								else 
 									local filelist = vim.api.nvim_call_function("glob", { InstantRoot .. "**" })
@@ -475,12 +484,14 @@ function StartClient(first, appuri, port)
 										table.insert(contents, content)
 										
 									end
-									local encoded = vim.fn.json_encode({
+									local obj = {
 										["type"] = "initial",
 										["contents"] = contents
-									})
+									}
+									local encoded = vim.api.nvim_call_function("json_encode", { obj })
 									
 									SendText(encoded)
+									table.insert(events, "sent " .. encoded)
 									
 								end
 							end
@@ -517,8 +528,8 @@ function StartClient(first, appuri, port)
 										if string.match(content["filename"], "instant.json$") then
 											local filename = vim.api.nvim_call_function("simplify", { InstantRoot .. content["filename"] })
 											if string.len(vim.api.nvim_call_function("glob", { filename })) > 0 then
-												local other_settings = vim.fn.json_decode(content["text"])
-												local cur_settings = vim.fn.json_decode(getContent(filename))
+												local other_settings = vim.api.nvim_call_function("json_decode", { content["text"] })
+												local cur_settings = vim.api.nvim_call_function("json_decode", { getContent(filename) })
 												
 												if other_settings.id ~= cur_settings.id then
 													error("Sharing id mismatch!")
@@ -581,10 +592,12 @@ function StartClient(first, appuri, port)
 									initialized = true
 								elseif not decoded["is_first"] and not first then
 									table.insert(events, "sending request")
-									local encoded = vim.fn.json_encode({
+									local obj = {
 										["type"] = "request",
-									})
+									}
+									local encoded = vim.api.nvim_call_function("json_encode", { obj })
 									SendText(encoded)
+									table.insert(events, "sent " .. encoded)
 									
 									
 								elseif decoded["is_first"] and not first then
@@ -695,7 +708,6 @@ local function StopClient()
 end
 
 
-
 local function AttachToBuffer()
 	if not initialized then
 		return
@@ -768,16 +780,19 @@ local function AttachToBuffer()
 		local lines = vim.api.nvim_buf_get_lines(
 			bufhandle,
 			0, -1, true)
-		local encoded = vim.fn.json_encode({
+		local obj = {
 			["filename"] = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1),
 			["type"] = "text",
 			["start"] = 0,
 			["end"]   = -1,
 			["last"]   = -1,
-			["author"] = vim.g.instant_username,
+			["author"] = vim.api.nvim_get_var("instant_username"),
 			["text"] = table.concat(lines, '\n')
-		})
+		}
+		
+		local encoded = vim.api.nvim_call_function("json_encode", { obj })
 		SendText(encoded)
+		table.insert(events, "sent " .. encoded)
 		
 		
 		local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
@@ -800,17 +815,19 @@ local function AttachToBuffer()
 					filename = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1)
 				end
 				
-				local encoded = vim.fn.json_encode({
+				local obj = {
 					["filename"] = filename,
 					["type"] = "text",
 					["start"] = firstline,
 					["end"]   = lastline,
 					["last"]   = new_lastline,
-					["author"] = vim.g.instant_username,
+					["author"] = vim.api.nvim_get_var("instant_username"),
 					["text"] = table.concat(lines, '\n')
-				})
+				}
+				local encoded = vim.api.nvim_call_function("json_encode", { obj })
 				
 				SendText(encoded)
+				table.insert(events, "sent " .. encoded)
 				
 			end,
 			on_detach = function(_, buf)
@@ -913,7 +930,7 @@ local function Start(first, cur_buffer, host, port)
 		if string.len(vim.api.nvim_call_function("glob", { "**" })) == 0 then
 			local settings = {}
 			settings["createddate"] = os.date("!%c") .. " UTC"
-			settings["author"] = vim.g.instant_username
+			settings["author"] = vim.api.nvim_get_var("instant_username")
 			
 			local key = {}
 			for i =0,4 do
@@ -959,17 +976,19 @@ local function Start(first, cur_buffer, host, port)
 								filename = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1)
 							end
 							
-							local encoded = vim.fn.json_encode({
+							local obj = {
 								["filename"] = filename,
 								["type"] = "text",
 								["start"] = firstline,
 								["end"]   = lastline,
 								["last"]   = new_lastline,
-								["author"] = vim.g.instant_username,
+								["author"] = vim.api.nvim_get_var("instant_username"),
 								["text"] = table.concat(lines, '\n')
-							})
+							}
+							local encoded = vim.api.nvim_call_function("json_encode", { obj })
 							
 							SendText(encoded)
+							table.insert(events, "sent " .. encoded)
 							
 						end,
 						on_detach = function(_, buf)
@@ -1012,17 +1031,19 @@ local function Start(first, cur_buffer, host, port)
 					filename = string.sub(vim.api.nvim_buf_get_name(bufhandle), #InstantRoot+1)
 				end
 				
-				local encoded = vim.fn.json_encode({
+				local obj = {
 					["filename"] = filename,
 					["type"] = "text",
 					["start"] = firstline,
 					["end"]   = lastline,
 					["last"]   = new_lastline,
-					["author"] = vim.g.instant_username,
+					["author"] = vim.api.nvim_get_var("instant_username"),
 					["text"] = table.concat(lines, '\n')
-				})
+				}
+				local encoded = vim.api.nvim_call_function("json_encode", { obj })
 				
 				SendText(encoded)
+				table.insert(events, "sent " .. encoded)
 				
 			end,
 			on_detach = function(_, buf)

@@ -1,0 +1,45 @@
+FAQ
+----
+
+(whatis instant.nvim)
+
+instant.nvim is a Neovim plugin for collaborative editing. Its primary
+purpose is to allow many programmers to work simultaneously on the same
+file or project so that interactions become more in real-time.
+
+Similar plugin already exist for the vim ecosystem. However most of them
+depend on the python programming environment which may be installed.
+Neovim already comes with the powerful lua scripting language
+which allow to implement such capabilities.
+This plugin tries to use these built-in lua features to
+provide collaborative editing features.
+
+(howto (install instant.nvim))
+
+Use your favorite plugin manager such as vim-plug to install it.
+
+'''
+Plug 'jbyuki/instant.nvim'
+'''
+
+(whatis configuration)
+
+The username needs to be set in order to use sharing features.
+Put this line in your .vimrc file (open it with :e $MYVIMRC):
+
+```
+lua vim.g.instant_username = "USERNAME"
+```
+
+Replace USERNAME with the name you wish to be viewed by others.
+This will set the global variable instant_username which will
+be red by the instant.nvim plugin script.
+
+(howto (start server))
+
+A server is provided in the plugin files.
+See ... to download it.
+
+(howto (join server))
+
+From a Neovim instance type the following command
