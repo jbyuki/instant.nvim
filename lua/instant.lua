@@ -210,7 +210,7 @@ local function Refresh()
 	}
 	local encoded = vim.api.nvim_call_function("json_encode", { obj })
 	SendText(encoded)
-	table.insert(events, "sent " .. encoded)
+	-- table.insert(events, "sent " .. encoded)
 	
 	
 end
@@ -224,7 +224,7 @@ function getContent(filename)
 end
 
 
-function StartClient(first, appuri, port)
+local function StartClient(first, appuri, port)
 	local v, username = pcall(function() return vim.api.nvim_get_var("instant_username") end)
 	if not v then
 		error("Please specify a username in g:instant_username")
@@ -285,7 +285,7 @@ function StartClient(first, appuri, port)
 						}
 						local encoded = vim.api.nvim_call_function("json_encode", { obj })
 						SendText(encoded)
-						table.insert(events, "sent " .. encoded)
+						-- table.insert(events, "sent " .. encoded)
 						
 						
 					end
@@ -321,7 +321,7 @@ function StartClient(first, appuri, port)
 						local decoded = vim.api.nvim_call_function("json_decode", {text})
 						
 						if decoded then
-							table.insert(events, "received " .. text)
+							-- table.insert(events, "received " .. text)
 							if decoded["type"] == "text" then
 								if single_buffer then
 									local buf = vim.api.nvim_get_current_buf()
@@ -449,7 +449,7 @@ function StartClient(first, appuri, port)
 									local encoded = vim.api.nvim_call_function("json_encode", { obj })
 									
 									SendText(encoded)
-									table.insert(events, "sent " .. encoded)
+									-- table.insert(events, "sent " .. encoded)
 									
 								else 
 									local filelist = vim.api.nvim_call_function("glob", { InstantRoot .. "**" })
@@ -491,7 +491,7 @@ function StartClient(first, appuri, port)
 									local encoded = vim.api.nvim_call_function("json_encode", { obj })
 									
 									SendText(encoded)
-									table.insert(events, "sent " .. encoded)
+									-- table.insert(events, "sent " .. encoded)
 									
 								end
 							end
@@ -544,6 +544,7 @@ function StartClient(first, appuri, port)
 													
 													return
 												end
+												
 												skip_read = true
 											end
 										end
@@ -597,7 +598,7 @@ function StartClient(first, appuri, port)
 									}
 									local encoded = vim.api.nvim_call_function("json_encode", { obj })
 									SendText(encoded)
-									table.insert(events, "sent " .. encoded)
+									-- table.insert(events, "sent " .. encoded)
 									
 									
 								elseif decoded["is_first"] and not first then
@@ -627,6 +628,10 @@ function StartClient(first, appuri, port)
 								end
 							end
 							
+							if decoded["type"] == "status" then
+								table.insert(events, "Connected: " .. tostring(decoded["num_clients"]) .. " client(s).")
+								print("Connected: " .. tostring(decoded["num_clients"]) .. " client(s).")
+							end
 						else
 							table.insert(events, "Could not decode json " .. text)
 						end
@@ -792,7 +797,7 @@ local function AttachToBuffer()
 		
 		local encoded = vim.api.nvim_call_function("json_encode", { obj })
 		SendText(encoded)
-		table.insert(events, "sent " .. encoded)
+		-- table.insert(events, "sent " .. encoded)
 		
 		
 		local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
@@ -827,7 +832,7 @@ local function AttachToBuffer()
 				local encoded = vim.api.nvim_call_function("json_encode", { obj })
 				
 				SendText(encoded)
-				table.insert(events, "sent " .. encoded)
+				-- table.insert(events, "sent " .. encoded)
 				
 			end,
 			on_detach = function(_, buf)
@@ -988,7 +993,7 @@ local function Start(first, cur_buffer, host, port)
 							local encoded = vim.api.nvim_call_function("json_encode", { obj })
 							
 							SendText(encoded)
-							table.insert(events, "sent " .. encoded)
+							-- table.insert(events, "sent " .. encoded)
 							
 						end,
 						on_detach = function(_, buf)
@@ -1043,7 +1048,7 @@ local function Start(first, cur_buffer, host, port)
 				local encoded = vim.api.nvim_call_function("json_encode", { obj })
 				
 				SendText(encoded)
-				table.insert(events, "sent " .. encoded)
+				-- table.insert(events, "sent " .. encoded)
 				
 			end,
 			on_detach = function(_, buf)
@@ -1078,6 +1083,22 @@ local function Stop()
 end
 
 
+local function Status()
+	if client and client:is_active() then
+		local obj = {
+			["type"] = "status",
+		}
+		local encoded = vim.api.nvim_call_function("json_encode", { obj })
+		SendText(encoded)
+		-- table.insert(events, "sent " .. encoded)
+		
+		
+	else
+		print("Disconnected")
+	end
+end
+
+
 return {
 Start = Start,
 Stop = Stop,
@@ -1085,6 +1106,8 @@ Stop = Stop,
 Refresh = Refresh,
 
 AttachToBuffer = AttachToBuffer,
+
+Status = Status,
 
 }
 

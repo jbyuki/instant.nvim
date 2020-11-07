@@ -41,6 +41,7 @@ wsserver.on('request', (req) => {
 			@if_text_broadcast_to_others
 			@if_initial_broadcast_to_others
 			@if_available_send_response_back
+			@if_check_status_send_response_back
 		}
 	});
 	conn.on('close', (reasonCode, desc) => {
@@ -104,6 +105,15 @@ if(decoded.type == "available") {
 	const response = {
 		type: "response",
 		is_first: clients.length == 1
+	};
+	conn.sendUTF(JSON.stringify(response));
+}
+
+@if_check_status_send_response_back+=
+if(decoded.type == "status") {
+	const response = {
+		type: "status",
+		num_clients: clients.length
 	};
 	conn.sendUTF(JSON.stringify(response));
 }

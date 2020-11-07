@@ -16,6 +16,8 @@
 @start_function
 @stop_function
 
+@status_function
+
 return {
 @export_symbols
 }
@@ -24,7 +26,7 @@ return {
 local client
 
 @start_client+=
-function StartClient(first, appuri, port)
+local function StartClient(first, appuri, port)
 	@check_if_has_username
 	@init_client
 	@set_port_as_80_if_not_provided
@@ -445,16 +447,17 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 
 @send_encoded+=
 SendText(encoded)
-table.insert(events, "sent " .. encoded)
+-- table.insert(events, "sent " .. encoded)
 
 @interpret_received_text+=
 @decode_json
 if decoded then
-	table.insert(events, "received " .. text)
+	-- table.insert(events, "received " .. text)
 	@if_text_add_new_lines_to_buffer
 	@if_request_send_all_lines
 	@if_initial_and_not_initialized_set_buffer_lines
 	@if_available_check_if_its_ok
+	@if_status_echo_status
 else
 	table.insert(events, "Could not decode json " .. text)
 end
@@ -1088,4 +1091,29 @@ if other_settings.id ~= cur_settings.id then
 	error("Sharing id mismatch!")
 	@stop
 	return
+end
+
+@status_function+=
+local function Status()
+	if client and client:is_active() then
+		@send_server_status
+	else
+		print("Disconnected")
+	end
+end
+
+@send_server_status+=
+local obj = {
+	["type"] = "status",
+}
+local encoded = vim.api.nvim_call_function("json_encode", { obj })
+@send_encoded
+
+@export_symbols+=
+Status = Status,
+
+@if_status_echo_status+=
+if decoded["type"] == "status" then
+	table.insert(events, "Connected: " .. tostring(decoded["num_clients"]) .. " client(s).")
+	print("Connected: " .. tostring(decoded["num_clients"]) .. " client(s).")
 end

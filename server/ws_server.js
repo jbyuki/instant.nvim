@@ -65,6 +65,14 @@ wsserver.on('request', (req) => {
 				};
 				conn.sendUTF(JSON.stringify(response));
 			}
+			
+			if(decoded.type == "status") {
+				const response = {
+					type: "status",
+					num_clients: clients.length
+				};
+				conn.sendUTF(JSON.stringify(response));
+			}
 		}
 	});
 	conn.on('close', (reasonCode, desc) => {

@@ -65,12 +65,12 @@ function! JoinSingleWrapper(...)
 	endif
 endfunction
 
-command! -nargs=* InstantStart call StartWrapper(<f-args>)
-command! InstantStop lua instant.Stop()
+" command! -nargs=* InstantStart call StartWrapper(<f-args>)
+" command! InstantStop lua instant.Stop()
 
-command! -nargs=* InstantJoin call JoinWrapper(<f-args>)
+" command! -nargs=* InstantJoin call JoinWrapper(<f-args>)
 
-command! InstantRefresh lua instant.Refresh()
+" command! InstantRefresh lua instant.Refresh()
 
 augroup instant
 	autocmd!
@@ -81,6 +81,10 @@ augroup END
 command! -nargs=* InstantStartSingle call StartSingleWrapper(<f-args>)
 
 command! -nargs=* InstantJoinSingle call JoinSingleWrapper(<f-args>)
+
+command! InstantStatus call execute('lua instant.Status()', "")
+
+command! -nargs=* InstantStopSingle  call execute('lua instant.Stop()', "")
 let &cpo = s:save_cpo
 unlet s:save_cpo
 

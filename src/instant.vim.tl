@@ -46,8 +46,8 @@ function! StartWrapper(...)
 endfunction
 
 @register_commands+=
-command! -nargs=* InstantStart call StartWrapper(<f-args>)
-command! InstantStop lua instant.Stop()
+" command! -nargs=* InstantStart call StartWrapper(<f-args>)
+" command! InstantStop lua instant.Stop()
 
 @functions+=
 function! JoinWrapper(...)
@@ -64,10 +64,10 @@ function! JoinWrapper(...)
 endfunction
 
 @register_commands+=
-command! -nargs=* InstantJoin call JoinWrapper(<f-args>)
+" command! -nargs=* InstantJoin call JoinWrapper(<f-args>)
 
 @register_commands+=
-command! InstantRefresh lua instant.Refresh()
+" command! InstantRefresh lua instant.Refresh()
 
 @register_commands+=
 augroup instant
@@ -109,3 +109,9 @@ endfunction
 
 @register_commands+=
 command! -nargs=* InstantJoinSingle call JoinSingleWrapper(<f-args>)
+
+@register_commands+=
+command! InstantStatus call execute('lua instant.Status()', "")
+
+@register_commands+=
+command! -nargs=* InstantStopSingle  call execute('lua instant.Stop()', "")
