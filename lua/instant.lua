@@ -21,7 +21,7 @@ has_attached = {}
 
 local detach = {}
 
-local prev = { "" }
+prev = { "" }
 
 -- pos = [(num, site)]
 local MAXINT = 2^15 -- can be adjusted
@@ -30,7 +30,7 @@ local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- pids = [line]
 pids = {}
 
-local ops = {}
+ops = {}
 local agent = 0
 
 local ignores = {}
@@ -455,7 +455,7 @@ local function StartClient(first, appuri, port)
 											end
 											
 											if sx == 1 then
-												table.insert(prev, sy-1)
+												table.remove(prev, sy-1)
 											else
 												if sy > 1 then
 													local curline = prev[sy-1]
@@ -713,31 +713,33 @@ local function Start(first, cur_buffer, host, port)
 					end
 				end
 				
-				local px, py = x+1, firstline+y
-				for c in vim.gsplit(toadd, "") do
-					if c == "\n" then
-						px = #pids[py+1]
-						local before_pid = pids[py+1][px]
-						local after_pid = afterPID(px, py+1)
-						local new_pid = genPID(before_pid, after_pid, agent, 1)
-						table.insert(pids, py+2, {new_pid})
-						ops[#ops+1] = { "ins", "\n", before_pid, new_pid }
-						
-						table.insert(prev, py+1, "")
-						py = py + 1
-						px = 1
-					else
-						local before_pid = pids[py+1][px]
-						local after_pid = afterPID(px, py+1)
-						local new_pid = genPID(before_pid, after_pid, agent, 1)
-						table.insert(pids[py+1], px+1, new_pid)
-						ops[#ops+1] = { "ins", c, before_pid, new_pid }
-						
-						prev[py] = string.sub(prev[py], 1, px-1) .. c .. string.sub(prev[py], px)
-						px = px + 1
+				if toadd then
+					local px, py = x+1, firstline+y
+					for c in vim.gsplit(toadd, "") do
+						if c == "\n" then
+							px = #pids[py+1]
+							local before_pid = pids[py+1][px]
+							local after_pid = afterPID(px, py+1)
+							local new_pid = genPID(before_pid, after_pid, agent, 1)
+							table.insert(pids, py+2, {new_pid})
+							ops[#ops+1] = { "ins", "\n", before_pid, new_pid }
+							
+							table.insert(prev, py+1, "")
+							py = py + 1
+							px = 1
+						else
+							local before_pid = pids[py+1][px]
+							local after_pid = afterPID(px, py+1)
+							local new_pid = genPID(before_pid, after_pid, agent, 1)
+							table.insert(pids[py+1], px+1, new_pid)
+							ops[#ops+1] = { "ins", c, before_pid, new_pid }
+							
+							prev[py] = string.sub(prev[py], 1, px-1) .. c .. string.sub(prev[py], px)
+							px = px + 1
+						end
 					end
+					
 				end
-				
 			
 			else
 				if string.len(cur_range) > 0 then
@@ -763,24 +765,28 @@ local function Start(first, cur_buffer, host, port)
 					end
 				end
 				
-				local px, py = x+1, firstline+y+1
-				for c in vim.gsplit(todelete, "") do
-					if c == "\n" then
-						if #prev > 1 then
-							ops[#ops+1] = { "del", pids[py+1][1] }
-							table.remove(pids, py+1)
+				if todelete then
+					local px, py = x+1, firstline+y+1
+					table.insert(events, "todelete " .. vim.inspect(todelete))
+					for c in vim.gsplit(todelete, "") do
+						if c == "\n" then
+							table.insert(events, "delete line at " .. py+1)
+							if #prev > 1 then
+								ops[#ops+1] = { "del", pids[py+1][1] }
+								table.remove(pids, py+1)
+								
+								table.remove(prev, py)
+							end
+						else
+							py = math.min(py, #prev)
+							ops[#ops+1] = { "del", pids[py+1][px+1] }
+							table.remove(pids[py+1], px+1)
 							
-							table.remove(prev, py+1)
+							prev[py] = string.sub(prev[py], 1, px-1) .. string.sub(prev[py], px+1)
 						end
-					else
-						py = math.min(py, #prev)
-						ops[#ops+1] = { "del", pids[py+1][px+1] }
-						table.remove(pids[py+1], px+1)
-						
-						prev[py] = string.sub(prev[py], 1, px-1) .. string.sub(prev[py], px+1)
 					end
+					
 				end
-				
 			end
 			
 			local obj = {

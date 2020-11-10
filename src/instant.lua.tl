@@ -459,7 +459,7 @@ for _,line in ipairs(vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, fa
 end
 
 @script_variables+=
-local prev = { "" }
+prev = { "" }
 
 @get_both_ranges+=
 local prev_range = ""
@@ -472,7 +472,9 @@ end
 @if_text_was_insert_add_new_text+=
 if string.len(cur_range) > string.len(prev_range) then
 	@get_xor_range_inserted
-	@add_new_to_prev
+	if toadd then
+		@add_new_to_prev
+	end
 
 @get_xor_range_inserted+=
 local x, y = 0, 0
@@ -510,7 +512,9 @@ end
 else
 	@change_new_line_front_and_back
 	@get_xor_range_deleted
-	@delete_in_prev
+	if todelete then
+		@delete_in_prev
+	end
 end
 
 @change_new_line_front_and_back+=
@@ -540,11 +544,13 @@ end
 
 @delete_in_prev+=
 local px, py = x+1, firstline+y+1
+table.insert(events, "todelete " .. vim.inspect(todelete))
 for c in vim.gsplit(todelete, "") do
 	if c == "\n" then
+		table.insert(events, "delete line at " .. py+1)
 		if #prev > 1 then
 			@delete_newline_character
-			table.remove(prev, py+1)
+			table.remove(prev, py)
 		end
 	else
 		py = math.min(py, #prev)
@@ -595,7 +601,7 @@ local function afterPID(x, y)
 end
 
 @script_variables+=
-local ops = {}
+ops = {}
 local agent = 0
 
 @init_client_id+=
@@ -781,7 +787,7 @@ end
 
 @delete_character_in_prev+=
 if sx == 1 then
-	table.insert(prev, sy-1)
+	table.remove(prev, sy-1)
 else
 	if sy > 1 then
 		local curline = prev[sy-1]
