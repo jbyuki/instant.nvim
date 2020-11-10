@@ -13,32 +13,6 @@ let g:loaded_instant = 1
 
 lua instant = require("instant")
 
-function! StartWrapper(...)
-	if a:0 == 0 || a:0 > 2
-		echoerr "ARGUMENTS: [host] [port (default: 80)]"
-		return
-	endif
-
-	if a:0 == 1
-		call execute('lua instant.Start(true, false, "' .. a:1 .. '")')
-	else
-		call execute('lua instant.Start(true, false, "' .. a:1 .. '", ' .. a:2 .. ')')
-	endif
-endfunction
-
-function! JoinWrapper(...)
-	if a:0 == 0 || a:0 > 2
-		echoerr "ARGUMENTS: [host] [port (default: 80)]"
-		return
-	endif
-
-	if a:0 == 1
-		call execute('lua instant.Start(false, false, "' .. a:1 .. '")')
-	else
-		call execute('lua instant.Start(false, false, "' .. a:1 .. '", ' .. a:2 .. ')')
-	endif
-endfunction
-
 function! StartSingleWrapper(...)
 	if a:0 == 0 || a:0 > 2
 		echoerr "ARGUMENTS: [host] [port (default: 80)]"
@@ -64,19 +38,6 @@ function! JoinSingleWrapper(...)
 		call execute('lua instant.Start(false, true, "' .. a:1 .. '", ' .. a:2 .. ')')
 	endif
 endfunction
-
-" command! -nargs=* InstantStart call StartWrapper(<f-args>)
-" command! InstantStop lua instant.Stop()
-
-" command! -nargs=* InstantJoin call JoinWrapper(<f-args>)
-
-" command! InstantRefresh lua instant.Refresh()
-
-augroup instant
-	autocmd!
-	autocmd BufReadPost,BufWritePost * lua instant.AttachToBuffer()
-	autocmd ExitPre * lua instant.Stop()
-augroup END
 
 command! -nargs=* InstantStartSingle call StartSingleWrapper(<f-args>)
 

@@ -4,6 +4,8 @@ const WebSocketServer = require('websocket').server;
 
 let clients = []
 
+let client_id = 100;
+
 const server = http.createServer((req, res) => {
 	console.log("Received request for " + req.url);
 	res.writeHead(404);
@@ -61,8 +63,10 @@ wsserver.on('request', (req) => {
 			if(decoded.type == "available") {
 				const response = {
 					type: "response",
-					is_first: clients.length == 1
+					is_first: clients.length == 1,
+					client_id: client_id
 				};
+				client_id++;
 				conn.sendUTF(JSON.stringify(response));
 			}
 			

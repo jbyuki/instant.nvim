@@ -100,12 +100,17 @@ if(decoded.type == "initial") {
 	}
 }
 
+@script_variables+=
+let client_id = 100;
+
 @if_available_send_response_back+=
 if(decoded.type == "available") {
 	const response = {
 		type: "response",
-		is_first: clients.length == 1
+		is_first: clients.length == 1,
+		client_id: client_id
 	};
+	client_id++;
 	conn.sendUTF(JSON.stringify(response));
 }
 

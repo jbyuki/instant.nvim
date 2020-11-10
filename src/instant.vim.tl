@@ -32,51 +32,6 @@ let g:loaded_instant = 1
 lua instant = require("instant")
 
 @functions+=
-function! StartWrapper(...)
-	if a:0 == 0 || a:0 > 2
-		echoerr "ARGUMENTS: [host] [port (default: 80)]"
-		return
-	endif
-
-	if a:0 == 1
-		call execute('lua instant.Start(true, false, "' .. a:1 .. '")')
-	else
-		call execute('lua instant.Start(true, false, "' .. a:1 .. '", ' .. a:2 .. ')')
-	endif
-endfunction
-
-@register_commands+=
-" command! -nargs=* InstantStart call StartWrapper(<f-args>)
-" command! InstantStop lua instant.Stop()
-
-@functions+=
-function! JoinWrapper(...)
-	if a:0 == 0 || a:0 > 2
-		echoerr "ARGUMENTS: [host] [port (default: 80)]"
-		return
-	endif
-
-	if a:0 == 1
-		call execute('lua instant.Start(false, false, "' .. a:1 .. '")')
-	else
-		call execute('lua instant.Start(false, false, "' .. a:1 .. '", ' .. a:2 .. ')')
-	endif
-endfunction
-
-@register_commands+=
-" command! -nargs=* InstantJoin call JoinWrapper(<f-args>)
-
-@register_commands+=
-" command! InstantRefresh lua instant.Refresh()
-
-@register_commands+=
-augroup instant
-	autocmd!
-	autocmd BufReadPost,BufWritePost * lua instant.AttachToBuffer()
-	autocmd ExitPre * lua instant.Stop()
-augroup END
-
-@functions+=
 function! StartSingleWrapper(...)
 	if a:0 == 0 || a:0 > 2
 		echoerr "ARGUMENTS: [host] [port (default: 80)]"
