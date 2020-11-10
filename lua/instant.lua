@@ -509,6 +509,12 @@ local function StartClient(first, appuri, port)
 										table.insert(lines, line)
 									end
 									
+									prev = {}
+									
+									for line in vim.gsplit(decoded["content"], "\n") do
+										table.insert(prev, line)
+									end
+									
 									pids = decoded["pids"]
 									
 									local buf = vim.api.nvim_get_current_buf()

@@ -902,6 +902,7 @@ initialized = false
 @if_initial_and_not_initialized_set_buffer_lines+=
 if decoded["type"] == "initial" and not initialized then
 	@get_lines_of_initial_single
+	@set_lines_for_initial_prev
 	@set_pids_for_initial
 	local buf = vim.api.nvim_get_current_buf()
 	@get_changedtick_and_add_to_ignore
@@ -1015,6 +1016,13 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 local lines = {}
 for line in vim.gsplit(decoded["content"], "\n") do
 	table.insert(lines, line)
+end
+
+@set_lines_for_initial_prev+=
+prev = {}
+
+for line in vim.gsplit(decoded["content"], "\n") do
+	table.insert(prev, line)
 end
 
 @set_pids_for_initial+=
