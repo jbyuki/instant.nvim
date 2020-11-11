@@ -43,7 +43,7 @@ Configurations
 * Set your username in your $MYVIMRC. This **must be** set to start or join a server.
 
 ```
-lua vim.g.instant_username = "YOUR USERNAME"
+let g:instant_username = "USERNAME"
 ```
 
 Usage

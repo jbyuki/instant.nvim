@@ -23,11 +23,10 @@ Security
 
 * No communication over TLS is possible in the current state. It is planned to be supported in the future.
 
-Multi-document editing
-----------------------
+Synchronization
+---------------
 
-* Edits in documents which are open should be intantenous
-* Edits in documents which are not open in client should be buffered and are applied eventually (either when the user quits or the file is opened)
+* It should use an algorithm which guarantees all replicas are identical even with bad network communications
 
 UI
 --
