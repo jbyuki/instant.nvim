@@ -21,16 +21,15 @@ has_attached = {}
 
 local detach = {}
 
-prev = { "" }
+local prev = { "" }
 
 -- pos = [(num, site)]
 local MAXINT = 2^15 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
-pids = {}
+local pids = {}
 
-ops = {}
 local agent = 0
 
 local ignores = {}
@@ -64,6 +63,8 @@ local OpXor
 local nocase
 
 local genPID
+
+local SendOp
 
 local isLower
 
@@ -234,6 +235,22 @@ local function afterPID(x, y)
 	else return pids[y][x+1] end
 end
 
+function SendOp(op)
+	local obj = {
+		["type"] = "text",
+		["ops"] = { op },
+		["author"] = vim.api.nvim_get_var("instant_username"),
+	}
+	local encoded = vim.api.nvim_call_function("json_encode", { obj })
+	
+	if not encoded then
+		print("line number " .. debug.getinfo(1).currentline)
+	end
+	SendText(encoded)
+	-- table.insert(events, "sent " .. encoded)
+	
+end
+
 local function findCharPosition(opid)
 	local x, y = 1, 1
 	local px, py = 1, 1
@@ -270,6 +287,9 @@ local function Refresh()
 		["type"] = "request",
 	}
 	local encoded = vim.api.nvim_call_function("json_encode", { obj })
+	if not encoded then
+		print("line number " .. debug.getinfo(1).currentline)
+	end
 	SendText(encoded)
 	-- table.insert(events, "sent " .. encoded)
 	
@@ -341,6 +361,9 @@ local function StartClient(first, appuri, port)
 							["type"] = "available"
 						}
 						local encoded = vim.api.nvim_call_function("json_encode", { obj })
+						if not encoded then
+							print("line number " .. debug.getinfo(1).currentline)
+						end
 						SendText(encoded)
 						-- table.insert(events, "sent " .. encoded)
 						
@@ -406,8 +429,6 @@ local function StartClient(first, appuri, port)
 										local tick = vim.api.nvim_buf_get_changedtick(buf)+1
 										ignores[buf][tick] = true
 										
-										table.insert(events, "op " .. vim.inspect(op))
-										table.insert(events, "pids " .. vim.inspect(pids))
 										if op[1] == "ins" then
 											local x, y = findCharPosition(op[3])
 											
@@ -498,6 +519,9 @@ local function StartClient(first, appuri, port)
 									}
 									local encoded = vim.api.nvim_call_function("json_encode", { obj })
 									
+									if not encoded then
+										print("line number " .. debug.getinfo(1).currentline)
+									end
 									SendText(encoded)
 									-- table.insert(events, "sent " .. encoded)
 									
@@ -543,6 +567,9 @@ local function StartClient(first, appuri, port)
 											["type"] = "request",
 										}
 										local encoded = vim.api.nvim_call_function("json_encode", { obj })
+										if not encoded then
+											print("line number " .. debug.getinfo(1).currentline)
+										end
 										SendText(encoded)
 										-- table.insert(events, "sent " .. encoded)
 										
@@ -688,123 +715,111 @@ local function Start(first, cur_buffer, host, port)
 				return
 			end
 			
-			ops = {}
-			
-			local cur_range = ""
-			for _,line in ipairs(vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, false)) do
-				cur_range = cur_range .. "\n" .. line
-			end
-			
-			local prev_range = ""
-			for l=firstline,lastline-1 do
-				if prev[l+1] then 
-					prev_range = prev_range .. "\n" .. prev[l+1]
+			vim.schedule(function()
+				local cur_range = ""
+				for _,line in ipairs(vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, false)) do
+					cur_range = cur_range .. "\n" .. line
 				end
-			end
-			
-			if string.len(cur_range) > string.len(prev_range) then
-				local x, y = 0, 0
-				local toadd
-				for i=1,#cur_range do
-					local c = string.sub(cur_range, i, i)
-					if c ~= string.sub(prev_range, i, i) then
-						toadd = string.sub(cur_range, i, string.len(cur_range) - string.len(prev_range) + i - 1)
-						break
-					end
-					if c == "\n" then 
-						x = 0
-						y = y + 1 
-					else 
-						x = x + 1
+				
+				local prev_range = ""
+				for l=firstline,lastline-1 do
+					if prev[l+1] then 
+						prev_range = prev_range .. "\n" .. prev[l+1]
 					end
 				end
 				
-				if toadd then
-					local px, py = x+1, firstline+y
-					for c in vim.gsplit(toadd, "") do
-						if c == "\n" then
-							px = #pids[py+1]
-							local before_pid = pids[py+1][px]
-							local after_pid = afterPID(px, py+1)
-							local new_pid = genPID(before_pid, after_pid, agent, 1)
-							table.insert(pids, py+2, {new_pid})
-							ops[#ops+1] = { "ins", "\n", before_pid, new_pid }
-							
-							table.insert(prev, py+1, "")
-							py = py + 1
-							px = 1
-						else
-							local before_pid = pids[py+1][px]
-							local after_pid = afterPID(px, py+1)
-							local new_pid = genPID(before_pid, after_pid, agent, 1)
-							table.insert(pids[py+1], px+1, new_pid)
-							ops[#ops+1] = { "ins", c, before_pid, new_pid }
-							
-							prev[py] = string.sub(prev[py], 1, px-1) .. c .. string.sub(prev[py], px)
-							px = px + 1
+				if string.len(cur_range) > string.len(prev_range) then
+					local x, y = 0, 0
+					local toadd
+					for i=1,#cur_range do
+						local c = string.sub(cur_range, i, i)
+						if c ~= string.sub(prev_range, i, i) then
+							toadd = string.sub(cur_range, i, string.len(cur_range) - string.len(prev_range) + i - 1)
+							break
+						end
+						if c == "\n" then 
+							x = 0
+							y = y + 1 
+						else 
+							x = x + 1
 						end
 					end
 					
-				end
-			
-			else
-				if string.len(cur_range) > 0 then
-					cur_range = string.sub(cur_range, 2) .. "\n"
-				end
-				if string.len(prev_range) > 0 then
-					prev_range = string.sub(prev_range, 2) .. "\n"
-				end
-				
-				local x, y = 0, 0
-				local todelete
-				for i=1,#prev_range do
-					local c = string.sub(prev_range, i, i)
-					if c ~= string.sub(cur_range, i, i) then
-						todelete = string.sub(prev_range, i, string.len(prev_range) - string.len(cur_range) + i - 1)
-						break
-					end
-					if c == "\n" then 
-						x = 0
-						y = y + 1 
-					else 
-						x = x + 1
-					end
-				end
-				
-				if todelete then
-					local px, py = x+1, firstline+y+1
-					table.insert(events, "todelete " .. vim.inspect(todelete))
-					for c in vim.gsplit(todelete, "") do
-						if c == "\n" then
-							table.insert(events, "delete line at " .. py+1)
-							if #prev > 1 then
-								ops[#ops+1] = { "del", pids[py+1][1] }
-								table.remove(pids, py+1)
+					if toadd then
+						local px, py = x+1, firstline+y
+						for c in vim.gsplit(toadd, "") do
+							if c == "\n" then
+								px = #pids[py+1]
+								local before_pid = pids[py+1][px]
+								local after_pid = afterPID(px, py+1)
+								local new_pid = genPID(before_pid, after_pid, agent, 1)
+								table.insert(pids, py+2, {new_pid})
+								SendOp { "ins", "\n", before_pid, new_pid }
 								
-								table.remove(prev, py)
+								table.insert(prev, py+1, "")
+								py = py + 1
+								px = 1
+							else
+								local before_pid = pids[py+1][px]
+								local after_pid = afterPID(px, py+1)
+								local new_pid = genPID(before_pid, after_pid, agent, 1)
+								table.insert(pids[py+1], px+1, new_pid)
+								SendOp { "ins", c, before_pid, new_pid }
+								
+								prev[py] = string.sub(prev[py], 1, px-1) .. c .. string.sub(prev[py], px)
+								px = px + 1
 							end
-						else
-							py = math.min(py, #prev)
-							ops[#ops+1] = { "del", pids[py+1][px+1] }
-							table.remove(pids[py+1], px+1)
-							
-							prev[py] = string.sub(prev[py], 1, px-1) .. string.sub(prev[py], px+1)
+						end
+						
+					end
+				
+				else
+					if string.len(cur_range) > 0 then
+						cur_range = string.sub(cur_range, 2) .. "\n"
+					end
+					if string.len(prev_range) > 0 then
+						prev_range = string.sub(prev_range, 2) .. "\n"
+					end
+					
+					local x, y = 0, 0
+					local todelete
+					for i=1,#prev_range do
+						local c = string.sub(prev_range, i, i)
+						if c ~= string.sub(cur_range, i, i) then
+							todelete = string.sub(prev_range, i, string.len(prev_range) - string.len(cur_range) + i - 1)
+							break
+						end
+						if c == "\n" then 
+							x = 0
+							y = y + 1 
+						else 
+							x = x + 1
 						end
 					end
 					
+					if todelete then
+						local px, py = x+1, firstline+y+1
+						for c in vim.gsplit(todelete, "") do
+							if c == "\n" then
+								if #prev > 1 then
+									SendOp { "del", pids[py+1][1] }
+									table.remove(pids, py+1)
+									
+									table.remove(prev, py)
+								end
+							else
+								py = math.min(py, #prev)
+								SendOp { "del", pids[py+1][px+1] }
+								table.remove(pids[py+1], px+1)
+								
+								prev[py] = string.sub(prev[py], 1, px-1) .. string.sub(prev[py], px+1)
+							end
+						end
+						
+					end
 				end
-			end
-			
-			local obj = {
-				["type"] = "text",
-				["ops"] = ops,
-				["author"] = vim.api.nvim_get_var("instant_username"),
-			}
-			local encoded = vim.api.nvim_call_function("json_encode", { obj })
-			
-			SendText(encoded)
-			-- table.insert(events, "sent " .. encoded)
-			
+				
+			end)
 		end,
 		on_detach = function(_, buf)
 			table.insert(events, "detached " .. bufhandle)
@@ -841,6 +856,9 @@ local function Status()
 			["type"] = "status",
 		}
 		local encoded = vim.api.nvim_call_function("json_encode", { obj })
+		if not encoded then
+			print("line number " .. debug.getinfo(1).currentline)
+		end
 		SendText(encoded)
 		-- table.insert(events, "sent " .. encoded)
 		

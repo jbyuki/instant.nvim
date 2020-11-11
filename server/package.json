@@ -11,6 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "msgpack": "^1.0.3",
+    "msgpack5": "^4.2.1",
     "websocket": "^1.0.32",
     "ws": "^7.3.1"
   }

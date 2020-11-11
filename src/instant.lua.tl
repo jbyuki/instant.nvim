@@ -10,7 +10,6 @@
 @start_client
 @stop_client
 
-@attach_buffer
 @detach_from_buffer
 @write_queued_changes
 
@@ -407,12 +406,11 @@ local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
 	on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
 		@return_true_if_detach
 		@if_ignore_tick_return
-		@init_list_of_operations
-		@get_both_ranges
-		@if_text_was_insert_add_new_text
-		@if_text_was_deleted_remove_text
-		@encode_in_json
-		@send_encoded
+		vim.schedule(function()
+			@get_both_ranges
+			@if_text_was_insert_add_new_text
+			@if_text_was_deleted_remove_text
+		end)
 	end,
 	on_detach = function(_, buf)
 		table.insert(events, "detached " .. bufhandle)
@@ -459,7 +457,7 @@ for _,line in ipairs(vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, fa
 end
 
 @script_variables+=
-prev = { "" }
+local prev = { "" }
 
 @get_both_ranges+=
 local prev_range = ""
@@ -544,10 +542,8 @@ end
 
 @delete_in_prev+=
 local px, py = x+1, firstline+y+1
-table.insert(events, "todelete " .. vim.inspect(todelete))
 for c in vim.gsplit(todelete, "") do
 	if c == "\n" then
-		table.insert(events, "delete line at " .. py+1)
 		if #prev > 1 then
 			@delete_newline_character
 			table.remove(prev, py)
@@ -565,7 +561,7 @@ local MAXINT = 2^15 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
-pids = {}
+local pids = {}
 
 @init_client+=
 local middlepos = genPID(startpos, endpos, agent, 1)
@@ -601,14 +597,27 @@ local function afterPID(x, y)
 end
 
 @script_variables+=
-ops = {}
 local agent = 0
 
 @init_client_id+=
 agent = decoded["client_id"]
 
-@init_list_of_operations+=
-ops = {}
+@declare_functions+=
+local SendOp
+
+@functions+=
+function SendOp(op)
+	@encode_operation_in_json_object
+	@send_encoded
+end
+
+@encode_operation_in_json_object+=
+local obj = {
+	["type"] = "text",
+	["ops"] = { op },
+	["author"] = vim.api.nvim_get_var("instant_username"),
+}
+local encoded = vim.api.nvim_call_function("json_encode", { obj })
 
 @insert_newline_character+=
 px = #pids[py+1]
@@ -616,34 +625,22 @@ local before_pid = pids[py+1][px]
 local after_pid = afterPID(px, py+1)
 local new_pid = genPID(before_pid, after_pid, agent, 1)
 table.insert(pids, py+2, {new_pid})
-ops[#ops+1] = { "ins", "\n", before_pid, new_pid }
+SendOp { "ins", "\n", before_pid, new_pid }
 
 @insert_normal_character+=
 local before_pid = pids[py+1][px]
 local after_pid = afterPID(px, py+1)
 local new_pid = genPID(before_pid, after_pid, agent, 1)
 table.insert(pids[py+1], px+1, new_pid)
-ops[#ops+1] = { "ins", c, before_pid, new_pid }
+SendOp { "ins", c, before_pid, new_pid }
 
 @delete_newline_character+=
-ops[#ops+1] = { "del", pids[py+1][1] }
+SendOp { "del", pids[py+1][1] }
 table.remove(pids, py+1)
 
 @delete_regular_character+=
-ops[#ops+1] = { "del", pids[py+1][px+1] }
+SendOp { "del", pids[py+1][px+1] }
 table.remove(pids[py+1], px+1)
-
-@encode_in_json+=
-local obj = {
-	["type"] = "text",
-	["ops"] = ops,
-	["author"] = vim.api.nvim_get_var("instant_username"),
-}
-local encoded = vim.api.nvim_call_function("json_encode", { obj })
-
-@send_encoded+=
-SendText(encoded)
--- table.insert(events, "sent " .. encoded)
 
 @interpret_received_text+=
 @decode_json
@@ -693,8 +690,6 @@ local ops = decoded["ops"]
 local opline = 0
 for _,op in ipairs(ops) do
 	@get_changedtick_and_add_to_ignore
-	table.insert(events, "op " .. vim.inspect(op))
-	table.insert(events, "pids " .. vim.inspect(pids))
 	if op[1] == "ins" then
 		@apply_insert_operation
 	elseif op[1] == "del" then
@@ -892,6 +887,13 @@ local obj = {
 }
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
+
+@send_encoded+=
+if not encoded then
+	print("line number " .. debug.getinfo(1).currentline)
+end
+SendText(encoded)
+-- table.insert(events, "sent " .. encoded)
 
 @script_variables+=
 local initialized
