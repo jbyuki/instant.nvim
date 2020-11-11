@@ -21,7 +21,7 @@ has_attached = {}
 
 local detach = {}
 
-local prev = { "" }
+prev = { "" }
 
 -- pos = [(num, site)]
 local MAXINT = 2^15 -- can be adjusted
@@ -61,6 +61,12 @@ local SendText
 local OpXor
 
 local nocase
+
+local utf8len, utf8char
+
+local utf8insert
+
+local utf8remove
 
 local genPID
 
@@ -213,6 +219,34 @@ function nocase (s)
 		end
 	end)
 	return s
+end
+
+function utf8len(str)
+	return vim.str_utfindex(str)
+end
+
+function utf8char(str, i)
+	if i >= utf8len(str) then return nil end
+	local s1 = vim.str_byteindex(str, i)
+	local s2 = vim.str_byteindex(str, i+1)
+	return string.sub(str, s1+1, s2)
+end
+
+function utf8insert(str, i, c)
+	table.insert(events, "utf8insert str '" .. str .. "' i " .. i .. " c " .. c)
+	if i == utf8len(str) then
+		return str .. c
+	end
+	local s1 = vim.str_byteindex(str, i)
+	return string.sub(str, 1, s1) .. c .. string.sub(str, s1+1)
+end
+
+function utf8remove(str, i)
+	table.insert(events, "traceback " .. debug.traceback())
+	local s1 = vim.str_byteindex(str, i)
+	local s2 = vim.str_byteindex(str, i+1)
+
+	return string.sub(str, 1, s1) .. string.sub(str, s2+1)
 end
 
 function genPID(p, q, s, i)
@@ -441,16 +475,14 @@ local function StartClient(first, appuri, port)
 												vim.api.nvim_buf_set_lines(buf, y-1, y-1, true, { "" })
 											else 
 												local curline = vim.api.nvim_buf_get_lines(buf, y-2, y-1, true)[1]
-												curline = string.sub(curline, 1, x-1) .. op[2] .. string.sub(curline, x)
+												curline = utf8insert(curline, x-1, op[2])
 												vim.api.nvim_buf_set_lines(buf, y-2, y-1, true, { curline })
 											end
 											
 											if op[2] == "\n" then 
 												table.insert(prev, y, "")
 											else 
-												local curline = prev[y-1]
-												curline = string.sub(curline, 1, x-1) .. op[2] .. string.sub(curline, x)
-												prev[y-1] = curline
+												prev[y-1] = utf8insert(prev[y-1], x-1, op[2])
 											end
 											
 											
@@ -470,7 +502,7 @@ local function StartClient(first, appuri, port)
 											else
 												if sy > 1 then
 													local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
-													curline = string.sub(curline, 1, sx-2) .. string.sub(curline, sx)
+													curline = utf8remove(curline, sx-2)
 													vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, { curline })
 												end
 											end
@@ -480,7 +512,7 @@ local function StartClient(first, appuri, port)
 											else
 												if sy > 1 then
 													local curline = prev[sy-1]
-													curline = string.sub(curline, 1, sx-2) .. string.sub(curline, sx)
+													curline = utf8remove(curline, sx-2)
 													prev[sy-1] = curline
 												end
 											end
@@ -732,10 +764,12 @@ local function Start(first, cur_buffer, host, port)
 				if string.len(cur_range) > string.len(prev_range) then
 					local x, y = 0, 0
 					local toadd
-					for i=1,#cur_range do
-						local c = string.sub(cur_range, i, i)
-						if c ~= string.sub(prev_range, i, i) then
-							toadd = string.sub(cur_range, i, string.len(cur_range) - string.len(prev_range) + i - 1)
+					
+					for i=0,utf8len(cur_range)-1 do
+						local c = utf8char(cur_range, i)
+						if c ~= utf8char(prev_range, i) then
+							local s1 = vim.str_byteindex(cur_range, i)
+							toadd = string.sub(cur_range, s1+1, string.len(cur_range) - string.len(prev_range) + s1)
 							break
 						end
 						if c == "\n" then 
@@ -747,8 +781,9 @@ local function Start(first, cur_buffer, host, port)
 					end
 					
 					if toadd then
-						local px, py = x+1, firstline+y
-						for c in vim.gsplit(toadd, "") do
+						local px, py = x, firstline+y
+						for i=0,vim.str_utfindex(toadd)-1 do
+							local c = utf8char(toadd, i)
 							if c == "\n" then
 								px = #pids[py+1]
 								local before_pid = pids[py+1][px]
@@ -761,13 +796,13 @@ local function Start(first, cur_buffer, host, port)
 								py = py + 1
 								px = 1
 							else
-								local before_pid = pids[py+1][px]
-								local after_pid = afterPID(px, py+1)
+								local before_pid = pids[py+1][px+1]
+								local after_pid = afterPID(px+1, py+1)
 								local new_pid = genPID(before_pid, after_pid, agent, 1)
-								table.insert(pids[py+1], px+1, new_pid)
+								table.insert(pids[py+1], px+2, new_pid)
 								SendOp { "ins", c, before_pid, new_pid }
 								
-								prev[py] = string.sub(prev[py], 1, px-1) .. c .. string.sub(prev[py], px)
+								prev[py] = utf8insert(prev[py], px,c)
 								px = px + 1
 							end
 						end
@@ -782,12 +817,15 @@ local function Start(first, cur_buffer, host, port)
 						prev_range = string.sub(prev_range, 2) .. "\n"
 					end
 					
+					
 					local x, y = 0, 0
 					local todelete
-					for i=1,#prev_range do
-						local c = string.sub(prev_range, i, i)
-						if c ~= string.sub(cur_range, i, i) then
-							todelete = string.sub(prev_range, i, string.len(prev_range) - string.len(cur_range) + i - 1)
+					for i=0,utf8len(prev_range)-1 do
+						local c = utf8char(prev_range, i)
+					
+						if c ~= utf8char(cur_range, i) then
+							local s1 = vim.str_byteindex(prev_range, i)
+							todelete = string.sub(prev_range, s1+1, string.len(prev_range) - string.len(cur_range) + s1)
 							break
 						end
 						if c == "\n" then 
@@ -799,21 +837,21 @@ local function Start(first, cur_buffer, host, port)
 					end
 					
 					if todelete then
-						local px, py = x+1, firstline+y+1
-						for c in vim.gsplit(todelete, "") do
+						local px, py = x, firstline+y
+						for i=0,vim.str_utfindex(todelete)-1 do
+							local c = utf8char(todelete, i)
 							if c == "\n" then
 								if #prev > 1 then
-									SendOp { "del", pids[py+1][1] }
-									table.remove(pids, py+1)
+									SendOp { "del", pids[py+2][1] }
+									table.remove(pids, py+2)
 									
-									table.remove(prev, py)
+									table.remove(prev, py+1)
 								end
 							else
-								py = math.min(py, #prev)
-								SendOp { "del", pids[py+1][px+1] }
-								table.remove(pids[py+1], px+1)
+								SendOp { "del", pids[py+2][px+2] }
+								table.remove(pids[py+2], px+2)
 								
-								prev[py] = string.sub(prev[py], 1, px-1) .. string.sub(prev[py], px+1)
+								prev[py+1] = utf8remove(prev[py+1], px)
 							end
 						end
 						
