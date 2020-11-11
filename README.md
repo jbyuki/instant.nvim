@@ -19,8 +19,6 @@ Features
 
 * Share a buffer
 
-* Share a whole directory
-
 * See who is editing
 
 Requirements
@@ -61,36 +59,3 @@ Usage
 :InstantJoinSingle 127.0.0.1 8080
 ```
 4. Now the two buffers are synced
-
-### Directory sharing
-
-1. Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/en/).
-2. Create a sharing folder and name it **client1**.
-```
-mkdir client1
-```
-3. Start neovim into this folder.
-```
-cd client1/
-neovim
-```
-4. Make sure the current folder is correct with `:pwd`. It will put all the files on the server! But don't worry if the folder is not empty, it will display an error.
-
-5. Connect the first client with `InstantStart`.
-```
-:InstantStart 127.0.0.1 8080
-```
-
-6. Create another folder and name it **client2**. Start the second instance of neovim.
-```
-mkdir client2
-cd client2/
-neovim
-```
-
-7. Join the connection with `InstantJoin`.
-```
-:InstantJoin 127.0.0.1 8080
-```
-
-8. Now all files should be sync up!
