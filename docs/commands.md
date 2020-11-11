@@ -3,7 +3,7 @@ Commands
 
 This is a list of commands defined by the instant.nvim plugin.
 
-### `InstantStop`
+### `InstantStopSingle`
 
 Interrupts the connection to the server. It also detaches instant.nvim from the buffer. This command is automatically called on exit.
 

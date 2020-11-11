@@ -8,14 +8,14 @@ Protocol
 
 The protocol is as follows:
 
-* The first client connects to the server via `NTranceStart`
+* The first client connects to the server via `InstantStartSingle`
     * Websocket handshake
 	* Send an `available` message from client
 	* The server responds if server is available or not
 		* If not available: close client with error
 		* If available, everything OK
 
-* A second client connects to the server via `NTraceJoin`
+* A second client connects to the server via `InstantJoinSingle`
     * Websocket handshake
 	* Send an `available` message from client
 		* If available: close client with error
@@ -52,7 +52,8 @@ The `response` message sent by the server when an `available` message is receive
 ```javascript
 {
 	type: "response",
-	is_first: boolean
+	is_first: boolean,
+	client_id: integer
 }
 ```
 
@@ -67,10 +68,10 @@ The `initial` message
 ```javascript
 {
 	type: "initial",
-	contents : [
+	contents : {
 		filename : string,
 		text : string
-	]
+	}
 }
 ```
 
@@ -79,12 +80,16 @@ The `text` message. start and end designates the first and last lines where the 
 {
 	type: "text",
 
-	start: integer,
-	end: integer,
-	last: integer,
+	ops: [
+		[ "ins", char, pid, pid ] |
+		[ "del", pid ]
+	],
 
-	text: string,
 	author: string,
-	filename : string
 }
 ```
+
+The ins operation contains the newly inserted character as well, as the unique ID of the preceding
+char and the new char.
+
+The del operation contains the pid of the deleted char.
