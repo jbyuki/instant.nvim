@@ -419,6 +419,9 @@ local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
 })
 
 if attach_success then
+	@get_buffer_lines
+	@init_pids_of_buffer_content
+	@init_prev_of_buffer_content
 	has_attached[bufhandle] = true
 	table.insert(events, "has_attached[" .. bufhandle .. "] = true")
 end
@@ -561,7 +564,7 @@ local MAXINT = 2^15 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
-local pids = {}
+pids = {}
 
 @init_client+=
 local middlepos = genPID(startpos, endpos, agent, 1)
@@ -1064,3 +1067,37 @@ end
 if client and client:is_active() then
 	error("Client is already connected. Use InstantStop first to disconnect.")
 end
+
+@get_buffer_lines+=
+local lines = vim.api.nvim_buf_get_lines(bufhandle, 0, -1, true)
+
+@init_prev_of_buffer_content+=
+prev = lines
+
+@init_pids_of_buffer_content+=
+local bpid = pids[2][1] -- middlepos
+local epid = pids[3][1] -- endpos
+
+for i=1,#lines do
+	local line = lines[i]
+	if i > 1 then
+		@generate_character_pid
+		@insert_newline_character_pid
+	end
+
+	for j=1,string.len(line) do
+		@generate_character_pid
+		@insert_character_pid
+	end
+
+end
+
+@generate_character_pid+=
+local newpid = genPID(bpid, epid, agent, 1)
+bpid = newpid
+
+@insert_character_pid+=
+table.insert(pids[i+1], newpid)
+
+@insert_newline_character_pid+=
+table.insert(pids, i+1, { newpid })

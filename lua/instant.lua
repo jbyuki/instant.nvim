@@ -28,7 +28,7 @@ local MAXINT = 2^15 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
-local pids = {}
+pids = {}
 
 local agent = 0
 
@@ -694,6 +694,7 @@ local function Start(first, cur_buffer, host, port)
 	if client and client:is_active() then
 		error("Client is already connected. Use InstantStop first to disconnect.")
 	end
+	
 
 	single_buffer = cur_buffer
 
@@ -828,6 +829,32 @@ local function Start(first, cur_buffer, host, port)
 	})
 	
 	if attach_success then
+		local lines = vim.api.nvim_buf_get_lines(bufhandle, 0, -1, true)
+		
+		local bpid = pids[2][1] -- middlepos
+		local epid = pids[3][1] -- endpos
+		
+		for i=1,#lines do
+			local line = lines[i]
+			if i > 1 then
+				local newpid = genPID(bpid, epid, agent, 1)
+				bpid = newpid
+				
+				table.insert(pids, i+1, { newpid })
+			end
+		
+			for j=1,string.len(line) do
+				local newpid = genPID(bpid, epid, agent, 1)
+				bpid = newpid
+				
+				table.insert(pids[i+1], newpid)
+				
+			end
+		
+		end
+		
+		prev = lines
+		
 		has_attached[bufhandle] = true
 		table.insert(events, "has_attached[" .. bufhandle .. "] = true")
 	end
