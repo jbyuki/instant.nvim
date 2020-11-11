@@ -34,7 +34,7 @@ Install
 Install using a plugin manager such as [vim-plug](https://github.com/junegunn/vim-plug).
 
 ```
-Plug 'jbuyki/instant.nvim'
+Plug 'jbyuki/instant.nvim'
 ```
 
 Configurations
