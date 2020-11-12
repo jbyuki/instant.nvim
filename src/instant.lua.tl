@@ -45,8 +45,11 @@ local function StartClient(first, appuri, port)
 	end))
 end
 
+@declare_functions+=
+local StopClient
+
 @stop_client+=
-local function StopClient()
+function StopClient()
 	@send_close_frame
 	@close_client
 end
@@ -377,12 +380,6 @@ else
 	end
 end
 
-@script_variables+=
--- this global variable can be set to a local scope once 
--- autocommands registration is natively supported in
--- lua
-has_attached = {} 
-
 @register_buf_change_callback+=
 local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
 	on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
@@ -396,25 +393,13 @@ local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
 	end,
 	on_detach = function(_, buf)
 		table.insert(events, "detached " .. bufhandle)
-		has_attached[bufhandle] = nil
 	end
 })
 
 if attach_success then
-	@get_buffer_lines
-	@init_pids_of_buffer_content
-	@init_prev_of_buffer_content
-	has_attached[bufhandle] = true
 	table.insert(events, "has_attached[" .. bufhandle .. "] = true")
 end
 
-@check_if_buffer_is_not_attached_already+=
-table.insert(events, "bufhandle is " .. vim.inspect(bufhandle))
-table.insert(events, "has_attached[bufhandle] is " .. vim.inspect(has_attached[bufhandle]))
-if has_attached[bufhandle] then
-	table.insert(events, "buffer is already attached")
-	return
-end
 
 @script_variables+=
 local detach = {}
@@ -429,9 +414,15 @@ if detach[buf] then
 	return true
 end
 
+@init_buffer_attach+=
+detach[bufhandle] = nil
+
+@declare_functions+=
+local DetachFromBuffer
+
 @detach_from_buffer+=
-local function DetachFromBuffer(bufnr)
-	table.insert(events, "Detaching from buffer...")
+function DetachFromBuffer(bufnr)
+	table.insert(events, "Detaching from buffer... " .. bufnr)
 	detach[bufnr] = true
 end
 
@@ -924,6 +915,9 @@ local function Start(first, cur_buffer, host, port)
 
 	@start
 	@attach_to_current_buffer
+	@get_buffer_lines
+	@init_pids_of_buffer_content
+	@init_prev_of_buffer_content
 end
 
 @start+=
@@ -1020,6 +1014,7 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @check_for_connection_errors+=
 if err then
 	table.insert(events, "connection err " .. vim.inspect(err))
+	@stop
 	error("There was an error during connection: " .. err)
 	return
 end
@@ -1066,9 +1061,8 @@ old_namespace[decoded["author"]] =
 @check_for_connection_errors_when_connected+=
 if err then
 	table.insert(events, "connection err " .. vim.inspect(err))
-	error("There was an error during connection: " .. err)
-
 	@stop
+	error("There was an error during connection: " .. err)
 	return
 end
 
