@@ -28,7 +28,7 @@ return {
 local client
 
 @start_client+=
-local function StartClient(first, appuri, port)
+local function StartClient(buf, first, appuri, port)
 	@check_if_has_username
 	@init_client
 	@set_port_as_80_if_not_provided
@@ -197,7 +197,7 @@ client:write(s)
 events = {}
 
 @read_response+=
-table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
+-- table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
 
 @declare_functions+=
 local SendText
@@ -554,9 +554,6 @@ local utf8remove
 
 @functions+=
 function utf8remove(str, i)
-	if i >= utf8len(str) then
-		table.insert(events, "utf8remove " .. debug.traceback())
-	end
 	local s1 = vim.str_byteindex(str, i)
 	local s2 = vim.str_byteindex(str, i+1)
 
@@ -599,10 +596,6 @@ local genPID
 
 @functions+=
 function genPID(p, q, s, i)
-	if not p or not q then
-		table.insert(events, "backtrace " .. debug.traceback())
-	end
-
 	local a = (p[i] and p[i][1]) or 0
 	local b = (q[i] and q[i][1]) or MAXINT
 
@@ -634,7 +627,6 @@ local SendOp
 
 @functions+=
 function SendOp(op)
-	table.insert(events, "send op " .. vim.inspect(op))
 	@encode_operation_in_json_object
 	@send_encoded
 end
@@ -656,7 +648,6 @@ table.insert(pids, py+2, {new_pid})
 SendOp { "ins", "\n", before_pid, new_pid }
 
 @insert_normal_character+=
-table.insert(events, "insert char y " .. py+1 .. " x " .. px+1)
 local before_pid = pids[py+1][px+1]
 local after_pid = afterPID(px+1, py+1)
 local new_pid = genPID(before_pid, after_pid, agent, 1)
@@ -686,14 +677,10 @@ end
 
 @if_text_do_actions+=
 if decoded["type"] == "text" then
-	local buf = vim.api.nvim_get_current_buf()
 	@play_operations
 	@clear_virtual_for_username
 	@set_virtual_text_for_usernames
 end
-
-@get_buffer_number_of_filename+=
-local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
 
 @decode_json+=
 local decoded = vim.api.nvim_call_function("json_decode", {text})
@@ -727,7 +714,11 @@ for _,op in ipairs(ops) do
 end
 
 @set_op_line_insert+=
-opline = y-2
+if op[2] == "\n" then
+	opline = y-1
+else
+	opline = y-2
+end
 
 @set_op_line_delete+=
 opline = sy-2
@@ -834,9 +825,7 @@ if sx == 1 then
 else
 	if sy > 1 then
 		local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
-		table.insert(events, "before " .. curline)
 		curline = utf8remove(curline, sx-2)
-		table.insert(events, "after " .. curline)
 		vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, { curline })
 	end
 end
@@ -905,15 +894,11 @@ vim.api.nvim_buf_set_lines(
 @set_port_as_80_if_not_provided+=
 port = port or 80
 
-@script_variables+=
-local single_buffer
-
 @start_function+=
-local function Start(first, cur_buffer, host, port)
+local function Start(first, host, port)
 	@check_if_client_is_not_connected
 
-	single_buffer = cur_buffer
-
+	local bufhandle = vim.api.nvim_get_current_buf()
 	@start
 	@attach_to_current_buffer
 	@get_buffer_lines
@@ -922,7 +907,7 @@ local function Start(first, cur_buffer, host, port)
 end
 
 @start+=
-StartClient(first, host, port)
+StartClient(bufhandle, first, host, port)
 
 @stop_function+=
 local function Stop()
@@ -977,7 +962,6 @@ if decoded["type"] == "initial" and not initialized then
 	@get_lines_of_initial_single
 	@set_lines_for_initial_prev
 	@set_pids_for_initial
-	local buf = vim.api.nvim_get_current_buf()
 	@get_changedtick_and_add_to_ignore
 	@set_lines_in_current_buffer
 	print("Connected!")
@@ -1056,7 +1040,7 @@ old_namespace[decoded["author"]] =
 		vim.api.nvim_get_current_buf(),
 		0, 
 		math.max(opline, 0), 
-		{{ " | " .. decoded["author"], "Special" }}, 
+		{{ "| " .. decoded["author"], "Special" }}, 
 		{})
 
 @check_for_connection_errors_when_connected+=
@@ -1068,7 +1052,6 @@ if err then
 end
 
 @attach_to_current_buffer+=
-local bufhandle = vim.api.nvim_get_current_buf()
 @init_buffer_attach
 @register_buf_change_callback
 
@@ -1244,3 +1227,22 @@ table.insert(pids, i+1, { newpid })
 -- @delete_character+=
 -- curline = string.sub(curline, 1, cnum-1) .. string.sub(curline, cnum+1)
 -- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
+-- 
+-- @type_random_function+=
+-- function TypeRandom2(limit, ms)
+-- 	local timer = vim.loop.new_timer()
+-- 	local i = 0
+-- 	timer:start(300, ms, function()
+-- 		vim.schedule(function()
+-- 			@insert_new_character_in_line
+-- 			if i > limit then timer:close() end
+-- 			i = i + 1
+-- 		end)
+-- 	end)
+-- end
+-- 
+-- @insert_new_character_in_line+=
+-- local curline = vim.api.nvim_buf_get_lines(0, 0, 1, true)[1]
+-- local cnum = string.len(curline)/2+1
+-- curline = string.sub(curline, 1, cnum-1) .. "a" .. string.sub(curline, cnum)
+-- vim.api.nvim_buf_set_lines(0, 0, 1, true, { curline }) 

@@ -25,13 +25,9 @@ local agent = 0
 
 local ignores = {}
 
-local single_buffer
-
 local initialized
 
 local old_namespace
-
-local typeset = {}
 
 local b64 = 0
 for i=string.byte('a'), string.byte('z') do base64[b64] = string.char(i) b64 = b64+1 end
@@ -39,18 +35,6 @@ for i=string.byte('A'), string.byte('Z') do base64[b64] = string.char(i) b64 = b
 for i=string.byte('0'), string.byte('9') do base64[b64] = string.char(i) b64 = b64+1 end
 base64[b64] = '+' b64 = b64+1
 base64[b64] = '/'
-
-for i=string.byte('a'),string.byte('z') do
-	table.insert(typeset, string.char(i))
-end
-
-for i=string.byte('A'),string.byte('Z') do
-	table.insert(typeset, string.char(i))
-end
-
-for i=string.byte('0'),string.byte('9') do
-	table.insert(typeset, string.char(i))
-end
 
 
 local StopClient
@@ -252,9 +236,6 @@ function utf8insert(str, i, c)
 end
 
 function utf8remove(str, i)
-	if i >= utf8len(str) then
-		table.insert(events, "utf8remove " .. debug.traceback())
-	end
 	local s1 = vim.str_byteindex(str, i)
 	local s2 = vim.str_byteindex(str, i+1)
 
@@ -262,10 +243,6 @@ function utf8remove(str, i)
 end
 
 function genPID(p, q, s, i)
-	if not p or not q then
-		table.insert(events, "backtrace " .. debug.traceback())
-	end
-
 	local a = (p[i] and p[i][1]) or 0
 	local b = (q[i] and q[i][1]) or MAXINT
 
@@ -286,7 +263,6 @@ local function afterPID(x, y)
 end
 
 function SendOp(op)
-	table.insert(events, "send op " .. vim.inspect(op))
 	local obj = {
 		["type"] = "text",
 		["ops"] = { op },
@@ -375,58 +351,8 @@ local function Refresh()
 end
 
 
-function TypeRandom(limit, ms)
-	ms = ms or 50
-	local timer = vim.loop.new_timer()
-	local i = 0
-	timer:start(300, ms, function()
-		vim.schedule(function()
-			if math.random() < 0.7 or vim.api.nvim_buf_line_count(0) < 2 then
-				if math.random() < 0.1 then
-					local lcount = vim.api.nvim_buf_line_count(0)
-					local lnum = math.random(0, lcount-1) -- # zero indexed
-					
-					vim.api.nvim_buf_set_lines(0, lnum, lnum, true, { "" }) 
-					
-				else
-					local lcount = vim.api.nvim_buf_line_count(0)
-					local lnum = math.random(0, lcount-1) -- # zero indexed
-					
-					local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
-					local cnum = math.random(1, string.len(curline))
-					
-					local c = typeset[math.floor(math.random()*(#typeset-1)+0.5)+1]
-					
-					curline = string.sub(curline, 1, cnum-1) .. c .. string.sub(curline, cnum)
-					vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
-					
-				end
-			else
-				if math.random() < 0.1 then
-					local lcount = vim.api.nvim_buf_line_count(0)
-					local lnum = math.random(0, lcount-1) -- # zero indexed
-					
-					vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, {})
-					
-				else
-					local lcount = vim.api.nvim_buf_line_count(0)
-					local lnum = math.random(0, lcount-1) -- # zero indexed
-					
-					local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
-					local cnum = math.random(1, string.len(curline))
-					
-					curline = string.sub(curline, 1, cnum-1) .. string.sub(curline, cnum+1)
-					vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
-				end
-			end
-		end)
-		if i > limit then timer:close() end
-		i = i + 1
-	end)
-end
 
-
-local function StartClient(first, appuri, port)
+local function StartClient(buf, first, appuri, port)
 	local v, username = pcall(function() return vim.api.nvim_get_var("instant_username") end)
 	if not v then
 		error("Please specify a username in g:instant_username")
@@ -484,7 +410,7 @@ local function StartClient(first, appuri, port)
 				return
 			end
 			
-			table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
+			-- table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
 			
 			if chunk then
 				if string.match(chunk, nocase("^HTTP")) then
@@ -540,7 +466,6 @@ local function StartClient(first, appuri, port)
 							if decoded then
 								-- table.insert(events, "received " .. text)
 								if decoded["type"] == "text" then
-									local buf = vim.api.nvim_get_current_buf()
 									local ops = decoded["ops"]
 									local opline = 0
 									for _,op in ipairs(ops) do
@@ -550,7 +475,11 @@ local function StartClient(first, appuri, port)
 										if op[1] == "ins" then
 											local x, y = findCharPositionBefore(op[3])
 											
-											opline = y-2
+											if op[2] == "\n" then
+												opline = y-1
+											else
+												opline = y-2
+											end
 											
 											if op[2] == "\n" then table.insert(pids, y+1, { op[4] })
 											else table.insert(pids[y], x+1, op[4] ) end
@@ -592,9 +521,7 @@ local function StartClient(first, appuri, port)
 												else
 													if sy > 1 then
 														local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
-														table.insert(events, "before " .. curline)
 														curline = utf8remove(curline, sx-2)
-														table.insert(events, "after " .. curline)
 														vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, { curline })
 													end
 												end
@@ -627,7 +554,7 @@ local function StartClient(first, appuri, port)
 											vim.api.nvim_get_current_buf(),
 											0, 
 											math.max(opline, 0), 
-											{{ " | " .. decoded["author"], "Special" }}, 
+											{{ "| " .. decoded["author"], "Special" }}, 
 											{})
 									
 								end
@@ -666,7 +593,6 @@ local function StartClient(first, appuri, port)
 									
 									pids = decoded["pids"]
 									
-									local buf = vim.api.nvim_get_current_buf()
 									local tick = vim.api.nvim_buf_get_changedtick(buf)+1
 									ignores[buf][tick] = true
 									
@@ -816,17 +742,15 @@ function DetachFromBuffer(bufnr)
 end
 
 
-local function Start(first, cur_buffer, host, port)
+local function Start(first, host, port)
 	if client and client:is_active() then
 		error("Client is already connected. Use InstantStop first to disconnect.")
 	end
 	
 
-	single_buffer = cur_buffer
-
-	StartClient(first, host, port)
-	
 	local bufhandle = vim.api.nvim_get_current_buf()
+	StartClient(bufhandle, first, host, port)
+	
 	detach[bufhandle] = nil
 	
 	ignores[bufhandle] = {}
@@ -892,7 +816,6 @@ local function Start(first, cur_buffer, host, port)
 								py = py + 1
 								px = 0
 							else
-								table.insert(events, "insert char y " .. py+1 .. " x " .. px+1)
 								local before_pid = pids[py+1][px+1]
 								local after_pid = afterPID(px+1, py+1)
 								local new_pid = genPID(before_pid, after_pid, agent, 1)
@@ -982,6 +905,98 @@ local function Start(first, cur_buffer, host, port)
 			table.insert(pids, i+1, { newpid })
 			
 			-- For testing purposes
+			-- @script_variables+=
+			-- local typeset = {}
+			-- 
+			-- @init_typeset+=
+			-- for i=string.byte('a'),string.byte('z') do
+			-- 	table.insert(typeset, string.char(i))
+			-- end
+			-- 
+			-- for i=string.byte('A'),string.byte('Z') do
+			-- 	table.insert(typeset, string.char(i))
+			-- end
+			-- 
+			-- for i=string.byte('0'),string.byte('9') do
+			-- 	table.insert(typeset, string.char(i))
+			-- end
+			-- 
+			-- @type_random_function+=
+			-- function TypeRandom(limit, ms)
+			-- 	ms = ms or 50
+			-- 	local timer = vim.loop.new_timer()
+			-- 	local i = 0
+			-- 	timer:start(300, ms, function()
+			-- 		vim.schedule(function()
+			-- 			if math.random() < 0.7 or vim.api.nvim_buf_line_count(0) < 2 then
+			-- 				if math.random() < 0.1 then
+			-- 					@pick_random_line
+			-- 					@insert_new_line
+			-- 				else
+			-- 					@pick_random_line
+			-- 					@pick_random_position_in_line
+			-- 					@pick_random_character
+			-- 					@insert_character
+			-- 				end
+			-- 			else
+			-- 				if math.random() < 0.1 then
+			-- 					@pick_random_line
+			-- 					@delete_line
+			-- 				else
+			-- 					@pick_random_line
+			-- 					@pick_random_position_in_line
+			-- 					@delete_character
+			-- 				end
+			-- 			end
+			-- 		end)
+			-- 		if i > limit then timer:close() end
+			-- 		i = i + 1
+			-- 	end)
+			-- end
+			-- 
+			-- @pick_random_line+=
+			-- local lcount = vim.api.nvim_buf_line_count(0)
+			-- local lnum = math.random(0, lcount-1) -- # zero indexed
+			-- 
+			-- @insert_new_line+=
+			-- vim.api.nvim_buf_set_lines(0, lnum, lnum, true, { "" }) 
+			-- 
+			-- @pick_random_position_in_line+=
+			-- local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
+			-- local cnum = math.random(1, string.len(curline))
+			-- 
+			-- @pick_random_character+=
+			-- local c = typeset[math.floor(math.random()*(#typeset-1)+0.5)+1]
+			-- 
+			-- @insert_character+=
+			-- curline = string.sub(curline, 1, cnum-1) .. c .. string.sub(curline, cnum)
+			-- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
+			-- 
+			-- @delete_line+=
+			-- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, {})
+			-- 
+			-- @delete_character+=
+			-- curline = string.sub(curline, 1, cnum-1) .. string.sub(curline, cnum+1)
+			-- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
+			-- 
+			-- @type_random_function+=
+			-- function TypeRandom2(limit, ms)
+			-- 	local timer = vim.loop.new_timer()
+			-- 	local i = 0
+			-- 	timer:start(300, ms, function()
+			-- 		vim.schedule(function()
+			-- 			@insert_new_character_in_line
+			-- 			if i > limit then timer:close() end
+			-- 			i = i + 1
+			-- 		end)
+			-- 	end)
+			-- end
+			-- 
+			-- @insert_new_character_in_line+=
+			-- local curline = vim.api.nvim_buf_get_lines(0, 0, 1, true)[1]
+			-- local cnum = string.len(curline)/2+1
+			-- curline = string.sub(curline, 1, cnum-1) .. "a" .. string.sub(curline, cnum)
+			-- vim.api.nvim_buf_set_lines(0, 0, 1, true, { curline }) 
 		end
 	
 		for j=1,string.len(line) do

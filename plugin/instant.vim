@@ -20,9 +20,9 @@ function! StartSingleWrapper(...)
 	endif
 
 	if a:0 == 1
-		call execute('lua instant.Start(true, true, "' .. a:1 .. '")')
+		call execute('lua instant.Start(true, "' .. a:1 .. '")')
 	else
-		call execute('lua instant.Start(true, true, "' .. a:1 .. '", ' .. a:2 .. ')')
+		call execute('lua instant.Start(true, "' .. a:1 .. '", ' .. a:2 .. ')')
 	endif
 endfunction
 
@@ -33,9 +33,9 @@ function! JoinSingleWrapper(...)
 	endif
 
 	if a:0 == 1
-		call execute('lua instant.Start(false, true, "' .. a:1 .. '")')
+		call execute('lua instant.Start(false, "' .. a:1 .. '")')
 	else
-		call execute('lua instant.Start(false, true, "' .. a:1 .. '", ' .. a:2 .. ')')
+		call execute('lua instant.Start(false, "' .. a:1 .. '", ' .. a:2 .. ')')
 	endif
 endfunction
 
