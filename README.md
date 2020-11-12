@@ -24,7 +24,7 @@ Features
 Requirements
 ------------
 
-* Neovim 0.5 (but might work on previous versions)
+* Neovim 0.4+
 
 Install
 -------

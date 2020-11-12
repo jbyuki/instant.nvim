@@ -2,10 +2,12 @@
 @requires
 @script_variables
 @fill_base64_table
+@init_typeset
 
 @declare_functions
 @functions
 
+@type_random_function
 
 @start_client
 @stop_client
@@ -1172,3 +1174,78 @@ table.insert(pids[i+1], newpid)
 
 @insert_newline_character_pid+=
 table.insert(pids, i+1, { newpid })
+
+-- For testing purposes
+-- @script_variables+=
+-- local typeset = {}
+-- 
+-- @init_typeset+=
+-- for i=string.byte('a'),string.byte('z') do
+-- 	table.insert(typeset, string.char(i))
+-- end
+-- 
+-- for i=string.byte('A'),string.byte('Z') do
+-- 	table.insert(typeset, string.char(i))
+-- end
+-- 
+-- for i=string.byte('0'),string.byte('9') do
+-- 	table.insert(typeset, string.char(i))
+-- end
+-- 
+-- @type_random_function+=
+-- function TypeRandom(limit, ms)
+-- 	ms = ms or 50
+-- 	local timer = vim.loop.new_timer()
+-- 	local i = 0
+-- 	timer:start(300, ms, function()
+-- 		vim.schedule(function()
+-- 			if math.random() < 0.7 or vim.api.nvim_buf_line_count(0) < 2 then
+-- 				if math.random() < 0.1 then
+-- 					@pick_random_line
+-- 					@insert_new_line
+-- 				else
+-- 					@pick_random_line
+-- 					@pick_random_position_in_line
+-- 					@pick_random_character
+-- 					@insert_character
+-- 				end
+-- 			else
+-- 				if math.random() < 0.1 then
+-- 					@pick_random_line
+-- 					@delete_line
+-- 				else
+-- 					@pick_random_line
+-- 					@pick_random_position_in_line
+-- 					@delete_character
+-- 				end
+-- 			end
+-- 		end)
+-- 		if i > limit then timer:close() end
+-- 		i = i + 1
+-- 	end)
+-- end
+-- 
+-- @pick_random_line+=
+-- local lcount = vim.api.nvim_buf_line_count(0)
+-- local lnum = math.random(0, lcount-1) -- # zero indexed
+-- 
+-- @insert_new_line+=
+-- vim.api.nvim_buf_set_lines(0, lnum, lnum, true, { "" }) 
+-- 
+-- @pick_random_position_in_line+=
+-- local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
+-- local cnum = math.random(1, string.len(curline))
+-- 
+-- @pick_random_character+=
+-- local c = typeset[math.floor(math.random()*(#typeset-1)+0.5)+1]
+-- 
+-- @insert_character+=
+-- curline = string.sub(curline, 1, cnum-1) .. c .. string.sub(curline, cnum)
+-- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
+-- 
+-- @delete_line+=
+-- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, {})
+-- 
+-- @delete_character+=
+-- curline = string.sub(curline, 1, cnum-1) .. string.sub(curline, cnum+1)
+-- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 

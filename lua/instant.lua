@@ -6,9 +6,9 @@ local websocketkey
 
 events = {}
 
-iptable = {}
+local iptable = {}
 
-frames = {}
+local frames = {}
 
 -- this global variable can be set to a local scope once 
 -- autocommands registration is natively supported in
@@ -17,14 +17,14 @@ has_attached = {}
 
 local detach = {}
 
-prev = { "" }
+local prev = { "" }
 
 -- pos = [(num, site)]
 local MAXINT = 2^15 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
-pids = {}
+local pids = {}
 
 local agent = 0
 
@@ -36,12 +36,26 @@ local initialized
 
 local old_namespace
 
+local typeset = {}
+
 local b64 = 0
 for i=string.byte('a'), string.byte('z') do base64[b64] = string.char(i) b64 = b64+1 end
 for i=string.byte('A'), string.byte('Z') do base64[b64] = string.char(i) b64 = b64+1 end
 for i=string.byte('0'), string.byte('9') do base64[b64] = string.char(i) b64 = b64+1 end
 base64[b64] = '+' b64 = b64+1
 base64[b64] = '/'
+
+for i=string.byte('a'),string.byte('z') do
+	table.insert(typeset, string.char(i))
+end
+
+for i=string.byte('A'),string.byte('Z') do
+	table.insert(typeset, string.char(i))
+end
+
+for i=string.byte('0'),string.byte('9') do
+	table.insert(typeset, string.char(i))
+end
 
 
 local GenerateWebSocketKey -- we must forward declare local functions because otherwise it picks the global one
@@ -361,6 +375,56 @@ local function Refresh()
 	
 end
 
+
+function TypeRandom(limit, ms)
+	ms = ms or 50
+	local timer = vim.loop.new_timer()
+	local i = 0
+	timer:start(300, ms, function()
+		vim.schedule(function()
+			if math.random() < 0.7 or vim.api.nvim_buf_line_count(0) < 2 then
+				if math.random() < 0.1 then
+					local lcount = vim.api.nvim_buf_line_count(0)
+					local lnum = math.random(0, lcount-1) -- # zero indexed
+					
+					vim.api.nvim_buf_set_lines(0, lnum, lnum, true, { "" }) 
+					
+				else
+					local lcount = vim.api.nvim_buf_line_count(0)
+					local lnum = math.random(0, lcount-1) -- # zero indexed
+					
+					local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
+					local cnum = math.random(1, string.len(curline))
+					
+					local c = typeset[math.floor(math.random()*(#typeset-1)+0.5)+1]
+					
+					curline = string.sub(curline, 1, cnum-1) .. c .. string.sub(curline, cnum)
+					vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
+					
+				end
+			else
+				if math.random() < 0.1 then
+					local lcount = vim.api.nvim_buf_line_count(0)
+					local lnum = math.random(0, lcount-1) -- # zero indexed
+					
+					vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, {})
+					
+				else
+					local lcount = vim.api.nvim_buf_line_count(0)
+					local lnum = math.random(0, lcount-1) -- # zero indexed
+					
+					local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
+					local cnum = math.random(1, string.len(curline))
+					
+					curline = string.sub(curline, 1, cnum-1) .. string.sub(curline, cnum+1)
+					vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
+				end
+			end
+		end)
+		if i > limit then timer:close() end
+		i = i + 1
+	end)
+end
 
 
 local function StartClient(first, appuri, port)
@@ -904,6 +968,7 @@ local function Start(first, cur_buffer, host, port)
 				bpid = newpid
 				
 				table.insert(pids, i+1, { newpid })
+				
 			end
 		
 			for j=1,string.len(line) do
