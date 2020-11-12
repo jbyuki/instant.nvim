@@ -51,6 +51,7 @@ end
 
 @close_client+=
 client:close()
+client = nil
 
 @declare_functions+=
 local GenerateWebSocketKey -- we must forward declare local functions because otherwise it picks the global one
@@ -243,7 +244,7 @@ for i=1,#masked do
 end
 
 @script_variables+=
-iptable = {}
+local iptable = {}
 
 @get_ip_address+=
 iptable = vim.loop.getaddrinfo(appuri)
@@ -280,44 +281,29 @@ if chunk then
 		end
 	else
 		local opcode, fin
-		if remaining == 0 then
-			first_chunk = chunk
+		while string.len(chunk) > 0 do
+			@read_opcode
+			@do_opcode
 		end
-		@read_opcode
-		@do_opcode
 	end
 end
-
-@script_variables+=
-local fragmented = ""
-local remaining = 0
-local first_chunk
-
 @do_opcode+=
 if opcode == 0x1 then -- TEXT
-	if remaining == 0 then
-		@read_payload_length
-		@read_payload
-		fragmented = text
-		remaining = paylen - string.len(text)
-	else
-		fragmented = fragmented .. chunk
-		remaining = remaining - string.len(chunk)
-	end
+	@read_payload_length
+	@read_payload
 
-	if remaining == 0 then
-		@interpret_received_text
-	end
+	@interpret_received_text
+	chunk = string.sub(chunk, 2+paylenlen+1+paylen)
 end
 
 @script_variables+=
-frames = {}
+local frames = {}
 
 @read_opcode+=
-local b1 = string.byte(string.sub(first_chunk,1,1))
+local b1 = string.byte(string.sub(chunk,1,1))
 table.insert(frames, "FIN " .. OpAnd(b1, 0x80))
 table.insert(frames, "OPCODE " .. OpAnd(b1, 0xF))
-local b2 = string.byte(string.sub(first_chunk,2,2))
+local b2 = string.byte(string.sub(chunk,2,2))
 table.insert(frames, "MASK " .. OpAnd(b2, 0x80))
 opcode = OpAnd(b1, 0xF)
 fin = OpRshift(b1, 7)
@@ -326,28 +312,22 @@ fin = OpRshift(b1, 7)
 local paylen = OpAnd(b2, 0x7F)
 local paylenlen = 0
 if paylen == 126 then -- 16 bits length
-	local b3 = string.byte(string.sub(first_chunk,3,3))
-	local b4 = string.byte(string.sub(first_chunk,4,4))
+	local b3 = string.byte(string.sub(chunk,3,3))
+	local b4 = string.byte(string.sub(chunk,4,4))
 	paylen = OpLshift(b3, 8) + b4
 	paylenlen = 2
 elseif paylen == 127 then
 	paylen = 0
 	for i=0,7 do -- 64 bits length
 		paylen = OpLshift(paylen, 8) 
-		paylen = paylen + string.byte(string.sub(first_chunk,i+3,i+3))
+		paylen = paylen + string.byte(string.sub(chunk,i+3,i+3))
 	end
 	paylenlen = 8
 end
 table.insert(frames, "PAYLOAD LENGTH " .. paylen)
 
 @read_payload+=
-local text = string.sub(chunk, 2+paylenlen+1)
-if string.len(text) < 40 then
-	table.insert(frames, "TEXT " .. text)
-else
-	table.insert(frames, "TEXT " .. string.sub(text, 1, 15) .. " .. " .. string.sub(text, string.len(text)-15))
-end
-table.insert(frames, "TEXT LEN " .. string.len(text))
+local text = string.sub(chunk, 2+paylenlen+1, 2+paylenlen+1+(paylen-1))
 
 @send_close_frame+=
 @generate_mask
@@ -367,7 +347,7 @@ if opcode == 0x9 then -- PING
 end
 
 @send_pong+=
-table.insert(frames, "SENT PONG")
+--table.insert(frames, "SENT PONG")
 @generate_mask
 local frame = {
 	0x8A, 0x80,
@@ -460,7 +440,7 @@ for _,line in ipairs(vim.api.nvim_buf_get_lines(buf, firstline, new_lastline, fa
 end
 
 @script_variables+=
-prev = { "" }
+local prev = { "" }
 
 @get_both_ranges+=
 local prev_range = ""
@@ -516,7 +496,6 @@ local utf8insert
 
 @functions+=
 function utf8insert(str, i, c)
-	table.insert(events, "utf8insert str '" .. str .. "' i " .. i .. " c " .. c)
 	if i == utf8len(str) then
 		return str .. c
 	end
@@ -582,7 +561,9 @@ local utf8remove
 
 @functions+=
 function utf8remove(str, i)
-	table.insert(events, "traceback " .. debug.traceback())
+	if i >= utf8len(str) then
+		table.insert(events, "utf8remove " .. debug.traceback())
+	end
 	local s1 = vim.str_byteindex(str, i)
 	local s2 = vim.str_byteindex(str, i+1)
 
@@ -610,7 +591,7 @@ local MAXINT = 2^15 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
-pids = {}
+local pids = {}
 
 @init_client+=
 local middlepos = genPID(startpos, endpos, agent, 1)
@@ -625,6 +606,10 @@ local genPID
 
 @functions+=
 function genPID(p, q, s, i)
+	if not p or not q then
+		table.insert(events, "backtrace " .. debug.traceback())
+	end
+
 	local a = (p[i] and p[i][1]) or 0
 	local b = (q[i] and q[i][1]) or MAXINT
 
@@ -656,6 +641,7 @@ local SendOp
 
 @functions+=
 function SendOp(op)
+	table.insert(events, "send op " .. vim.inspect(op))
 	@encode_operation_in_json_object
 	@send_encoded
 end
@@ -716,7 +702,7 @@ end
 local buf = vim.api.nvim_call_function("bufnr", { filename .. "$" })
 
 @decode_json+=
-local decoded = vim.api.nvim_call_function("json_decode", {fragmented})
+local decoded = vim.api.nvim_call_function("json_decode", {text})
 
 @script_variables+=
 local ignores = {}
@@ -760,7 +746,7 @@ opline = sy-2
 @insert_character_in_prev
 
 @functions+=
-local function findCharPosition(opid)
+local function findCharPositionBefore(opid)
 	local x, y = 1, 1
 	local px, py = 1, 1
 	for _,lpid in ipairs(pids) do
@@ -777,7 +763,7 @@ local function findCharPosition(opid)
 end
 
 @find_pid_of_element_just_before+=
-local x, y = findCharPosition(op[3])
+local x, y = findCharPositionBefore(op[3])
 
 @insert_pid+=
 if op[2] == "\n" then table.insert(pids, y+1, { op[4] })
@@ -794,13 +780,52 @@ end
 
 @apply_delete_operation+=
 @find_pid_of_element_to_delete
-@set_op_line_delete
-@delete_pid
-@delete_character_with_pid_position
-@delete_character_in_prev
+if sx then
+	@set_op_line_delete
+	@delete_pid
+	@delete_character_with_pid_position
+	@delete_character_in_prev
+end
+
+@declare_functions+=
+local isPIDEqual
+
+@functions+=
+function isPIDEqual(a, b)
+	if #a ~= #b then return false end
+	for i=1,#a do
+		if a[i][1] ~= b[i][1] then return false end
+		if a[i][2] ~= b[i][2] then return false end
+	end
+	return true
+end
+
+@functions+=
+local function findCharPositionExact(opid)
+	local x, y = 1, 1
+	for _,lpid in ipairs(pids) do
+		x = 1 
+		for _,pid in ipairs(lpid) do
+			if isPIDEqual(pid, opid) then 
+				return x, y
+			end
+
+			if not isLower(pid, opid) then
+				return nil
+			end
+			x = x + 1 
+		end
+		y = y + 1
+	end
+end
 
 @find_pid_of_element_to_delete+=
-local sx, sy = findCharPosition(op[2])
+local sx, sy = findCharPositionExact(op[2])
+if not sx then
+	table.insert(events, "could not find char position")
+	table.insert(events, "op " .. vim.inspect(op[2]))
+	table.insert(events, "pids " .. vim.inspect(pids))
+end
 
 @delete_pid+=
 if sx == 1 then
@@ -815,7 +840,9 @@ if sx == 1 then
 else
 	if sy > 1 then
 		local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
+		table.insert(events, "before " .. curline)
 		curline = utf8remove(curline, sx-2)
+		table.insert(events, "after " .. curline)
 		vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, { curline })
 	end
 end

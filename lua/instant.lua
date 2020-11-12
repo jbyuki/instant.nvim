@@ -8,10 +8,6 @@ events = {}
 
 iptable = {}
 
-local fragmented = ""
-local remaining = 0
-local first_chunk
-
 frames = {}
 
 -- this global variable can be set to a local scope once 
@@ -71,6 +67,8 @@ local utf8remove
 local genPID
 
 local SendOp
+
+local isPIDEqual
 
 local isLower
 
@@ -233,7 +231,6 @@ function utf8char(str, i)
 end
 
 function utf8insert(str, i, c)
-	table.insert(events, "utf8insert str '" .. str .. "' i " .. i .. " c " .. c)
 	if i == utf8len(str) then
 		return str .. c
 	end
@@ -242,7 +239,9 @@ function utf8insert(str, i, c)
 end
 
 function utf8remove(str, i)
-	table.insert(events, "traceback " .. debug.traceback())
+	if i >= utf8len(str) then
+		table.insert(events, "utf8remove " .. debug.traceback())
+	end
 	local s1 = vim.str_byteindex(str, i)
 	local s2 = vim.str_byteindex(str, i+1)
 
@@ -250,6 +249,10 @@ function utf8remove(str, i)
 end
 
 function genPID(p, q, s, i)
+	if not p or not q then
+		table.insert(events, "backtrace " .. debug.traceback())
+	end
+
 	local a = (p[i] and p[i][1]) or 0
 	local b = (q[i] and q[i][1]) or MAXINT
 
@@ -270,6 +273,7 @@ local function afterPID(x, y)
 end
 
 function SendOp(op)
+	table.insert(events, "send op " .. vim.inspect(op))
 	local obj = {
 		["type"] = "text",
 		["ops"] = { op },
@@ -285,7 +289,7 @@ function SendOp(op)
 	
 end
 
-local function findCharPosition(opid)
+local function findCharPositionBefore(opid)
 	local x, y = 1, 1
 	local px, py = 1, 1
 	for _,lpid in ipairs(pids) do
@@ -295,6 +299,33 @@ local function findCharPosition(opid)
 				return px, py
 			end
 			px, py = x, y
+			x = x + 1 
+		end
+		y = y + 1
+	end
+end
+
+function isPIDEqual(a, b)
+	if #a ~= #b then return false end
+	for i=1,#a do
+		if a[i][1] ~= b[i][1] then return false end
+		if a[i][2] ~= b[i][2] then return false end
+	end
+	return true
+end
+
+local function findCharPositionExact(opid)
+	local x, y = 1, 1
+	for _,lpid in ipairs(pids) do
+		x = 1 
+		for _,pid in ipairs(lpid) do
+			if isPIDEqual(pid, opid) then 
+				return x, y
+			end
+
+			if not isLower(pid, opid) then
+				return nil
+			end
 			x = x + 1 
 		end
 		y = y + 1
@@ -405,53 +436,37 @@ local function StartClient(first, appuri, port)
 					end
 				else
 					local opcode, fin
-					if remaining == 0 then
-						first_chunk = chunk
-					end
-					local b1 = string.byte(string.sub(first_chunk,1,1))
-					table.insert(frames, "FIN " .. OpAnd(b1, 0x80))
-					table.insert(frames, "OPCODE " .. OpAnd(b1, 0xF))
-					local b2 = string.byte(string.sub(first_chunk,2,2))
-					table.insert(frames, "MASK " .. OpAnd(b2, 0x80))
-					opcode = OpAnd(b1, 0xF)
-					fin = OpRshift(b1, 7)
-					
-					if opcode == 0x1 then -- TEXT
-						if remaining == 0 then
+					while string.len(chunk) > 0 do
+						local b1 = string.byte(string.sub(chunk,1,1))
+						table.insert(frames, "FIN " .. OpAnd(b1, 0x80))
+						table.insert(frames, "OPCODE " .. OpAnd(b1, 0xF))
+						local b2 = string.byte(string.sub(chunk,2,2))
+						table.insert(frames, "MASK " .. OpAnd(b2, 0x80))
+						opcode = OpAnd(b1, 0xF)
+						fin = OpRshift(b1, 7)
+						
+						if opcode == 0x1 then -- TEXT
 							local paylen = OpAnd(b2, 0x7F)
 							local paylenlen = 0
 							if paylen == 126 then -- 16 bits length
-								local b3 = string.byte(string.sub(first_chunk,3,3))
-								local b4 = string.byte(string.sub(first_chunk,4,4))
+								local b3 = string.byte(string.sub(chunk,3,3))
+								local b4 = string.byte(string.sub(chunk,4,4))
 								paylen = OpLshift(b3, 8) + b4
 								paylenlen = 2
 							elseif paylen == 127 then
 								paylen = 0
 								for i=0,7 do -- 64 bits length
 									paylen = OpLshift(paylen, 8) 
-									paylen = paylen + string.byte(string.sub(first_chunk,i+3,i+3))
+									paylen = paylen + string.byte(string.sub(chunk,i+3,i+3))
 								end
 								paylenlen = 8
 							end
 							table.insert(frames, "PAYLOAD LENGTH " .. paylen)
 							
-							local text = string.sub(chunk, 2+paylenlen+1)
-							if string.len(text) < 40 then
-								table.insert(frames, "TEXT " .. text)
-							else
-								table.insert(frames, "TEXT " .. string.sub(text, 1, 15) .. " .. " .. string.sub(text, string.len(text)-15))
-							end
-							table.insert(frames, "TEXT LEN " .. string.len(text))
+							local text = string.sub(chunk, 2+paylenlen+1, 2+paylenlen+1+(paylen-1))
 							
-							fragmented = text
-							remaining = paylen - string.len(text)
-						else
-							fragmented = fragmented .. chunk
-							remaining = remaining - string.len(chunk)
-						end
-					
-						if remaining == 0 then
-							local decoded = vim.api.nvim_call_function("json_decode", {fragmented})
+						
+							local decoded = vim.api.nvim_call_function("json_decode", {text})
 							
 							if decoded then
 								-- table.insert(events, "received " .. text)
@@ -464,7 +479,7 @@ local function StartClient(first, appuri, port)
 										ignores[buf][tick] = true
 										
 										if op[1] == "ins" then
-											local x, y = findCharPosition(op[3])
+											local x, y = findCharPositionBefore(op[3])
 											
 											opline = y-2
 											
@@ -487,36 +502,45 @@ local function StartClient(first, appuri, port)
 											
 											
 										elseif op[1] == "del" then
-											local sx, sy = findCharPosition(op[2])
-											
-											opline = sy-2
-											
-											if sx == 1 then
-												table.remove(pids, sy)
-											else
-												table.remove(pids[sy], sx)
+											local sx, sy = findCharPositionExact(op[2])
+											if not sx then
+												table.insert(events, "could not find char position")
+												table.insert(events, "op " .. vim.inspect(op[2]))
+												table.insert(events, "pids " .. vim.inspect(pids))
 											end
 											
-											if sx == 1 then
-												vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, {})
-											else
-												if sy > 1 then
-													local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
-													curline = utf8remove(curline, sx-2)
-													vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, { curline })
+											if sx then
+												opline = sy-2
+												
+												if sx == 1 then
+													table.remove(pids, sy)
+												else
+													table.remove(pids[sy], sx)
 												end
-											end
-											
-											if sx == 1 then
-												table.remove(prev, sy-1)
-											else
-												if sy > 1 then
-													local curline = prev[sy-1]
-													curline = utf8remove(curline, sx-2)
-													prev[sy-1] = curline
+												
+												if sx == 1 then
+													vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, {})
+												else
+													if sy > 1 then
+														local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
+														table.insert(events, "before " .. curline)
+														curline = utf8remove(curline, sx-2)
+														table.insert(events, "after " .. curline)
+														vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, { curline })
+													end
 												end
+												
+												if sx == 1 then
+													table.remove(prev, sy-1)
+												else
+													if sy > 1 then
+														local curline = prev[sy-1]
+														curline = utf8remove(curline, sx-2)
+														prev[sy-1] = curline
+													end
+												end
+												
 											end
-											
 											
 										end
 									end
@@ -638,49 +662,49 @@ local function StartClient(first, appuri, port)
 								table.insert(events, "Could not decode json " .. fragmented)
 							end
 							
+							chunk = string.sub(chunk, 2+paylenlen+1+paylen)
 						end
-					end
-					
-					if opcode == 0x9 then -- PING
-						local paylen = OpAnd(b2, 0x7F)
-						local paylenlen = 0
-						if paylen == 126 then -- 16 bits length
-							local b3 = string.byte(string.sub(first_chunk,3,3))
-							local b4 = string.byte(string.sub(first_chunk,4,4))
-							paylen = OpLshift(b3, 8) + b4
-							paylenlen = 2
-						elseif paylen == 127 then
-							paylen = 0
-							for i=0,7 do -- 64 bits length
-								paylen = OpLshift(paylen, 8) 
-								paylen = paylen + string.byte(string.sub(first_chunk,i+3,i+3))
+						
+						if opcode == 0x9 then -- PING
+							local paylen = OpAnd(b2, 0x7F)
+							local paylenlen = 0
+							if paylen == 126 then -- 16 bits length
+								local b3 = string.byte(string.sub(chunk,3,3))
+								local b4 = string.byte(string.sub(chunk,4,4))
+								paylen = OpLshift(b3, 8) + b4
+								paylenlen = 2
+							elseif paylen == 127 then
+								paylen = 0
+								for i=0,7 do -- 64 bits length
+									paylen = OpLshift(paylen, 8) 
+									paylen = paylen + string.byte(string.sub(chunk,i+3,i+3))
+								end
+								paylenlen = 8
 							end
-							paylenlen = 8
+							table.insert(frames, "PAYLOAD LENGTH " .. paylen)
+							
+							--table.insert(frames, "SENT PONG")
+							local mask = {}
+							for i=1,4 do
+								table.insert(mask, math.floor(math.random() * 255))
+							end
+							
+							local frame = {
+								0x8A, 0x80,
+							}
+							for i=1,4 do 
+								table.insert(frame, mask[i])
+							end
+							local s = ConvertBytesToString(frame)
+							
+							client:write(s)
+							
+							
 						end
-						table.insert(frames, "PAYLOAD LENGTH " .. paylen)
-						
-						table.insert(frames, "SENT PONG")
-						local mask = {}
-						for i=1,4 do
-							table.insert(mask, math.floor(math.random() * 255))
-						end
-						
-						local frame = {
-							0x8A, 0x80,
-						}
-						for i=1,4 do 
-							table.insert(frame, mask[i])
-						end
-						local s = ConvertBytesToString(frame)
-						
-						client:write(s)
-						
 						
 					end
-					
 				end
 			end
-			
 		end))
 		client:write("GET / HTTP/1.1\r\n")
 		client:write("Host: " .. appuri .. ":" .. port .. "\r\n")
@@ -712,6 +736,7 @@ local function StopClient()
 	
 	
 	client:close()
+	client = nil
 	
 end
 
