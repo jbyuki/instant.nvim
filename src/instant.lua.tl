@@ -504,7 +504,7 @@ for i=0,vim.str_utfindex(toadd)-1 do
 		@insert_newline_character
 		table.insert(prev, py+1, "")
 		py = py + 1
-		px = 1
+		px = 0
 	else
 		@insert_normal_character
 		prev[py] = utf8insert(prev[py], px,c)
@@ -656,6 +656,7 @@ table.insert(pids, py+2, {new_pid})
 SendOp { "ins", "\n", before_pid, new_pid }
 
 @insert_normal_character+=
+table.insert(events, "insert char y " .. py+1 .. " x " .. px+1)
 local before_pid = pids[py+1][px+1]
 local after_pid = afterPID(px+1, py+1)
 local new_pid = genPID(before_pid, after_pid, agent, 1)

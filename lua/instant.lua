@@ -31,12 +31,26 @@ local initialized
 
 local old_namespace
 
+local typeset = {}
+
 local b64 = 0
 for i=string.byte('a'), string.byte('z') do base64[b64] = string.char(i) b64 = b64+1 end
 for i=string.byte('A'), string.byte('Z') do base64[b64] = string.char(i) b64 = b64+1 end
 for i=string.byte('0'), string.byte('9') do base64[b64] = string.char(i) b64 = b64+1 end
 base64[b64] = '+' b64 = b64+1
 base64[b64] = '/'
+
+for i=string.byte('a'),string.byte('z') do
+	table.insert(typeset, string.char(i))
+end
+
+for i=string.byte('A'),string.byte('Z') do
+	table.insert(typeset, string.char(i))
+end
+
+for i=string.byte('0'),string.byte('9') do
+	table.insert(typeset, string.char(i))
+end
 
 
 local StopClient
@@ -360,6 +374,56 @@ local function Refresh()
 	
 end
 
+
+function TypeRandom(limit, ms)
+	ms = ms or 50
+	local timer = vim.loop.new_timer()
+	local i = 0
+	timer:start(300, ms, function()
+		vim.schedule(function()
+			if math.random() < 0.7 or vim.api.nvim_buf_line_count(0) < 2 then
+				if math.random() < 0.1 then
+					local lcount = vim.api.nvim_buf_line_count(0)
+					local lnum = math.random(0, lcount-1) -- # zero indexed
+					
+					vim.api.nvim_buf_set_lines(0, lnum, lnum, true, { "" }) 
+					
+				else
+					local lcount = vim.api.nvim_buf_line_count(0)
+					local lnum = math.random(0, lcount-1) -- # zero indexed
+					
+					local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
+					local cnum = math.random(1, string.len(curline))
+					
+					local c = typeset[math.floor(math.random()*(#typeset-1)+0.5)+1]
+					
+					curline = string.sub(curline, 1, cnum-1) .. c .. string.sub(curline, cnum)
+					vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
+					
+				end
+			else
+				if math.random() < 0.1 then
+					local lcount = vim.api.nvim_buf_line_count(0)
+					local lnum = math.random(0, lcount-1) -- # zero indexed
+					
+					vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, {})
+					
+				else
+					local lcount = vim.api.nvim_buf_line_count(0)
+					local lnum = math.random(0, lcount-1) -- # zero indexed
+					
+					local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
+					local cnum = math.random(1, string.len(curline))
+					
+					curline = string.sub(curline, 1, cnum-1) .. string.sub(curline, cnum+1)
+					vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
+				end
+			end
+		end)
+		if i > limit then timer:close() end
+		i = i + 1
+	end)
+end
 
 
 local function StartClient(first, appuri, port)
@@ -826,8 +890,9 @@ local function Start(first, cur_buffer, host, port)
 								
 								table.insert(prev, py+1, "")
 								py = py + 1
-								px = 1
+								px = 0
 							else
+								table.insert(events, "insert char y " .. py+1 .. " x " .. px+1)
 								local before_pid = pids[py+1][px+1]
 								local after_pid = afterPID(px+1, py+1)
 								local new_pid = genPID(before_pid, after_pid, agent, 1)
@@ -917,79 +982,6 @@ local function Start(first, cur_buffer, host, port)
 			table.insert(pids, i+1, { newpid })
 			
 			-- For testing purposes
-			-- @script_variables+=
-			-- local typeset = {}
-			-- 
-			-- @init_typeset+=
-			-- for i=string.byte('a'),string.byte('z') do
-			-- 	table.insert(typeset, string.char(i))
-			-- end
-			-- 
-			-- for i=string.byte('A'),string.byte('Z') do
-			-- 	table.insert(typeset, string.char(i))
-			-- end
-			-- 
-			-- for i=string.byte('0'),string.byte('9') do
-			-- 	table.insert(typeset, string.char(i))
-			-- end
-			-- 
-			-- @type_random_function+=
-			-- function TypeRandom(limit, ms)
-			-- 	ms = ms or 50
-			-- 	local timer = vim.loop.new_timer()
-			-- 	local i = 0
-			-- 	timer:start(300, ms, function()
-			-- 		vim.schedule(function()
-			-- 			if math.random() < 0.7 or vim.api.nvim_buf_line_count(0) < 2 then
-			-- 				if math.random() < 0.1 then
-			-- 					@pick_random_line
-			-- 					@insert_new_line
-			-- 				else
-			-- 					@pick_random_line
-			-- 					@pick_random_position_in_line
-			-- 					@pick_random_character
-			-- 					@insert_character
-			-- 				end
-			-- 			else
-			-- 				if math.random() < 0.1 then
-			-- 					@pick_random_line
-			-- 					@delete_line
-			-- 				else
-			-- 					@pick_random_line
-			-- 					@pick_random_position_in_line
-			-- 					@delete_character
-			-- 				end
-			-- 			end
-			-- 		end)
-			-- 		if i > limit then timer:close() end
-			-- 		i = i + 1
-			-- 	end)
-			-- end
-			-- 
-			-- @pick_random_line+=
-			-- local lcount = vim.api.nvim_buf_line_count(0)
-			-- local lnum = math.random(0, lcount-1) -- # zero indexed
-			-- 
-			-- @insert_new_line+=
-			-- vim.api.nvim_buf_set_lines(0, lnum, lnum, true, { "" }) 
-			-- 
-			-- @pick_random_position_in_line+=
-			-- local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
-			-- local cnum = math.random(1, string.len(curline))
-			-- 
-			-- @pick_random_character+=
-			-- local c = typeset[math.floor(math.random()*(#typeset-1)+0.5)+1]
-			-- 
-			-- @insert_character+=
-			-- curline = string.sub(curline, 1, cnum-1) .. c .. string.sub(curline, cnum)
-			-- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
-			-- 
-			-- @delete_line+=
-			-- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, {})
-			-- 
-			-- @delete_character+=
-			-- curline = string.sub(curline, 1, cnum-1) .. string.sub(curline, cnum+1)
-			-- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
 		end
 	
 		for j=1,string.len(line) do
