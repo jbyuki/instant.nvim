@@ -406,16 +406,11 @@ local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
 	on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
 		@return_true_if_detach
 		@if_ignore_tick_return
-		vim.schedule(function()
-			@get_both_ranges
-			@get_xor_range
-			@display_xor_ranges
-			@if_there_is_text_to_delete_delete_it
-			@if_there_is_text_to_insert_insert_it
-			-- @if_text_was_insert_add_new_text
-			-- @if_text_was_deleted_remove_text
-			-- @if_text_was_replaced_add_and_remove_text
-		end)
+		@get_both_ranges
+		@get_xor_range
+		-- @display_xor_ranges
+		@if_there_is_text_to_delete_delete_it
+		@if_there_is_text_to_insert_insert_it
 	end,
 	on_detach = function(_, buf)
 		table.insert(events, "detached " .. bufhandle)
@@ -758,6 +753,7 @@ local SendOp
 
 @functions+=
 function SendOp(op)
+	-- table.insert(events, "send op " .. vim.inspect(op))
 	@encode_operation_in_json_object
 	@send_encoded
 end
@@ -1067,32 +1063,6 @@ function isLower(a, b)
 	end
 	return true
 end
-
-@set_lines+=
-local lines = {}
--- if it's an empty string, fill lines with an empty array
--- otherwise with gsplit it will put an empty string into
--- the array like : { "" }
-if string.len(decoded["text"]) == 0 then
-	if decoded["start"] == decoded["end"] then -- new line
-		lines = { "" }
-	elseif decoded["end"] == decoded["last"] then -- just delete line content but keep it
-		lines = { "" }
-	else -- delete lines
-		lines = {}
-	end
-else 
-	for line in vim.gsplit(decoded["text"], '\n') do
-		table.insert(lines, line)
-	end
-end
--- table.insert(events, "buf " .. buf .. " set_lines start: " .. decoded["start"] .. " end: " .. decoded["end"] .. " lines: " .. vim.inspect(lines))
-vim.api.nvim_buf_set_lines(
-	buf, 
-	decoded["start"], 
-	decoded["end"], 
-	false, 
-	lines)
 
 @set_port_as_80_if_not_provided+=
 port = port or 80
@@ -1485,4 +1455,11 @@ table.insert(pids, i+1, { newpid })
 -- end
 -- for i,line in ipairs(prev) do
 -- 	table.insert(events, i .. ": " .. vim.inspect(line))
+-- end
+-- local all_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, true)
+-- for i,line in ipairs(all_lines) do
+-- 	if prev[i] ~= line then
+-- 		table.insert(events, "DISC")
+-- 	end
+-- 	table.insert(events, i .. "> " .. vim.inspect(line))
 -- end
