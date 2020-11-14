@@ -1462,19 +1462,21 @@ local lastPID = {}
 lastPID[decoded["author"]] = op[4]
 
 @functions+=
-local function findPIDAfter(opid)
-	local px, py = 1, 1
+local function findPIDBefore2(opid)
+	local pppid, ppid
 	for y,lpid in ipairs(pids) do
 		for x,pid in ipairs(lpid) do
 			if not isLower(pid, opid) then 
-				return pid 
+				return pppid 
 			end
+			pppid = ppid
+			ppid = pid
 		end
 	end
 end
 
 @save_last_deleted_pid+=
-lastPID[decoded["author"]] = findPIDAfter(op[2])
+lastPID[decoded["author"]] = findPIDBefore2(op[2])
 
 @script_variables+=
 local vtextGroup = "CursorLineNr"

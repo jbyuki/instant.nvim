@@ -377,13 +377,15 @@ local function Refresh()
 	
 end
 
-local function findPIDAfter(opid)
-	local px, py = 1, 1
+local function findPIDBefore2(opid)
+	local pppid, ppid
 	for y,lpid in ipairs(pids) do
 		for x,pid in ipairs(lpid) do
 			if not isLower(pid, opid) then 
-				return pid 
+				return pppid 
 			end
+			pppid = ppid
+			ppid = pid
 		end
 	end
 end
@@ -588,7 +590,7 @@ local function StartClient(buf, first, appuri, port)
 												
 												
 											elseif op[1] == "del" then
-												lastPID[decoded["author"]] = findPIDAfter(op[2])
+												lastPID[decoded["author"]] = findPIDBefore2(op[2])
 												
 												local sx, sy = findCharPositionExact(op[2])
 												
