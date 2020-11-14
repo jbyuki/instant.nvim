@@ -26,11 +26,20 @@ local pids = {}
 
 local agent = 0
 
+author = vim.api.nvim_get_var("instant_username")
+
 local ignores = {}
 
 local initialized
 
+local lastPID = {}
+
+local vtextGroup = "CursorLineNr"
+
 local old_namespace
+
+local cursors = {}
+local cursorGroup = "Cursor"
 
 local b64 = 0
 for i=string.byte('a'), string.byte('z') do base64[b64] = string.char(i) b64 = b64+1 end
@@ -75,6 +84,8 @@ local utf8split
 local isPIDEqual
 
 local isLower
+
+local updateCursor
 
 function GenerateWebSocketKey()
 	key = {}
@@ -274,7 +285,7 @@ function SendOp(op)
 	local obj = {
 		["type"] = "text",
 		["ops"] = { op },
-		["author"] = vim.api.nvim_get_var("instant_username"),
+		["author"] = author,
 	}
 	local encoded = vim.api.nvim_call_function("json_encode", { obj })
 	
@@ -368,6 +379,20 @@ local function Refresh()
 	
 end
 
+function updateCursor(author, pid)
+end
+
+local function findPIDAfter(opid)
+	local px, py = 1, 1
+	for y,lpid in ipairs(pids) do
+		for x,pid in ipairs(lpid) do
+			if not isLower(pid, opid) then 
+				return pid 
+			end
+		end
+	end
+end
+
 
 
 local function StartClient(buf, first, appuri, port)
@@ -375,6 +400,7 @@ local function StartClient(buf, first, appuri, port)
 	if not v then
 		error("Please specify a username in g:instant_username")
 	end
+	
 	
 	detach = {}
 	
@@ -388,6 +414,8 @@ local function StartClient(buf, first, appuri, port)
 	initialized = false
 	
 	old_namespace = {}
+	
+	cursors = {}
 	
 	port = port or 80
 	
@@ -410,6 +438,10 @@ local function StartClient(buf, first, appuri, port)
 			end
 			StopClient()
 			
+			for _,match in pairs(cursors) do
+				vim.api.nvim_call_function("matchdelete", { match } )
+			end
+			cursors = {}
 			error("There was an error during connection: " .. err)
 			return
 		end
@@ -424,6 +456,10 @@ local function StartClient(buf, first, appuri, port)
 				end
 				StopClient()
 				
+				for _,match in pairs(cursors) do
+					vim.api.nvim_call_function("matchdelete", { match } )
+				end
+				cursors = {}
 				error("There was an error during connection: " .. err)
 				return
 			end
@@ -503,6 +539,7 @@ local function StartClient(buf, first, appuri, port)
 									if decoded["type"] == "text" then
 										local ops = decoded["ops"]
 										local opline = 0
+										local opcol = 0
 										for _,op in ipairs(ops) do
 											-- table.insert(events, "receive op " .. vim.inspect(op))
 											-- @display_states
@@ -510,6 +547,8 @@ local function StartClient(buf, first, appuri, port)
 											ignores[buf][tick] = true
 											
 											if op[1] == "ins" then
+												lastPID[decoded["author"]] = op[4]
+												
 												local x, y = findCharPositionBefore(op[3], op[4])
 												
 												if op[2] == "\n" then
@@ -517,6 +556,7 @@ local function StartClient(buf, first, appuri, port)
 												else
 													opline = y-2
 												end
+												opcol = x
 												
 												if op[2] == "\n" then 
 													local py, py1 = splitArray(pids[y], x+1)
@@ -553,10 +593,18 @@ local function StartClient(buf, first, appuri, port)
 												
 												
 											elseif op[1] == "del" then
+												lastPID[decoded["author"]] = findPIDAfter(op[2])
+												
 												local sx, sy = findCharPositionExact(op[2])
 												
 												if sx then
-													opline = sy-2
+													table.insert(events, "sx " .. sx)
+													if sx == 1 then
+														opline = sy-1
+													else
+														opline = sy-2
+													end
+													opcol = sx-2
 													
 													if sx == 1 then
 														if sy-3 >= 0 then
@@ -605,21 +653,36 @@ local function StartClient(buf, first, appuri, port)
 											-- @check_if_pid_match_with_prev
 										end
 										
-										if old_namespace[decoded["author"]] then
-											vim.api.nvim_buf_clear_namespace(
-												vim.api.nvim_get_current_buf(),
-												old_namespace[decoded["author"]],
-												0, -1)
-											old_namespace[decoded["author"]] = nil
+										local aut = decoded["author"]
+										for aut, pid in pairs(lastPID) do
+											local x, y = findCharPositionExact(pid)
+											
+											if old_namespace[aut] then
+												vim.api.nvim_buf_clear_namespace(
+													buf, old_namespace[aut],
+													0, -1)
+												old_namespace[aut] = nil
+											end
+											
+											if cursors[aut] then
+												vim.api.nvim_call_function("matchdelete", { cursors[aut] } )
+												cursors[aut] = nil
+											end
+											
+											if x then
+												old_namespace[aut] = 
+													vim.api.nvim_buf_set_virtual_text(
+														buf, 0, 
+														math.max(y-2, 0), 
+														{{ aut, vtextGroup }}, 
+														{})
+												
+												cursors[aut] = 
+													vim.api.nvim_call_function(
+														"matchaddpos", { cursorGroup, {{ y-1, x-1 }} })
+												
+											end
 										end
-										
-										old_namespace[decoded["author"]] = 
-											vim.api.nvim_buf_set_virtual_text(
-												vim.api.nvim_get_current_buf(),
-												0, 
-												math.max(opline, 0), 
-												{{ "| " .. decoded["author"], "Special" }}, 
-												{})
 										
 									end
 									
@@ -699,6 +762,10 @@ local function StartClient(buf, first, appuri, port)
 											end
 											StopClient()
 											
+											for _,match in pairs(cursors) do
+												vim.api.nvim_call_function("matchdelete", { match } )
+											end
+											cursors = {}
 										elseif not decoded["is_first"] and first then
 											table.insert(events, "ERROR: Tried to start a server which is already busy")
 											print("ERROR: Tried to start a server which is already busy")
@@ -709,6 +776,10 @@ local function StartClient(buf, first, appuri, port)
 											end
 											StopClient()
 											
+											for _,match in pairs(cursors) do
+												vim.api.nvim_call_function("matchdelete", { match } )
+											end
+											cursors = {}
 										end
 									end
 									
@@ -1004,6 +1075,38 @@ local function Start(first, host, port)
 				startx = -1
 			end
 			
+			vim.schedule_wrap(function()
+				for aut, pid in pairs(lastPID) do
+					local x, y = findCharPositionExact(pid)
+					
+					if old_namespace[aut] then
+						vim.api.nvim_buf_clear_namespace(
+							buf, old_namespace[aut],
+							0, -1)
+						old_namespace[aut] = nil
+					end
+					
+					if cursors[aut] then
+						vim.api.nvim_call_function("matchdelete", { cursors[aut] } )
+						cursors[aut] = nil
+					end
+					
+					if x then
+						old_namespace[aut] = 
+							vim.api.nvim_buf_set_virtual_text(
+								buf, 0, 
+								math.max(y-2, 0), 
+								{{ aut, vtextGroup }}, 
+								{})
+						
+						cursors[aut] = 
+							vim.api.nvim_call_function(
+								"matchaddpos", { cursorGroup, {{ y-1, x-1 }} })
+						
+					end
+				end
+				
+			end)
 		end,
 		on_detach = function(_, buf)
 			table.insert(events, "detached " .. bufhandle)
@@ -1166,6 +1269,7 @@ local function Start(first, host, port)
 			-- 	end
 			-- 	table.insert(events, i .. "> " .. vim.inspect(line))
 			-- end
+			
 		end
 	
 		for j=1,string.len(line) do
@@ -1191,6 +1295,10 @@ local function Stop()
 		end
 		StopClient()
 		
+		for _,match in pairs(cursors) do
+			vim.api.nvim_call_function("matchdelete", { match } )
+		end
+		cursors = {}
 		print("Disconnected!")
 		initialized = false
 	end

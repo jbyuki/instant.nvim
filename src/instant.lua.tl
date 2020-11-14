@@ -411,6 +411,9 @@ local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
 		-- @display_xor_ranges
 		@if_there_is_text_to_delete_delete_it
 		@if_there_is_text_to_insert_insert_it
+		vim.schedule_wrap(function()
+			@update_cursor_highlight
+		end)
 	end,
 	on_detach = function(_, buf)
 		table.insert(events, "detached " .. bufhandle)
@@ -758,11 +761,14 @@ function SendOp(op)
 	@send_encoded
 end
 
+@script_variables+=
+author = vim.api.nvim_get_var("instant_username")
+
 @encode_operation_in_json_object+=
 local obj = {
 	["type"] = "text",
 	["ops"] = { op },
-	["author"] = vim.api.nvim_get_var("instant_username"),
+	["author"] = author,
 }
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 
@@ -830,8 +836,8 @@ end
 @if_text_do_actions+=
 if decoded["type"] == "text" then
 	@play_operations
-	@clear_virtual_for_username
-	@set_virtual_text_for_usernames
+	local aut = decoded["author"]
+	@update_cursor_highlight
 end
 
 @decode_json+=
@@ -856,13 +862,16 @@ end
 @play_operations+=
 local ops = decoded["ops"]
 local opline = 0
+local opcol = 0
 for _,op in ipairs(ops) do
 	-- table.insert(events, "receive op " .. vim.inspect(op))
 	-- @display_states
 	@get_changedtick_and_add_to_ignore
 	if op[1] == "ins" then
+		@save_last_inserted_pid
 		@apply_insert_operation
 	elseif op[1] == "del" then
+		@save_last_deleted_pid
 		@apply_delete_operation
 	end
 
@@ -875,9 +884,16 @@ if op[2] == "\n" then
 else
 	opline = y-2
 end
+opcol = x
 
 @set_op_line_delete+=
-opline = sy-2
+table.insert(events, "sx " .. sx)
+if sx == 1 then
+	opline = sy-1
+else
+	opline = sy-2
+end
+opcol = sx-2
 
 @apply_insert_operation+=
 @find_pid_of_element_just_before
@@ -1192,29 +1208,6 @@ if not v then
 	error("Please specify a username in g:instant_username")
 end
 
-@script_variables+=
-local old_namespace
-
-@init_client+=
-old_namespace = {}
-
-@clear_virtual_for_username+=
-if old_namespace[decoded["author"]] then
-	vim.api.nvim_buf_clear_namespace(
-		vim.api.nvim_get_current_buf(),
-		old_namespace[decoded["author"]],
-		0, -1)
-	old_namespace[decoded["author"]] = nil
-end
-
-@set_virtual_text_for_usernames+=
-old_namespace[decoded["author"]] = 
-	vim.api.nvim_buf_set_virtual_text(
-		vim.api.nvim_get_current_buf(),
-		0, 
-		math.max(opline, 0), 
-		{{ "| " .. decoded["author"], "Special" }}, 
-		{})
 
 @check_for_connection_errors_when_connected+=
 if err then
@@ -1463,3 +1456,96 @@ table.insert(pids, i+1, { newpid })
 -- 	end
 -- 	table.insert(events, i .. "> " .. vim.inspect(line))
 -- end
+
+@declare_functions+=
+local updateCursor
+
+@functions+=
+function updateCursor(author, pid)
+end
+
+@script_variables+=
+local lastPID = {}
+
+@save_last_inserted_pid+=
+lastPID[decoded["author"]] = op[4]
+
+@functions+=
+local function findPIDAfter(opid)
+	local px, py = 1, 1
+	for y,lpid in ipairs(pids) do
+		for x,pid in ipairs(lpid) do
+			if not isLower(pid, opid) then 
+				return pid 
+			end
+		end
+	end
+end
+
+@save_last_deleted_pid+=
+lastPID[decoded["author"]] = findPIDAfter(op[2])
+
+@script_variables+=
+local vtextGroup = "CursorLineNr"
+
+@set_virtual_text_for_usernames+=
+
+@update_cursor_highlight+=
+for aut, pid in pairs(lastPID) do
+	@find_pid_of_cursor
+	@clear_virtual_text_if_present
+	@clear_match_if_present
+	if x then
+		@set_virtual_text_of_user
+		@set_match_of_user
+	end
+end
+
+@find_pid_of_cursor+=
+local x, y = findCharPositionExact(pid)
+
+@script_variables+=
+local old_namespace
+
+@init_client+=
+old_namespace = {}
+
+@clear_virtual_text_if_present+=
+if old_namespace[aut] then
+	vim.api.nvim_buf_clear_namespace(
+		buf, old_namespace[aut],
+		0, -1)
+	old_namespace[aut] = nil
+end
+
+@set_virtual_text_of_user+=
+old_namespace[aut] = 
+	vim.api.nvim_buf_set_virtual_text(
+		buf, 0, 
+		math.max(y-2, 0), 
+		{{ aut, vtextGroup }}, 
+		{})
+
+@script_variables+=
+local cursors = {}
+local cursorGroup = "Cursor"
+
+@init_client+=
+cursors = {}
+
+@clear_match_if_present+=
+if cursors[aut] then
+	vim.api.nvim_call_function("matchdelete", { cursors[aut] } )
+	cursors[aut] = nil
+end
+
+@set_match_of_user+=
+cursors[aut] = 
+	vim.api.nvim_call_function(
+		"matchaddpos", { cursorGroup, {{ y-1, x-1 }} })
+
+@stop+=
+for _,match in pairs(cursors) do
+	vim.api.nvim_call_function("matchdelete", { match } )
+end
+cursors = {}
