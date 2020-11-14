@@ -8,21 +8,21 @@ events = {}
 
 local iptable = {}
 
-frames = {}
+local frames = {}
 local first_chunk
 local fragmented = ""
 local remaining = 0
 
 local detach = {}
 
-prev = { "" }
+local prev = { "" }
 
 -- pos = [(num, site)]
 local MAXINT = 2^15 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
-pids = {}
+local pids = {}
 
 local agent = 0
 
@@ -224,9 +224,6 @@ function nocase (s)
 end
 
 function utf8len(str)
-	if not str then
-		table.insert(events, debug.traceback())
-	end
 	return vim.str_utfindex(str)
 end
 
@@ -253,9 +250,6 @@ function utf8remove(str, i)
 end
 
 function genPID(p, q, s, i)
-	if not p then
-		table.insert(events, debug.traceback())
-	end
 	local a = (p[i] and p[i][1]) or 0
 	local b = (q[i] and q[i][1]) or MAXINT
 
@@ -276,7 +270,6 @@ local function afterPID(x, y)
 end
 
 function SendOp(op)
-	table.insert(events, "sendop " .. vim.inspect(op))
 	local obj = {
 		["type"] = "text",
 		["ops"] = { op },
@@ -464,10 +457,10 @@ local function StartClient(buf, first, appuri, port)
 							first_chunk = chunk
 						end
 						local b1 = string.byte(string.sub(first_chunk,1,1))
-						table.insert(frames, "FIN " .. OpAnd(b1, 0x80))
-						table.insert(frames, "OPCODE " .. OpAnd(b1, 0xF))
+						-- table.insert(frames, "FIN " .. OpAnd(b1, 0x80))
+						-- table.insert(frames, "OPCODE " .. OpAnd(b1, 0xF))
 						local b2 = string.byte(string.sub(first_chunk,2,2))
-						table.insert(frames, "MASK " .. OpAnd(b2, 0x80))
+						-- table.insert(frames, "MASK " .. OpAnd(b2, 0x80))
 						opcode = OpAnd(b1, 0xF)
 						fin = OpRshift(b1, 7)
 						
@@ -487,7 +480,7 @@ local function StartClient(buf, first, appuri, port)
 								end
 								paylenlen = 8
 							end
-							table.insert(frames, "PAYLOAD LENGTH " .. paylen)
+							-- table.insert(frames, "PAYLOAD LENGTH " .. paylen)
 							
 							if remaining == 0 then
 								local text = string.sub(chunk, 2+paylenlen+1, 2+paylenlen+1+(paylen-1))
@@ -495,11 +488,9 @@ local function StartClient(buf, first, appuri, port)
 								chunk = string.sub(chunk, 2+paylenlen+1+paylen)
 								fragmented = text
 								remaining = paylen - string.len(text)
-								table.insert(events, "remaining " .. remaining)
 							else
 								fragmented = fragmented .. chunk
 								remaining = remaining - string.len(chunk)
-								table.insert(events, "remaining " .. remaining)
 								chunk = ""
 							end
 						
@@ -748,7 +739,7 @@ local function StartClient(buf, first, appuri, port)
 								end
 								paylenlen = 8
 							end
-							table.insert(frames, "PAYLOAD LENGTH " .. paylen)
+							-- table.insert(frames, "PAYLOAD LENGTH " .. paylen)
 							
 							--table.insert(frames, "SENT PONG")
 							local mask = {}
@@ -868,10 +859,6 @@ local function Start(first, host, port)
 					if del_range.ex == -1 then c2 = "\n"
 					else c2 = utf8char(prev[del_range.ey+1] or "", del_range.ex) end
 				
-					table.insert(events, "c1 index " .. add_range.ex)
-					table.insert(events, "c2 index " .. del_range.ex)
-					table.insert(events, "del c1 " .. vim.inspect(c1) .. " " .. add_range.ex)
-					table.insert(events, "del c2 " .. vim.inspect(c2) .. " " .. del_range.ex)
 					if c1 ~= c2 then
 						break
 					end
@@ -884,8 +871,6 @@ local function Start(first, host, port)
 					end
 					
 					if del_range.ex == -1 then
-						table.insert(events, "del_range.ex == -1 " .. vim.inspect(del_range))
-						table.insert(events, "prev " .. vim.inspect(prev))
 						del_prev = { ey = del_range.ey-1, ex = utf8len(prev[del_range.ey] or "")-1 }
 					else
 						del_prev = { ex = del_range.ex-1, ey = del_range.ey }
@@ -905,9 +890,6 @@ local function Start(first, host, port)
 				
 					if del_range.sx == -1 then c2 = "\n"
 					else c2 = utf8char(prev[del_range.sy+1] or "", del_range.sx) end
-				
-					table.insert(events, "ins c1 " .. c1)
-					table.insert(events, "ins c2 " .. c2)
 				
 					if c1 ~= c2 then
 						break
@@ -978,7 +960,6 @@ local function Start(first, host, port)
 					
 					for x=startx,endx do
 						if x == -1 then
-							table.insert(events, "ins newline " .. y)
 							if cur_lines[y-firstline] then
 								local l, r = utf8split(prev[y], utf8len(cur_lines[y-firstline]))
 								prev[y] = l

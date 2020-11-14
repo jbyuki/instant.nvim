@@ -308,11 +308,9 @@ if opcode == 0x1 then -- TEXT
 		chunk = string.sub(chunk, 2+paylenlen+1+paylen)
 		fragmented = text
 		remaining = paylen - string.len(text)
-		table.insert(events, "remaining " .. remaining)
 	else
 		fragmented = fragmented .. chunk
 		remaining = remaining - string.len(chunk)
-		table.insert(events, "remaining " .. remaining)
 		chunk = ""
 	end
 
@@ -322,17 +320,17 @@ if opcode == 0x1 then -- TEXT
 end
 
 @script_variables+=
-frames = {}
+local frames = {}
 local first_chunk
 local fragmented = ""
 local remaining = 0
 
 @read_opcode+=
 local b1 = string.byte(string.sub(first_chunk,1,1))
-table.insert(frames, "FIN " .. OpAnd(b1, 0x80))
-table.insert(frames, "OPCODE " .. OpAnd(b1, 0xF))
+-- table.insert(frames, "FIN " .. OpAnd(b1, 0x80))
+-- table.insert(frames, "OPCODE " .. OpAnd(b1, 0xF))
 local b2 = string.byte(string.sub(first_chunk,2,2))
-table.insert(frames, "MASK " .. OpAnd(b2, 0x80))
+-- table.insert(frames, "MASK " .. OpAnd(b2, 0x80))
 opcode = OpAnd(b1, 0xF)
 fin = OpRshift(b1, 7)
 
@@ -352,7 +350,7 @@ elseif paylen == 127 then
 	end
 	paylenlen = 8
 end
-table.insert(frames, "PAYLOAD LENGTH " .. paylen)
+-- table.insert(frames, "PAYLOAD LENGTH " .. paylen)
 
 @read_payload+=
 local text = string.sub(chunk, 2+paylenlen+1, 2+paylenlen+1+(paylen-1))
@@ -465,7 +463,7 @@ local add_range = {
 }
 
 @script_variables+=
-prev = { "" }
+local prev = { "" }
 
 @get_both_ranges+=
 local del_range = {
@@ -489,9 +487,6 @@ while (add_range.sy < add_range.ey or (add_range.sy == add_range.ey and add_rang
 
 	if del_range.sx == -1 then c2 = "\n"
 	else c2 = utf8char(prev[del_range.sy+1] or "", del_range.sx) end
-
-	table.insert(events, "ins c1 " .. c1)
-	table.insert(events, "ins c2 " .. c2)
 
 	if c1 ~= c2 then
 		break
@@ -524,10 +519,6 @@ while (add_range.ey > add_range.sy or (add_range.ey == add_range.sy and add_rang
 	if del_range.ex == -1 then c2 = "\n"
 	else c2 = utf8char(prev[del_range.ey+1] or "", del_range.ex) end
 
-	table.insert(events, "c1 index " .. add_range.ex)
-	table.insert(events, "c2 index " .. del_range.ex)
-	table.insert(events, "del c1 " .. vim.inspect(c1) .. " " .. add_range.ex)
-	table.insert(events, "del c2 " .. vim.inspect(c2) .. " " .. del_range.ex)
 	if c1 ~= c2 then
 		break
 	end
@@ -545,8 +536,6 @@ else
 end
 
 if del_range.ex == -1 then
-	table.insert(events, "del_range.ex == -1 " .. vim.inspect(del_range))
-	table.insert(events, "prev " .. vim.inspect(prev))
 	del_prev = { ey = del_range.ey-1, ex = utf8len(prev[del_range.ey] or "")-1 }
 else
 	del_prev = { ex = del_range.ex-1, ey = del_range.ey }
@@ -616,7 +605,6 @@ for y=add_range.sy, add_range.ey do
 	@get_current_line_length_to_insert
 	for x=startx,endx do
 		if x == -1 then
-			table.insert(events, "ins newline " .. y)
 			@insert_newline_by_splitting_text
 			@insert_pid_of_newline
 			@send_insert_operation_for_newline
@@ -685,9 +673,6 @@ local utf8len, utf8char
 
 @functions+=
 function utf8len(str)
-	if not str then
-		table.insert(events, debug.traceback())
-	end
 	return vim.str_utfindex(str)
 end
 
@@ -727,7 +712,7 @@ local MAXINT = 2^15 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
-pids = {}
+local pids = {}
 
 @init_client+=
 local middlepos = genPID(startpos, endpos, agent, 1)
@@ -742,9 +727,6 @@ local genPID
 
 @functions+=
 function genPID(p, q, s, i)
-	if not p then
-		table.insert(events, debug.traceback())
-	end
 	local a = (p[i] and p[i][1]) or 0
 	local b = (q[i] and q[i][1]) or MAXINT
 
@@ -776,7 +758,6 @@ local SendOp
 
 @functions+=
 function SendOp(op)
-	table.insert(events, "sendop " .. vim.inspect(op))
 	@encode_operation_in_json_object
 	@send_encoded
 end
@@ -801,17 +782,6 @@ end
 local before_pid, new_pid
 if py > 0 then
 	before_pid = pids[py+1][px+1]
-	if not before_pid then
-		table.insert(events, "insert " .. py+1 .. " " .. px+1)
-		table.insert(events, "#prev " .. #prev)
-		table.insert(events, "#pids " .. #pids)
-		table.insert(events, "#pids[py+1] " .. #pids[py+1])
-		table.insert(events, "prev[py] " .. vim.inspect(prev[py]))
-		table.insert(events, "pids[py+1] " .. vim.inspect(pids[py+1]))
-		table.insert(events, "prev[py-1] " .. vim.inspect(prev[py-1]))
-		table.insert(events, "pids[py] " .. vim.inspect(pids[py]))
-		table.insert(events, "prevline " .. vim.inspect(prevline))
-	end
 
 	local after_pid = afterPID(px+1, py+1)
 	new_pid = genPID(before_pid, after_pid, agent, 1)
