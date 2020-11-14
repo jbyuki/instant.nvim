@@ -411,9 +411,7 @@ local attach_success = vim.api.nvim_buf_attach(bufhandle, false, {
 		-- @display_xor_ranges
 		@if_there_is_text_to_delete_delete_it
 		@if_there_is_text_to_insert_insert_it
-		vim.schedule_wrap(function()
-			@update_cursor_highlight
-		end)
+		@update_cursor_highlight
 	end,
 	on_detach = function(_, buf)
 		table.insert(events, "detached " .. bufhandle)
@@ -1456,13 +1454,6 @@ table.insert(pids, i+1, { newpid })
 -- 	end
 -- 	table.insert(events, i .. "> " .. vim.inspect(line))
 -- end
-
-@declare_functions+=
-local updateCursor
-
-@functions+=
-function updateCursor(author, pid)
-end
 
 @script_variables+=
 local lastPID = {}

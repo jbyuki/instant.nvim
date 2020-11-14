@@ -85,8 +85,6 @@ local isPIDEqual
 
 local isLower
 
-local updateCursor
-
 function GenerateWebSocketKey()
 	key = {}
 	for i =0,15 do
@@ -377,9 +375,6 @@ local function Refresh()
 	-- table.insert(events, "sent " .. encoded)
 	
 	
-end
-
-function updateCursor(author, pid)
 end
 
 local function findPIDAfter(opid)
@@ -1076,39 +1071,37 @@ local function Start(first, host, port)
 				startx = -1
 			end
 			
-			vim.schedule_wrap(function()
-				for aut, pid in pairs(lastPID) do
-					local x, y = findCharPositionExact(pid)
-					
-					if old_namespace[aut] then
-						vim.api.nvim_buf_clear_namespace(
-							buf, old_namespace[aut],
-							0, -1)
-						old_namespace[aut] = nil
-					end
-					
-					if cursors[aut] then
-						vim.api.nvim_call_function("matchdelete", { cursors[aut] } )
-						cursors[aut] = nil
-					end
-					
-					if x then
-						if x == 1 then x = 2 end
-						old_namespace[aut] = 
-							vim.api.nvim_buf_set_virtual_text(
-								buf, 0, 
-								math.max(y-2, 0), 
-								{{ aut, vtextGroup }}, 
-								{})
-						
-						cursors[aut] = 
-							vim.api.nvim_call_function(
-								"matchaddpos", { cursorGroup, {{ y-1, x-1 }} })
-						
-					end
+			for aut, pid in pairs(lastPID) do
+				local x, y = findCharPositionExact(pid)
+				
+				if old_namespace[aut] then
+					vim.api.nvim_buf_clear_namespace(
+						buf, old_namespace[aut],
+						0, -1)
+					old_namespace[aut] = nil
 				end
 				
-			end)
+				if cursors[aut] then
+					vim.api.nvim_call_function("matchdelete", { cursors[aut] } )
+					cursors[aut] = nil
+				end
+				
+				if x then
+					if x == 1 then x = 2 end
+					old_namespace[aut] = 
+						vim.api.nvim_buf_set_virtual_text(
+							buf, 0, 
+							math.max(y-2, 0), 
+							{{ aut, vtextGroup }}, 
+							{})
+					
+					cursors[aut] = 
+						vim.api.nvim_call_function(
+							"matchaddpos", { cursorGroup, {{ y-1, x-1 }} })
+					
+				end
+			end
+			
 		end,
 		on_detach = function(_, buf)
 			table.insert(events, "detached " .. bufhandle)
