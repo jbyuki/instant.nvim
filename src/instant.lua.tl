@@ -762,7 +762,7 @@ function SendOp(op)
 end
 
 @script_variables+=
-author = vim.api.nvim_get_var("instant_username")
+local author = vim.api.nvim_get_var("instant_username")
 
 @encode_operation_in_json_object+=
 local obj = {
@@ -1496,6 +1496,7 @@ for aut, pid in pairs(lastPID) do
 	@clear_virtual_text_if_present
 	@clear_match_if_present
 	if x then
+		if x == 1 then x = 2 end
 		@set_virtual_text_of_user
 		@set_match_of_user
 	end

@@ -26,7 +26,7 @@ local pids = {}
 
 local agent = 0
 
-author = vim.api.nvim_get_var("instant_username")
+local author = vim.api.nvim_get_var("instant_username")
 
 local ignores = {}
 
@@ -670,6 +670,7 @@ local function StartClient(buf, first, appuri, port)
 											end
 											
 											if x then
+												if x == 1 then x = 2 end
 												old_namespace[aut] = 
 													vim.api.nvim_buf_set_virtual_text(
 														buf, 0, 
@@ -1092,6 +1093,7 @@ local function Start(first, host, port)
 					end
 					
 					if x then
+						if x == 1 then x = 2 end
 						old_namespace[aut] = 
 							vim.api.nvim_buf_set_virtual_text(
 								buf, 0, 
