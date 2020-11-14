@@ -1534,9 +1534,12 @@ if cursors[aut] then
 end
 
 @set_match_of_user+=
-cursors[aut] = 
-	vim.api.nvim_call_function(
-		"matchaddpos", { cursorGroup, {{ y-1, x-1 }} })
+if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
+	local bx = vim.str_byteindex(prev[y-1], x-2)
+	cursors[aut] = 
+		vim.api.nvim_call_function(
+			"matchaddpos", { cursorGroup, {{ y-1, bx+1 }} })
+end
 
 @stop+=
 for _,match in pairs(cursors) do

@@ -675,9 +675,12 @@ local function StartClient(buf, first, appuri, port)
 														{{ aut, vtextGroup }}, 
 														{})
 												
-												cursors[aut] = 
-													vim.api.nvim_call_function(
-														"matchaddpos", { cursorGroup, {{ y-1, x-1 }} })
+												if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
+													local bx = vim.str_byteindex(prev[y-1], x-2)
+													cursors[aut] = 
+														vim.api.nvim_call_function(
+															"matchaddpos", { cursorGroup, {{ y-1, bx+1 }} })
+												end
 												
 											end
 										end
@@ -1097,9 +1100,12 @@ local function Start(first, host, port)
 							{{ aut, vtextGroup }}, 
 							{})
 					
-					cursors[aut] = 
-						vim.api.nvim_call_function(
-							"matchaddpos", { cursorGroup, {{ y-1, x-1 }} })
+					if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
+						local bx = vim.str_byteindex(prev[y-1], x-2)
+						cursors[aut] = 
+							vim.api.nvim_call_function(
+								"matchaddpos", { cursorGroup, {{ y-1, bx+1 }} })
+					end
 					
 				end
 			end
