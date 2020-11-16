@@ -821,7 +821,7 @@ table.remove(pids[py+2], px+2)
 @interpret_received_text+=
 @decode_json
 if decoded then
-	-- table.insert(events, "received " .. text)
+	table.insert(events, "received " .. decoded["type"])
 	@if_text_do_actions
 	@if_request_send_all_lines
 	@if_initial_and_not_initialized_set_buffer_lines
@@ -1187,8 +1187,8 @@ if decoded["type"] == "initial" then
 			@rename_buffer_to_initial
 		else
 			@create_new_buffer
-			@rename_buffer_to_initial
 			@attach_to_current_buffer
+			@rename_buffer_to_initial
 			@detect_file_type
 			@remove_buf_type_of_scratch_buffer
 		end
@@ -1201,8 +1201,18 @@ if decoded["type"] == "initial" then
 		@get_changedtick_and_add_to_ignore
 		@set_lines_in_current_buffer
 		@set_context_for_current_buffer
+	else
+		local buf = rem2loc[ag][bufid]
 
-		print("Connected!")
+		@set_lines_for_initial_prev
+		@set_pids_for_initial
+
+		@get_changedtick_and_add_to_ignore
+		@set_lines_in_current_buffer
+		@set_context_for_current_buffer
+
+		@rename_buffer_to_initial
+		@detect_file_type
 	end
 end
 
@@ -1225,6 +1235,7 @@ if decoded["type"] == "response" then
 			@init_client_id
 			@send_client_informations
 			@send_request_for_initial_content
+			print("Connected!")
 		end
 	elseif decoded["is_first"] and not first then
 		table.insert(events, "ERROR: Tried to join an empty server")

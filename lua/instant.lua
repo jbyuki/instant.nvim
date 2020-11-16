@@ -957,7 +957,7 @@ local function StartClient(first, appuri, port)
 								local decoded = vim.api.nvim_call_function("json_decode", {fragmented})
 								
 								if decoded then
-									-- table.insert(events, "received " .. text)
+									table.insert(events, "received " .. decoded["type"])
 									if decoded["type"] == "text" then
 										local ops = decoded["ops"]
 										local opline = 0
@@ -1221,13 +1221,6 @@ local function StartClient(first, appuri, port)
 											else
 												buf = vim.api.nvim_create_buf(true, true)
 												
-												if decoded["name"] and string.len(decoded["name"]) > 0 then
-													table.insert(events, "renaming buffer to " .. decoded["name"])
-													vim.api.nvim_buf_set_name(buf, decoded["name"])
-												else
-													table.insert(events, "could not rename buffer " .. vim.inspect(decoded["name"]))
-												end
-												
 												detach[buf] = nil
 												
 												ignores[buf] = {}
@@ -1434,6 +1427,13 @@ local function StartClient(first, appuri, port)
 												
 												
 												
+												if decoded["name"] and string.len(decoded["name"]) > 0 then
+													table.insert(events, "renaming buffer to " .. decoded["name"])
+													vim.api.nvim_buf_set_name(buf, decoded["name"])
+												else
+													table.insert(events, "could not rename buffer " .. vim.inspect(decoded["name"]))
+												end
+												
 												vim.api.nvim_buf_call(buf, function()
 													vim.api.nvim_command("filetype detect")
 												end)
@@ -1465,8 +1465,36 @@ local function StartClient(first, appuri, port)
 											allprev[buf] = prev
 											allpids[buf] = pids
 											
+										else
+											local buf = rem2loc[ag][bufid]
 									
-											print("Connected!")
+											prev = decoded["content"]
+											
+											pids = decoded["pids"]
+											
+									
+											local tick = vim.api.nvim_buf_get_changedtick(buf)+1
+											ignores[buf][tick] = true
+											
+											vim.api.nvim_buf_set_lines(
+												buf,
+												0, -1, false, decoded["content"])
+											
+											allprev[buf] = prev
+											allpids[buf] = pids
+											
+									
+											if decoded["name"] and string.len(decoded["name"]) > 0 then
+												table.insert(events, "renaming buffer to " .. decoded["name"])
+												vim.api.nvim_buf_set_name(buf, decoded["name"])
+											else
+												table.insert(events, "could not rename buffer " .. vim.inspect(decoded["name"]))
+											end
+											
+											vim.api.nvim_buf_call(buf, function()
+												vim.api.nvim_command("filetype detect")
+											end)
+											
 										end
 									end
 									
@@ -1937,6 +1965,7 @@ local function StartClient(first, appuri, port)
 												-- table.insert(events, "sent " .. encoded)
 												
 												
+												print("Connected!")
 											end
 										elseif decoded["is_first"] and not first then
 											table.insert(events, "ERROR: Tried to join an empty server")
