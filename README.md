@@ -10,7 +10,7 @@ instant.nvim
 * [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
 * [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
 
-[![Untitled-Project.gif](https://i.postimg.cc/jjnrHMjY/Untitled-Project.gif)](https://postimg.cc/qtrY0Xn1)
+[![Untitled-Project.gif](https://i.postimg.cc/ydM961f3/Untitled-Project.gif)](https://postimg.cc/gXKrNWbG)
 
 Features
 --------
