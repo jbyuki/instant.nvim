@@ -13,7 +13,7 @@ const wss = new WebSocket.Server({
 wss.on('connection', (ws) => {
 	ws.on('message', (msg) => {
 		const decoded = JSON.parse(msg);
-		console.log(decoded);
+		// console.log(decoded);
 		
 		if(decoded.type == "request") {
 			if(wss.clients.size <= 1) {

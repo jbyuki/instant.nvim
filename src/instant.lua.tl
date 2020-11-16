@@ -1103,6 +1103,8 @@ local function Start(host, port)
 	@init_pids_of_buffer_content
 	@init_prev_of_buffer_content
 	@set_context_for_current_buffer
+
+	@register_autocommands_for_buffer_open_and_create
 end
 
 @start_function+=
@@ -1115,6 +1117,8 @@ local function Join(host, port)
 	sessionshare = false
 	@start
 	@attach_to_current_buffer
+
+	@register_autocommands_for_buffer_open_and_create
 end
 
 @export_symbols+=
@@ -1773,17 +1777,20 @@ vimcmd("augroup end")
 
 @functions+=
 function instantOpenOrCreateBuffer(buf)
-	@get_buffer_lines
-	@init_pids_of_buffer_content
-	@init_prev_of_buffer_content
-	@set_context_for_current_buffer
+	if sessionshare or buf == singlebuf then
+		@get_buffer_lines
+		@init_pids_of_buffer_content
+		@init_prev_of_buffer_content
+		@set_context_for_current_buffer
 
-	@get_buf_name_relative_to_cwd_or_just_tail
-	@map_new_buffer_id
-	@encode_initial_content_single
-	@send_encoded
+		@get_buf_name_relative_to_cwd_or_just_tail
+		@map_new_buffer_id
+		@encode_initial_content_single
+		@send_encoded
 
-	@attach_to_current_buffer
+		@attach_to_current_buffer
+	end
+
 end
 
 @map_new_buffer_id+=
