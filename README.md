@@ -6,9 +6,9 @@ instant.nvim
 **This is in prototype stage. It should work but some important features are still missing!**
 **The transfer protocol is not optimized for large files transfer!**
 
-* [Design document](docs/design.md)
-* [Protocol](docs/protocol.md)
-* [Commands](docs/commands.md)
+* [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
+* [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
+* [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
 
 [![showcase.gif](https://i.postimg.cc/d3rcgL4K/showcase.gif)](https://postimg.cc/ZvbQdYGf)
 
