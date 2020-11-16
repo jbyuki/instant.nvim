@@ -1189,6 +1189,8 @@ if decoded["type"] == "initial" then
 			@create_new_buffer
 			@rename_buffer_to_initial
 			@attach_to_current_buffer
+			@detect_file_type
+			@remove_buf_type_of_scratch_buffer
 		end
 
 		@map_received_buffer_id
@@ -1724,7 +1726,10 @@ end
 
 @rename_buffer_to_initial+=
 if decoded["name"] and string.len(decoded["name"]) > 0 then
+	table.insert(events, "renaming buffer to " .. decoded["name"])
 	vim.api.nvim_buf_set_name(buf, decoded["name"])
+else
+	table.insert(events, "could not rename buffer " .. vim.inspect(decoded["name"]))
 end
 
 @get_all_text_edit_buffers+=
@@ -1757,7 +1762,6 @@ vimcmd("augroup end")
 
 @functions+=
 function instantOpenOrCreateBuffer(buf)
-	table.insert(events, "new buffer " .. buf)
 	@get_buffer_lines
 	@init_pids_of_buffer_content
 	@init_prev_of_buffer_content
@@ -1780,3 +1784,11 @@ rem2loc[agent][buf] = buf
 loc2rem[buf] = { agent, buf }
 
 local rem = loc2rem[buf]
+
+@detect_file_type+=
+vim.api.nvim_buf_call(buf, function()
+	vim.api.nvim_command("filetype detect")
+end)
+
+@remove_buf_type_of_scratch_buffer+=
+vim.api.nvim_buf_set_option(buf, "buftype", "")

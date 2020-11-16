@@ -399,7 +399,6 @@ local function findPIDBefore2(opid)
 end
 
 function instantOpenOrCreateBuffer(buf)
-	table.insert(events, "new buffer " .. buf)
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, true)
 	
 	local middlepos = genPID(startpos, endpos, agent, 1)
@@ -593,6 +592,7 @@ function instantOpenOrCreateBuffer(buf)
 	loc2rem[buf] = { agent, buf }
 	
 	local rem = loc2rem[buf]
+	
 	local obj = {
 		["type"] = "initial",
 		["name"] = bufname,
@@ -1212,14 +1212,20 @@ local function StartClient(first, appuri, port)
 											if not sessionshare then
 												buf = singlebuf
 												if decoded["name"] and string.len(decoded["name"]) > 0 then
+													table.insert(events, "renaming buffer to " .. decoded["name"])
 													vim.api.nvim_buf_set_name(buf, decoded["name"])
+												else
+													table.insert(events, "could not rename buffer " .. vim.inspect(decoded["name"]))
 												end
 												
 											else
 												buf = vim.api.nvim_create_buf(true, true)
 												
 												if decoded["name"] and string.len(decoded["name"]) > 0 then
+													table.insert(events, "renaming buffer to " .. decoded["name"])
 													vim.api.nvim_buf_set_name(buf, decoded["name"])
+												else
+													table.insert(events, "could not rename buffer " .. vim.inspect(decoded["name"]))
 												end
 												
 												detach[buf] = nil
@@ -1428,6 +1434,11 @@ local function StartClient(first, appuri, port)
 												
 												
 												
+												vim.api.nvim_buf_call(buf, function()
+													vim.api.nvim_command("filetype detect")
+												end)
+												
+												vim.api.nvim_buf_set_option(buf, "buftype", "")
 											end
 									
 											local ag, bufid = unpack(decoded["bufid"])
