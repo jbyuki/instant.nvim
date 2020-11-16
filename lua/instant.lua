@@ -861,7 +861,7 @@ local function StartClient(first, appuri, port)
 			
 			
 			for _,match in pairs(cursors) do
-				vim.api.nvim_call_function("matchdelete", { match } )
+				vim.api.nvim_call_function("matchdelete", { match.id } )
 			end
 			cursors = {}
 			
@@ -881,7 +881,7 @@ local function StartClient(first, appuri, port)
 				
 				
 				for _,match in pairs(cursors) do
-					vim.api.nvim_call_function("matchdelete", { match } )
+					vim.api.nvim_call_function("matchdelete", { match.id } )
 				end
 				cursors = {}
 				
@@ -1937,7 +1937,7 @@ local function StartClient(first, appuri, port)
 												
 												
 												for _,match in pairs(cursors) do
-													vim.api.nvim_call_function("matchdelete", { match } )
+													vim.api.nvim_call_function("matchdelete", { match.id } )
 												end
 												cursors = {}
 												
@@ -1982,7 +1982,7 @@ local function StartClient(first, appuri, port)
 											
 											
 											for _,match in pairs(cursors) do
-												vim.api.nvim_call_function("matchdelete", { match } )
+												vim.api.nvim_call_function("matchdelete", { match.id } )
 											end
 											cursors = {}
 											
@@ -1998,7 +1998,7 @@ local function StartClient(first, appuri, port)
 											
 											
 											for _,match in pairs(cursors) do
-												vim.api.nvim_call_function("matchdelete", { match } )
+												vim.api.nvim_call_function("matchdelete", { match.id } )
 											end
 											cursors = {}
 											
@@ -2747,7 +2747,7 @@ local function Stop()
 	
 	
 	for _,match in pairs(cursors) do
-		vim.api.nvim_call_function("matchdelete", { match } )
+		vim.api.nvim_call_function("matchdelete", { match.id } )
 	end
 	cursors = {}
 	
