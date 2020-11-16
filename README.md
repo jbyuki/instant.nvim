@@ -10,7 +10,7 @@ instant.nvim
 * [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
 * [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
 
-[![showcase.gif](https://i.postimg.cc/d3rcgL4K/showcase.gif)](https://postimg.cc/ZvbQdYGf)
+[![Untitled-Project.gif](https://i.postimg.cc/jjnrHMjY/Untitled-Project.gif)](https://postimg.cc/qtrY0Xn1)
 
 Features
 --------
@@ -21,10 +21,12 @@ Features
 
 * See who is editing
 
+* Share a session
+
 Requirements
 ------------
 
-* Neovim 0.4+
+* Neovim 0.4.4 or above
 
 Install
 -------

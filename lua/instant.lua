@@ -860,8 +860,21 @@ local function StartClient(first, appuri, port)
 			StopClient()
 			
 			
-			for _,match in pairs(cursors) do
-				vim.api.nvim_call_function("matchdelete", { match.id } )
+			for aut,_ in pairs(cursors) do
+				if cursors[aut] then
+					vim.api.nvim_buf_clear_namespace(
+						cursors[aut].buf, cursors[aut].id,
+						0, -1)
+					cursors[aut] = nil
+				end
+				
+				if old_namespace[aut] then
+					vim.api.nvim_buf_clear_namespace(
+						old_namespace[aut].buf, old_namespace[aut].id,
+						0, -1)
+					old_namespace[aut] = nil
+				end
+				
 			end
 			cursors = {}
 			
@@ -880,8 +893,21 @@ local function StartClient(first, appuri, port)
 				StopClient()
 				
 				
-				for _,match in pairs(cursors) do
-					vim.api.nvim_call_function("matchdelete", { match.id } )
+				for aut,_ in pairs(cursors) do
+					if cursors[aut] then
+						vim.api.nvim_buf_clear_namespace(
+							cursors[aut].buf, cursors[aut].id,
+							0, -1)
+						cursors[aut] = nil
+					end
+					
+					if old_namespace[aut] then
+						vim.api.nvim_buf_clear_namespace(
+							old_namespace[aut].buf, old_namespace[aut].id,
+							0, -1)
+						old_namespace[aut] = nil
+					end
+					
 				end
 				cursors = {}
 				
@@ -1936,8 +1962,21 @@ local function StartClient(first, appuri, port)
 												StopClient()
 												
 												
-												for _,match in pairs(cursors) do
-													vim.api.nvim_call_function("matchdelete", { match.id } )
+												for aut,_ in pairs(cursors) do
+													if cursors[aut] then
+														vim.api.nvim_buf_clear_namespace(
+															cursors[aut].buf, cursors[aut].id,
+															0, -1)
+														cursors[aut] = nil
+													end
+													
+													if old_namespace[aut] then
+														vim.api.nvim_buf_clear_namespace(
+															old_namespace[aut].buf, old_namespace[aut].id,
+															0, -1)
+														old_namespace[aut] = nil
+													end
+													
 												end
 												cursors = {}
 												
@@ -1981,8 +2020,21 @@ local function StartClient(first, appuri, port)
 											StopClient()
 											
 											
-											for _,match in pairs(cursors) do
-												vim.api.nvim_call_function("matchdelete", { match.id } )
+											for aut,_ in pairs(cursors) do
+												if cursors[aut] then
+													vim.api.nvim_buf_clear_namespace(
+														cursors[aut].buf, cursors[aut].id,
+														0, -1)
+													cursors[aut] = nil
+												end
+												
+												if old_namespace[aut] then
+													vim.api.nvim_buf_clear_namespace(
+														old_namespace[aut].buf, old_namespace[aut].id,
+														0, -1)
+													old_namespace[aut] = nil
+												end
+												
 											end
 											cursors = {}
 											
@@ -1997,8 +2049,21 @@ local function StartClient(first, appuri, port)
 											StopClient()
 											
 											
-											for _,match in pairs(cursors) do
-												vim.api.nvim_call_function("matchdelete", { match.id } )
+											for aut,_ in pairs(cursors) do
+												if cursors[aut] then
+													vim.api.nvim_buf_clear_namespace(
+														cursors[aut].buf, cursors[aut].id,
+														0, -1)
+													cursors[aut] = nil
+												end
+												
+												if old_namespace[aut] then
+													vim.api.nvim_buf_clear_namespace(
+														old_namespace[aut].buf, old_namespace[aut].id,
+														0, -1)
+													old_namespace[aut] = nil
+												end
+												
 											end
 											cursors = {}
 											
@@ -2746,8 +2811,21 @@ local function Stop()
 	StopClient()
 	
 	
-	for _,match in pairs(cursors) do
-		vim.api.nvim_call_function("matchdelete", { match.id } )
+	for aut,_ in pairs(cursors) do
+		if cursors[aut] then
+			vim.api.nvim_buf_clear_namespace(
+				cursors[aut].buf, cursors[aut].id,
+				0, -1)
+			cursors[aut] = nil
+		end
+		
+		if old_namespace[aut] then
+			vim.api.nvim_buf_clear_namespace(
+				old_namespace[aut].buf, old_namespace[aut].id,
+				0, -1)
+			old_namespace[aut] = nil
+		end
+		
 	end
 	cursors = {}
 	

@@ -1617,8 +1617,9 @@ if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
 end
 
 @stop+=
-for _,match in pairs(cursors) do
-	vim.api.nvim_call_function("matchdelete", { match.id } )
+for aut,_ in pairs(cursors) do
+	@clear_match_if_present
+	@clear_virtual_text_if_present
 end
 cursors = {}
 
