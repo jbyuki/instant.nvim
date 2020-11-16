@@ -42,6 +42,7 @@ if(decoded.type == "text") {
 
 @decode_message+=
 const decoded = JSON.parse(msg);
+console.log(decoded);
 
 @if_request_send_to_first_client_in_list+=
 if(decoded.type == "request") {

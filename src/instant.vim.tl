@@ -36,4 +36,10 @@ command! -nargs=* InstantJoinSingle call instant#JoinSingleWrapper(<f-args>)
 command! InstantStatus call luaeval('require("instant").Status()')
 
 @register_commands+=
-command! -nargs=* InstantStopSingle call luaeval('require("instant").Stop()')
+command! -nargs=* InstantStop call luaeval('require("instant").Stop()')
+
+@register_commands+=
+command! -nargs=* InstantStartSession call instant#StartSessionWrapper(<f-args>)
+
+@register_commands+=
+command! -nargs=* InstantJoinSession call instant#JoinSessionWrapper(<f-args>)

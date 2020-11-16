@@ -415,7 +415,6 @@ local attach_success = vim.api.nvim_buf_attach(buf, false, {
 		-- @display_xor_ranges
 		@if_there_is_text_to_delete_delete_it
 		@if_there_is_text_to_insert_insert_it
-		-- @update_cursor_highlight
 		@set_context_for_current_buffer
 	end,
 	on_detach = function(_, buf)
@@ -835,8 +834,6 @@ end
 @if_text_do_actions+=
 if decoded["type"] == "text" then
 	@play_operations
-	local aut = decoded["author"]
-	@update_cursor_highlight
 end
 
 @decode_json+=
@@ -862,6 +859,7 @@ end
 local ops = decoded["ops"]
 local opline = 0
 local opcol = 0
+local lastPID
 for _,op in ipairs(ops) do
 	-- table.insert(events, "receive op " .. vim.inspect(op))
 	-- @display_states
@@ -876,6 +874,8 @@ for _,op in ipairs(ops) do
 		@apply_delete_operation
 	end
 	@set_context_for_current_buffer
+	local aut = decoded["author"]
+	@update_cursor_highlight
 	-- @check_if_pid_match_with_prev
 end
 
@@ -1128,11 +1128,14 @@ StartClient(first, host, port)
 @stop_function+=
 local function Stop()
 	@stop
+	if sessionshare then
+		@unregister_autocommands
+	end
 	print("Disconnected!")
 end
 
 @stop+=
-for _,bufhandle in ipairs(vim.api.nvim_list_bufs()) do
+for bufhandle,_ in pairs(allprev) do
 	if vim.api.nvim_buf_is_loaded(bufhandle) then
 		DetachFromBuffer(bufhandle)
 	end
@@ -1146,11 +1149,14 @@ if decoded["type"] == "request" then
 	if not sessionshare then
 		local buf = singlebuf
 		local rem = { agent, buf }
+		@get_buf_name_relative_to_cwd_or_just_tail
 		@encode_initial_content_single
 		@send_encoded
 	else
-		for _,buf in ipairs(vim.api.nvim_list_bufs()) do
+		@get_all_text_edit_buffers
+		for _,buf in ipairs(bufs) do
 			local rem = { agent, buf }
+			@get_buf_name_relative_to_cwd_or_just_tail
 			@encode_initial_content_single
 			@send_encoded
 		end
@@ -1178,8 +1184,11 @@ if decoded["type"] == "initial" then
 		local buf
 		if not sessionshare then
 			buf = singlebuf
+			@rename_buffer_to_initial
 		else
 			@create_new_buffer
+			@rename_buffer_to_initial
+			@attach_to_current_buffer
 		end
 
 		@map_received_buffer_id
@@ -1201,6 +1210,11 @@ if decoded["type"] == "response" then
 		@init_client_id
 		@send_client_informations
 		print("Connected!")
+		if sessionshare then
+			@get_all_text_edit_buffers
+			@attach_to_all_opened_buffers
+			@init_content_for_all_opened_buffers
+		end
 	elseif not decoded["is_first"] and not first then
 		if decoded["sessionshare"] ~= sessionshare then
 			print("ERROR: Share mode client server mismatch (session mode, single buffer mode)")
@@ -1271,6 +1285,7 @@ local lines = vim.api.nvim_buf_get_lines(
 @encode_initial_content_single+=
 local obj = {
 	["type"] = "initial",
+	["name"] = bufname,
 	["bufid"] = rem,
 	["pids"] = allpids[buf],
 	["content"] = allprev[buf]
@@ -1285,7 +1300,7 @@ pids = decoded["pids"]
 
 @set_lines_in_current_buffer+=
 vim.api.nvim_buf_set_lines(
-	vim.api.nvim_get_current_buf(),
+	buf,
 	0, -1, false, decoded["content"])
 
 @status_function+=
@@ -1497,11 +1512,8 @@ table.insert(pids, i+1, { newpid })
 -- 	table.insert(events, i .. "> " .. vim.inspect(line))
 -- end
 
-@script_variables+=
-local lastPID = {}
-
 @save_last_inserted_pid+=
-lastPID[decoded["author"]] = op[4]
+lastPID = op[4]
 
 @functions+=
 local function findPIDBefore2(opid)
@@ -1518,14 +1530,13 @@ local function findPIDBefore2(opid)
 end
 
 @save_last_deleted_pid+=
-lastPID[decoded["author"]] = findPIDBefore2(op[2])
+lastPID = findPIDBefore2(op[2])
 
 @script_variables+=
 local vtextGroup = "CursorLineNr"
 
 @update_cursor_highlight+=
-local pid = lastPID[aut]
-if pid then
+if lastPID then
 	@find_pid_of_cursor
 	@clear_virtual_text_if_present
 	@clear_match_if_present
@@ -1537,7 +1548,7 @@ if pid then
 end
 
 @find_pid_of_cursor+=
-local x, y = findCharPositionExact(pid)
+local x, y = findCharPositionExact(lastPID)
 
 @script_variables+=
 local old_namespace
@@ -1615,9 +1626,8 @@ local function StartSession(host, port)
 
 	local first = true
 	sessionshare = true
+	@register_autocommands_for_buffer_open_and_create
 	@start
-	@attach_to_all_opened_buffers
-	@init_content_for_all_opened_buffers
 end
 
 @start_session_function+=
@@ -1626,8 +1636,8 @@ local function JoinSession(host, port)
 
 	local first = false
 	sessionshare = true
+	@register_autocommands_for_buffer_open_and_create
 	@start
-	@attach_to_all_opened_buffers
 end
 
 @export_symbols+=
@@ -1635,7 +1645,6 @@ StartSession = StartSession,
 JoinSession = JoinSession,
 
 @attach_to_all_opened_buffers+=
-local bufs = vim.api.nvim_list_bufs()
 for _, buf in ipairs(bufs) do
 	@attach_to_current_buffer
 end
@@ -1646,6 +1655,7 @@ for _, buf in ipairs(bufs) do
 	@init_pids_of_buffer_content
 	@init_prev_of_buffer_content
 	@set_context_for_current_buffer
+	@set_buf_table_for_opened_buffers
 end
 
 @get_buffer_number_to_apply_modifications+=
@@ -1690,4 +1700,83 @@ local rem = loc2rem[buf]
 
 @get_local_buf_from_remote+=
 local ag, bufid = unpack(decoded["buf"])
+table.insert(events, "ag " .. ag .. " " .. bufid)
+table.insert(events, "rem2loc " .. vim.inspect(rem2loc))
 buf = rem2loc[ag][bufid]
+
+@set_buf_table_for_opened_buffers+=
+if not rem2loc[agent] then
+	rem2loc[agent] = {}
+end
+
+rem2loc[agent][buf] = buf
+loc2rem[buf] = { agent, buf }
+
+@get_buf_name_relative_to_cwd_or_just_tail+=
+local fullname = vim.api.nvim_buf_get_name(buf)
+local cwdname = vim.api.nvim_call_function("fnamemodify",
+	{ fullname, ":." })
+local bufname = cwdname
+if bufname == fullname then
+	bufname = vim.api.nvim_call_function("fnamemodify",
+	{ fullname, ":t" })
+end
+
+@rename_buffer_to_initial+=
+if decoded["name"] and string.len(decoded["name"]) > 0 then
+	vim.api.nvim_buf_set_name(buf, decoded["name"])
+end
+
+@get_all_text_edit_buffers+=
+local allbufs = vim.api.nvim_list_bufs()
+local bufs = {}
+-- skip terminal, help, ... buffers
+for _,buf in ipairs(allbufs) do
+	local buftype = vim.api.nvim_buf_get_option(buf, "buftype")
+	if buftype == "" then
+		table.insert(bufs, buf)
+	end
+end
+
+@script_variables+=
+local vimcmd = vim.api.nvim_command
+
+@register_autocommands_for_buffer_open_and_create+=
+vimcmd("augroup instantSession")
+vimcmd("autocmd!")
+-- this is kind of messy
+-- a better way to write this
+-- would be great
+vimcmd("autocmd BufNewFile,BufRead * call execute('lua instantOpenOrCreateBuffer(' . expand('<abuf>') . ')', '')")
+vimcmd("augroup end")
+
+@unregister_autocommands+=
+vimcmd("augroup instantSession")
+vimcmd("autocmd!")
+vimcmd("augroup end")
+
+@functions+=
+function instantOpenOrCreateBuffer(buf)
+	table.insert(events, "new buffer " .. buf)
+	@get_buffer_lines
+	@init_pids_of_buffer_content
+	@init_prev_of_buffer_content
+	@set_context_for_current_buffer
+
+	@get_buf_name_relative_to_cwd_or_just_tail
+	@map_new_buffer_id
+	@encode_initial_content_single
+	@send_encoded
+
+	@attach_to_current_buffer
+end
+
+@map_new_buffer_id+=
+if not rem2loc[agent] then
+	rem2loc[agent] = {}
+end
+
+rem2loc[agent][buf] = buf
+loc2rem[buf] = { agent, buf }
+
+local rem = loc2rem[buf]
