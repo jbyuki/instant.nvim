@@ -10,7 +10,7 @@ instant.nvim
 * [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
 * [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
 
-[![Untitled-Project.gif](https://i.postimg.cc/ydM961f3/Untitled-Project.gif)](https://postimg.cc/gXKrNWbG)
+[![Untitled-Project.gif](https://i.postimg.cc/jjnrHMjY/Untitled-Project.gif)](https://postimg.cc/qtrY0Xn1)
 
 Features
 --------
@@ -61,3 +61,18 @@ Usage
 :InstantJoinSingle 127.0.0.1 8080
 ```
 4. Now the two buffers are synced
+
+### Session sharing
+
+[![Untitled-Project.gif](https://i.postimg.cc/ydM961f3/Untitled-Project.gif)](https://postimg.cc/gXKrNWbG)
+
+1. Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/en/).
+2. Open an instance and connect to the server.
+```
+:InstantStartSession 127.0.0.1 8080
+```
+3. Open another instance and join.
+```
+:InstantJoinSession 127.0.0.1 8080
+```
+4. Now all the buffers are synced
