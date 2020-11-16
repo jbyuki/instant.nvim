@@ -8,8 +8,9 @@
 const WebSocket = require('ws');
 
 @create_ws_server+=
+const port = process.env.PORT || 8080
 const wss = new WebSocket.Server({ 
-	port : process.env.PORT || 8080,
+	port : port,
 });
 
 wss.on('connection', (ws) => {
@@ -20,10 +21,12 @@ wss.on('connection', (ws) => {
 		@if_initial_broadcast_to_others
 		@if_available_send_response_back
 		@if_check_status_send_response_back
+		@if_info_save_client_info
 	});
 	ws.on('close', (reasonCode, desc) => {
 		console.log("Peer disconnected!");
 		console.log(wss.clients.size, " clients remaining");
+		@check_if_no_more_peer
 	});
 	console.log("Peer connected");
 });
@@ -73,7 +76,8 @@ if(decoded.type == "available") {
 	const response = {
 		type: "response",
 		is_first: wss.clients.size == 1,
-		client_id: client_id
+		client_id: client_id,
+		sessionshare: sessionshare
 	};
 	client_id++;
 	ws.send(JSON.stringify(response));
@@ -87,3 +91,23 @@ if(decoded.type == "status") {
 	};
 	ws.send(JSON.stringify(response));
 }
+
+@script_variables+=
+let is_initialized = false;
+let sessionshare = false;
+
+@check_if_no_more_peer+=
+if(wss.clients.size == 0) {
+	is_initialized = false;
+}
+
+@if_info_save_client_info+=
+if(decoded.type == "info") {
+	if(!is_initialized) {
+		sessionshare = decoded.sessionshare;
+		is_initialized = true;
+	}
+}
+
+@create_ws_server+=
+wss.on('listening', () => console.log(`Server is listening on port ${port}`))

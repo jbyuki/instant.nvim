@@ -2,8 +2,12 @@ const WebSocket = require('ws');
 
 let client_id = 100;
 
+let is_initialized = false;
+let sessionshare = false;
+
+const port = process.env.PORT || 8080
 const wss = new WebSocket.Server({ 
-	port : process.env.PORT || 8080,
+	port : port,
 });
 
 wss.on('connection', (ws) => {
@@ -44,7 +48,8 @@ wss.on('connection', (ws) => {
 			const response = {
 				type: "response",
 				is_first: wss.clients.size == 1,
-				client_id: client_id
+				client_id: client_id,
+				sessionshare: sessionshare
 			};
 			client_id++;
 			ws.send(JSON.stringify(response));
@@ -57,12 +62,25 @@ wss.on('connection', (ws) => {
 			};
 			ws.send(JSON.stringify(response));
 		}
+		
+		if(decoded.type == "info") {
+			if(!is_initialized) {
+				sessionshare = decoded.sessionshare;
+				is_initialized = true;
+			}
+		}
+		
 	});
 	ws.on('close', (reasonCode, desc) => {
 		console.log("Peer disconnected!");
 		console.log(wss.clients.size, " clients remaining");
+		if(wss.clients.size == 0) {
+			is_initialized = false;
+		}
+		
 	});
 	console.log("Peer connected");
 });
 
+wss.on('listening', () => console.log(`Server is listening on port ${port}`))
 
