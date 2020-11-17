@@ -404,26 +404,35 @@ else
 	end
 end
 
-@register_buf_change_callback+=
-local attach_success = vim.api.nvim_buf_attach(buf, false, {
-	on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
-		@return_true_if_detach
-		@if_ignore_tick_return
-		@get_context_for_current_buffer
-		@get_both_ranges
-		@get_xor_range
-		-- @display_xor_ranges
-		@if_there_is_text_to_delete_delete_it
-		@if_there_is_text_to_insert_insert_it
-		@set_context_for_current_buffer
-	end,
-	on_detach = function(_, buf)
-		table.insert(events, "detached " .. buf)
-	end
-})
+@script_variables+=
+local attached = {}
 
-if attach_success then
-	table.insert(events, "has_attached[" .. buf .. "] = true")
+@register_buf_change_callback+=
+if not attached[buf] then
+	local attach_success = vim.api.nvim_buf_attach(buf, false, {
+		on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
+			@return_true_if_detach
+			@if_ignore_tick_return
+			@get_context_for_current_buffer
+			@get_both_ranges
+			@get_xor_range
+			-- @display_xor_ranges
+			@if_there_is_text_to_delete_delete_it
+			@if_there_is_text_to_insert_insert_it
+			@set_context_for_current_buffer
+		end,
+		on_detach = function(_, buf)
+			table.insert(events, "detached " .. buf)
+			attached[buf] = nil
+		end
+	})
+
+	if attach_success then
+		table.insert(events, "has_attached[" .. buf .. "] = true")
+		attached[buf] = true
+	end
+else
+	detach[buf] = nil
 end
 
 
