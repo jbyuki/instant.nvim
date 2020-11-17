@@ -912,9 +912,10 @@ opcol = sx-2
 
 @functions+=
 local function findCharPositionBefore(opid, ipid)
+	@compute_line_with_sorted_binary_search
 	local px, py = 1, 1
-	for y,lpid in ipairs(pids) do
-		for x,pid in ipairs(lpid) do
+	for y=y1,#pids do
+		for x,pid in ipairs(pids[y]) do
 			if not isLower(pid, opid) and not isLower(pid, ipid) then 
 				return px, py
 			end
@@ -995,12 +996,12 @@ end
 
 @functions+=
 local function findCharPositionExact(opid)
-	local y1, y2 = 1, #pids
 	@compute_line_with_sorted_binary_search
 	@compute_col_with_linear_search
 end
 
 @compute_line_with_sorted_binary_search+=
+local y1, y2 = 1, #pids
 while true do
 	local ym = math.floor((y2 + y1)/2)
 	if ym == y1 then break end
@@ -1180,9 +1181,6 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
 
 @send_encoded+=
-if not encoded then
-	print("line number " .. debug.getinfo(1).currentline)
-end
 SendText(encoded)
 -- table.insert(events, "sent " .. encoded)
 
@@ -1556,21 +1554,17 @@ table.insert(pids, i+1, { newpid })
 lastPID = op[4]
 
 @functions+=
-local function findPIDBefore2(opid)
-	local pppid, ppid
-	for y,lpid in ipairs(pids) do
-		for x,pid in ipairs(lpid) do
-			if not isLower(pid, opid) then 
-				return pppid 
-			end
-			pppid = ppid
-			ppid = pid
-		end
+local function findPIDBefore(opid)
+	local x, y = findCharPositionBefore(opid, opid)
+	if x == 1 then
+		return pids[y-1][#pids[y-1]]
+	elseif x then
+		return pids[y][x-1]
 	end
 end
 
 @save_last_deleted_pid+=
-lastPID = findPIDBefore2(op[2])
+lastPID = findPIDBefore(op[2])
 
 @declare_functions+=
 local getConfig

@@ -302,18 +302,26 @@ function SendOp(buf, op)
 	}
 	local encoded = vim.api.nvim_call_function("json_encode", { obj })
 	
-	if not encoded then
-		print("line number " .. debug.getinfo(1).currentline)
-	end
 	SendText(encoded)
 	-- table.insert(events, "sent " .. encoded)
 	
 end
 
 local function findCharPositionBefore(opid, ipid)
+	local y1, y2 = 1, #pids
+	while true do
+		local ym = math.floor((y2 + y1)/2)
+		if ym == y1 then break end
+		if isLower(pids[ym][1], opid) then
+			y1 = ym
+		else
+			y2 = ym
+		end
+	end
+	
 	local px, py = 1, 1
-	for y,lpid in ipairs(pids) do
-		for x,pid in ipairs(lpid) do
+	for y=y1,#pids do
+		for x,pid in ipairs(pids[y]) do
 			if not isLower(pid, opid) and not isLower(pid, ipid) then 
 				return px, py
 			end
@@ -389,25 +397,18 @@ local function Refresh()
 		["type"] = "request",
 	}
 	local encoded = vim.api.nvim_call_function("json_encode", { obj })
-	if not encoded then
-		print("line number " .. debug.getinfo(1).currentline)
-	end
 	SendText(encoded)
 	-- table.insert(events, "sent " .. encoded)
 	
 	
 end
 
-local function findPIDBefore2(opid)
-	local pppid, ppid
-	for y,lpid in ipairs(pids) do
-		for x,pid in ipairs(lpid) do
-			if not isLower(pid, opid) then 
-				return pppid 
-			end
-			pppid = ppid
-			ppid = pid
-		end
+local function findPIDBefore(opid)
+	local x, y = findCharPositionBefore(opid, opid)
+	if x == 1 then
+		return pids[y-1][#pids[y-1]]
+	elseif x then
+		return pids[y][x-1]
 	end
 end
 
@@ -622,9 +623,6 @@ function instantOpenOrCreateBuffer(buf)
 		}
 		encoded = vim.api.nvim_call_function("json_encode", { obj })
 		
-		if not encoded then
-			print("line number " .. debug.getinfo(1).currentline)
-		end
 		SendText(encoded)
 		-- table.insert(events, "sent " .. encoded)
 		
@@ -991,9 +989,6 @@ local function StartClient(first, appuri, port)
 							["type"] = "available"
 						}
 						local encoded = vim.api.nvim_call_function("json_encode", { obj })
-						if not encoded then
-							print("line number " .. debug.getinfo(1).currentline)
-						end
 						SendText(encoded)
 						-- table.insert(events, "sent " .. encoded)
 						
@@ -1121,7 +1116,7 @@ local function StartClient(first, appuri, port)
 												
 												
 											elseif op[1] == "del" then
-												lastPID = findPIDBefore2(op[2])
+												lastPID = findPIDBefore(op[2])
 												
 												local sx, sy = findCharPositionExact(op[2])
 												
@@ -1284,9 +1279,6 @@ local function StartClient(first, appuri, port)
 											}
 											encoded = vim.api.nvim_call_function("json_encode", { obj })
 											
-											if not encoded then
-												print("line number " .. debug.getinfo(1).currentline)
-											end
 											SendText(encoded)
 											-- table.insert(events, "sent " .. encoded)
 											
@@ -1321,9 +1313,6 @@ local function StartClient(first, appuri, port)
 												}
 												encoded = vim.api.nvim_call_function("json_encode", { obj })
 												
-												if not encoded then
-													print("line number " .. debug.getinfo(1).currentline)
-												end
 												SendText(encoded)
 												-- table.insert(events, "sent " .. encoded)
 												
@@ -1636,9 +1625,6 @@ local function StartClient(first, appuri, port)
 												["author"] = author,
 											}
 											local encoded = vim.api.nvim_call_function("json_encode", { obj })
-											if not encoded then
-												print("line number " .. debug.getinfo(1).currentline)
-											end
 											SendText(encoded)
 											-- table.insert(events, "sent " .. encoded)
 											
@@ -2501,9 +2487,6 @@ local function StartClient(first, appuri, port)
 													["author"] = author,
 												}
 												local encoded = vim.api.nvim_call_function("json_encode", { obj })
-												if not encoded then
-													print("line number " .. debug.getinfo(1).currentline)
-												end
 												SendText(encoded)
 												-- table.insert(events, "sent " .. encoded)
 												
@@ -2729,9 +2712,6 @@ local function StartClient(first, appuri, port)
 													["type"] = "request",
 												}
 												local encoded = vim.api.nvim_call_function("json_encode", { obj })
-												if not encoded then
-													print("line number " .. debug.getinfo(1).currentline)
-												end
 												SendText(encoded)
 												-- table.insert(events, "sent " .. encoded)
 												
@@ -2999,9 +2979,6 @@ local function Status()
 			["type"] = "status",
 		}
 		local encoded = vim.api.nvim_call_function("json_encode", { obj })
-		if not encoded then
-			print("line number " .. debug.getinfo(1).currentline)
-		end
 		SendText(encoded)
 		-- table.insert(events, "sent " .. encoded)
 		
