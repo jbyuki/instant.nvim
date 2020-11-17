@@ -752,7 +752,6 @@ local SendOp
 
 @functions+=
 function SendOp(buf, op)
-	-- table.insert(events, "send op " .. vim.inspect(op))
 	@convert_local_to_remote_buffer
 	@encode_operation_in_json_object
 	@send_encoded
@@ -821,7 +820,6 @@ table.remove(pids[py+2], px+2)
 @interpret_received_text+=
 @decode_json
 if decoded then
-	table.insert(events, "received " .. decoded["type"])
 	@if_text_do_actions
 	@if_request_send_all_lines
 	@if_initial_and_not_initialized_set_buffer_lines
@@ -888,7 +886,6 @@ end
 opcol = x
 
 @set_op_line_delete+=
-table.insert(events, "sx " .. sx)
 if sx == 1 then
 	opline = sy-1
 else
@@ -1096,15 +1093,7 @@ local function Start(host, port)
 	local first = true
 	sessionshare = false
 	@start
-	@attach_to_current_buffer
 
-	@get_context_for_current_buffer
-	@get_buffer_lines
-	@init_pids_of_buffer_content
-	@init_prev_of_buffer_content
-	@set_context_for_current_buffer
-
-	@register_autocommands_for_buffer_open_and_create
 end
 
 @start_function+=
@@ -1116,9 +1105,6 @@ local function Join(host, port)
 	local first = false
 	sessionshare = false
 	@start
-	@attach_to_current_buffer
-
-	@register_autocommands_for_buffer_open_and_create
 end
 
 @export_symbols+=
@@ -1132,9 +1118,6 @@ StartClient(first, host, port)
 @stop_function+=
 local function Stop()
 	@stop
-	if sessionshare then
-		@unregister_autocommands
-	end
 	print("Disconnected!")
 end
 
@@ -1226,11 +1209,24 @@ if decoded["type"] == "response" then
 		@init_client_id
 		@send_client_informations
 		print("Connected!")
+
 		if sessionshare then
 			@get_all_text_edit_buffers
 			@attach_to_all_opened_buffers
 			@init_content_for_all_opened_buffers
+		else
+			local buf = singlebuf
+
+			@attach_to_current_buffer
+
+			@get_buffer_lines
+			@init_pids_of_buffer_content
+			@init_prev_of_buffer_content
+			@set_context_for_current_buffer
+
 		end
+
+		@register_autocommands_for_buffer_open_and_create
 	elseif not decoded["is_first"] and not first then
 		if decoded["sessionshare"] ~= sessionshare then
 			print("ERROR: Share mode client server mismatch (session mode, single buffer mode)")
@@ -1238,6 +1234,12 @@ if decoded["type"] == "response" then
 		else
 			@init_client_id
 			@send_client_informations
+
+			if not sessionshare then
+				local buf = singlebuf
+
+				@attach_to_current_buffer
+			end
 			@send_request_for_initial_content
 			print("Connected!")
 		end
@@ -1644,7 +1646,6 @@ local function StartSession(host, port)
 
 	local first = true
 	sessionshare = true
-	@register_autocommands_for_buffer_open_and_create
 	@start
 end
 
@@ -1654,7 +1655,6 @@ local function JoinSession(host, port)
 
 	local first = false
 	sessionshare = true
-	@register_autocommands_for_buffer_open_and_create
 	@start
 end
 
@@ -1718,8 +1718,6 @@ local rem = loc2rem[buf]
 
 @get_local_buf_from_remote+=
 local ag, bufid = unpack(decoded["buf"])
-table.insert(events, "ag " .. ag .. " " .. bufid)
-table.insert(events, "rem2loc " .. vim.inspect(rem2loc))
 buf = rem2loc[ag][bufid]
 
 @set_buf_table_for_opened_buffers+=
@@ -1742,10 +1740,7 @@ end
 
 @rename_buffer_to_initial+=
 if decoded["name"] and string.len(decoded["name"]) > 0 then
-	table.insert(events, "renaming buffer to " .. decoded["name"])
 	vim.api.nvim_buf_set_name(buf, decoded["name"])
-else
-	table.insert(events, "could not rename buffer " .. vim.inspect(decoded["name"]))
 end
 
 @get_all_text_edit_buffers+=
@@ -1770,6 +1765,9 @@ vimcmd("autocmd!")
 -- would be great
 vimcmd("autocmd BufNewFile,BufRead * call execute('lua instantOpenOrCreateBuffer(' . expand('<abuf>') . ')', '')")
 vimcmd("augroup end")
+
+@stop+=
+@unregister_autocommands
 
 @unregister_autocommands+=
 vimcmd("augroup instantSession")

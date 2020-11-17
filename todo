@@ -1,0 +1,12 @@
+Open 2 clients (A & B).
+
+In A do:
+
+	InstantJoinSingle ...
+	InstantStartSingle ...
+
+In B do:
+
+	InstantJoinSingle ...
+
+In B type h

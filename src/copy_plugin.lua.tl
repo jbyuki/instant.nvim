@@ -1,9 +1,4 @@
 @*=
-@requres
-@script_variables
-@copy_files
-
-@copy_files+=
 local plugvim = io.open("plugin/instant.vim", "w")
 for line in io.lines("src/tangle/instant.vim") do
 	plugvim:write(line .. '\n')
