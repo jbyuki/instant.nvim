@@ -1476,9 +1476,11 @@ local function StartClient(first, appuri, port)
 													vim.api.nvim_buf_set_name(buf, decoded["name"])
 												end
 												
-												vim.api.nvim_buf_call(buf, function()
-													vim.api.nvim_command("filetype detect")
-												end)
+												if vim.api.nvim_buf_call then
+													vim.api.nvim_buf_call(buf, function()
+														vim.api.nvim_command("filetype detect")
+													end)
+												end
 												
 												vim.api.nvim_buf_set_option(buf, "buftype", "")
 											end
@@ -1530,9 +1532,11 @@ local function StartClient(first, appuri, port)
 												vim.api.nvim_buf_set_name(buf, decoded["name"])
 											end
 											
-											vim.api.nvim_buf_call(buf, function()
-												vim.api.nvim_command("filetype detect")
-											end)
+											if vim.api.nvim_buf_call then
+												vim.api.nvim_buf_call(buf, function()
+													vim.api.nvim_command("filetype detect")
+												end)
+											end
 											
 										end
 									end

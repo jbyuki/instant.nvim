@@ -1812,9 +1812,11 @@ loc2rem[buf] = { agent, buf }
 local rem = loc2rem[buf]
 
 @detect_file_type+=
-vim.api.nvim_buf_call(buf, function()
-	vim.api.nvim_command("filetype detect")
-end)
+if vim.api.nvim_buf_call then
+	vim.api.nvim_buf_call(buf, function()
+		vim.api.nvim_command("filetype detect")
+	end)
+end
 
 @remove_buf_type_of_scratch_buffer+=
 vim.api.nvim_buf_set_option(buf, "buftype", "")
