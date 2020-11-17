@@ -46,6 +46,8 @@ Configurations
 let g:instant_username = "USERNAME"
 ```
 
+See [here](https://github.com/jbyuki/instant.nvim/wiki/Customization) for more customization options.
+
 Usage
 -----
 
