@@ -1,3 +1,41 @@
+local StopClient
+
+local GenerateWebSocketKey -- we must forward declare local functions because otherwise it picks the global one
+
+local OpAnd, OpOr, OpRshift, OpLshift
+
+local ConvertToBase64
+
+local ConvertBytesToString
+
+local SendText
+
+local OpXor
+
+local nocase
+
+local DetachFromBuffer
+
+local utf8len, utf8char
+
+local utf8insert
+
+local utf8remove
+
+local genPID
+
+local SendOp
+
+local splitArray
+
+local utf8split
+
+local isPIDEqual
+
+local isLower
+
+local getConfig
+
 local client
 
 local base64 = {}
@@ -36,12 +74,12 @@ local ignores = {}
 
 local singlebuf
 
-local vtextGroup = "CursorLineNr"
+local vtextGroup
 
 local old_namespace
 
 local cursors = {}
-local cursorGroup = "Cursor"
+local cursorGroup
 
 local sessionshare = false
 
@@ -59,42 +97,6 @@ for i=string.byte('0'), string.byte('9') do base64[b64] = string.char(i) b64 = b
 base64[b64] = '+' b64 = b64+1
 base64[b64] = '/'
 
-
-local StopClient
-
-local GenerateWebSocketKey -- we must forward declare local functions because otherwise it picks the global one
-
-local OpAnd, OpOr, OpRshift, OpLshift
-
-local ConvertToBase64
-
-local ConvertBytesToString
-
-local SendText
-
-local OpXor
-
-local nocase
-
-local DetachFromBuffer
-
-local utf8len, utf8char
-
-local utf8insert
-
-local utf8remove
-
-local genPID
-
-local SendOp
-
-local splitArray
-
-local utf8split
-
-local isPIDEqual
-
-local isLower
 
 function GenerateWebSocketKey()
 	key = {}
@@ -399,6 +401,12 @@ local function findPIDBefore2(opid)
 			ppid = pid
 		end
 	end
+end
+
+function getConfig(varname, default)
+	local v, value = pcall(function() return vim.api.nvim_get_var("instant_name_hl_group") end)
+	if not v then value = default end
+	return value
 end
 
 function instantOpenOrCreateBuffer(buf)
@@ -867,8 +875,11 @@ local function StartClient(first, appuri, port)
 	
 	detach = {}
 	
+	vtextGroup = getConfig("instant_name_hl_group", "CursorLineNr")
+	
 	old_namespace = {}
 	
+	cursorGroup = getConfig("instant_cursor_hl_group", "Cursor")
 	cursors = {}
 	
 	loc2rem = {}
@@ -1191,6 +1202,7 @@ local function StartClient(first, appuri, port)
 													
 													if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
 														local bx = vim.str_byteindex(prev[y-1], x-2)
+														table.insert(events, "cursorGroup " .. cursorGroup)
 														cursors[aut] = {
 															id = vim.api.nvim_buf_add_highlight(buf,
 																0, cursorGroup, y-2, bx, bx+1),

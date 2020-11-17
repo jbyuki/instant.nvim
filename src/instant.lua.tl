@@ -1,10 +1,10 @@
 @*=
 @requires
+@declare_functions
 @script_variables
 @fill_base64_table
 @init_typeset
 
-@declare_functions
 @functions
 
 @type_random_function
@@ -1560,8 +1560,21 @@ end
 @save_last_deleted_pid+=
 lastPID = findPIDBefore2(op[2])
 
+@declare_functions+=
+local getConfig
+
+@functions+=
+function getConfig(varname, default)
+	local v, value = pcall(function() return vim.api.nvim_get_var("instant_name_hl_group") end)
+	if not v then value = default end
+	return value
+end
+
 @script_variables+=
-local vtextGroup = "CursorLineNr"
+local vtextGroup
+
+@init_client+=
+vtextGroup = getConfig("instant_name_hl_group", "CursorLineNr")
 
 @update_cursor_highlight+=
 if lastPID then
@@ -1604,9 +1617,10 @@ old_namespace[aut] = {
 
 @script_variables+=
 local cursors = {}
-local cursorGroup = "Cursor"
+local cursorGroup
 
 @init_client+=
+cursorGroup = getConfig("instant_cursor_hl_group", "Cursor")
 cursors = {}
 
 @clear_match_if_present+=
@@ -1620,6 +1634,7 @@ end
 @set_match_of_user+=
 if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
 	local bx = vim.str_byteindex(prev[y-1], x-2)
+	table.insert(events, "cursorGroup " .. cursorGroup)
 	cursors[aut] = {
 		id = vim.api.nvim_buf_add_highlight(buf,
 			0, cursorGroup, y-2, bx, bx+1),
