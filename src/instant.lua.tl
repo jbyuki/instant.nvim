@@ -883,6 +883,7 @@ for _,op in ipairs(ops) do
 	@set_context_for_current_buffer
 	local aut = decoded["author"]
 	@update_cursor_highlight
+	@notify_status_callbacks
 	-- @check_if_pid_match_with_prev
 end
 
@@ -1352,8 +1353,7 @@ Status = Status,
 
 @if_status_echo_status+=
 if decoded["type"] == "status" then
-	table.insert(events, "Connected: " .. tostring(decoded["num_clients"]) .. " client(s).")
-	print("Connected: " .. tostring(decoded["num_clients"]) .. " client(s).")
+	print("Connected: " .. tostring(decoded["num_clients"]) .. " client(s). ")
 end
 
 @check_if_client_is_not_connected+=
@@ -1623,8 +1623,10 @@ if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
 	cursors[aut] = {
 		id = vim.api.nvim_buf_add_highlight(buf,
 			0, cursorGroup, y-2, bx, bx+1),
-		buf = buf
+		buf = buf,
+		line = y-2,
 	}
+	@set_cursor_extended_mark
 end
 
 @stop+=
@@ -1820,3 +1822,49 @@ end
 
 @remove_buf_type_of_scratch_buffer+=
 vim.api.nvim_buf_set_option(buf, "buftype", "")
+
+@set_cursor_extended_mark+=
+if vim.api.nvim_buf_set_extmark then
+	cursors[aut].ext_id = 
+		vim.api.nvim_buf_set_extmark(
+			buf, cursors[aut].id, y-2, bx, {})
+end
+
+@script_variables+=
+local status_cb = {}
+
+@functions+=
+local function attach_status_update(cb)
+	table.insert(status_cb, cb)
+	@get_all_user_infos
+	return positions
+end
+
+@export_symbols+=
+attach_status_update = attach_status_update,
+
+@notify_status_callbacks+=
+if #status_cb > 0 then
+	@get_all_user_infos
+	for _,cb in ipairs(status_cb) do
+		cb(positions)
+	end
+end
+
+@get_all_user_infos+=
+local positions = {}
+for aut, c in pairs(cursors) do 
+	local buf = c.buf
+	@get_buf_name_relative_to_cwd_or_just_tail
+	@get_cursor_position_of_user
+	table.insert(positions , {aut, bufname, line})
+end
+
+@get_cursor_position_of_user+=
+local line
+if c.ext_id then
+	line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
+			buf, c.id, c.ext_id, {}))
+else
+	line= c.y
+end

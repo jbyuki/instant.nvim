@@ -50,6 +50,8 @@ local rem2loc = {}
 
 local vimcmd = vim.api.nvim_command
 
+local status_cb = {}
+
 local b64 = 0
 for i=string.byte('a'), string.byte('z') do base64[b64] = string.char(i) b64 = b64+1 end
 for i=string.byte('A'), string.byte('Z') do base64[b64] = string.char(i) b64 = b64+1 end
@@ -827,6 +829,33 @@ function instantOpenOrCreateBuffer(buf)
 
 end
 
+local function attach_status_update(cb)
+	table.insert(status_cb, cb)
+	local positions = {}
+	for aut, c in pairs(cursors) do 
+		local buf = c.buf
+		local fullname = vim.api.nvim_buf_get_name(buf)
+		local cwdname = vim.api.nvim_call_function("fnamemodify",
+			{ fullname, ":." })
+		local bufname = cwdname
+		if bufname == fullname then
+			bufname = vim.api.nvim_call_function("fnamemodify",
+			{ fullname, ":t" })
+		end
+		
+		local line
+		if c.ext_id then
+			line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
+					buf, c.id, c.ext_id, {}))
+		else
+			line= c.y
+		end
+		table.insert(positions , {aut, bufname, line})
+	end
+	
+	return positions
+end
+
 
 
 local function StartClient(first, appuri, port)
@@ -1165,10 +1194,45 @@ local function StartClient(first, appuri, port)
 														cursors[aut] = {
 															id = vim.api.nvim_buf_add_highlight(buf,
 																0, cursorGroup, y-2, bx, bx+1),
-															buf = buf
+															buf = buf,
+															line = y-2,
 														}
+														if vim.api.nvim_buf_set_extmark then
+															cursors[aut].ext_id = 
+																vim.api.nvim_buf_set_extmark(
+																	buf, cursors[aut].id, y-2, bx, {})
+														end
+														
 													end
 													
+												end
+											end
+											
+											if #status_cb > 0 then
+												local positions = {}
+												for aut, c in pairs(cursors) do 
+													local buf = c.buf
+													local fullname = vim.api.nvim_buf_get_name(buf)
+													local cwdname = vim.api.nvim_call_function("fnamemodify",
+														{ fullname, ":." })
+													local bufname = cwdname
+													if bufname == fullname then
+														bufname = vim.api.nvim_call_function("fnamemodify",
+														{ fullname, ":t" })
+													end
+													
+													local line
+													if c.ext_id then
+														line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
+																buf, c.id, c.ext_id, {}))
+													else
+														line= c.y
+													end
+													table.insert(positions , {aut, bufname, line})
+												end
+												
+												for _,cb in ipairs(status_cb) do
+													cb(positions)
 												end
 											end
 											
@@ -1483,6 +1547,7 @@ local function StartClient(first, appuri, port)
 												end
 												
 												vim.api.nvim_buf_set_option(buf, "buftype", "")
+												
 											end
 									
 											local ag, bufid = unpack(decoded["bufid"])
@@ -2725,8 +2790,7 @@ local function StartClient(first, appuri, port)
 									end
 									
 									if decoded["type"] == "status" then
-										table.insert(events, "Connected: " .. tostring(decoded["num_clients"]) .. " client(s).")
-										print("Connected: " .. tostring(decoded["num_clients"]) .. " client(s).")
+										print("Connected: " .. tostring(decoded["num_clients"]) .. " client(s). ")
 									end
 									
 								else
@@ -2939,6 +3003,8 @@ Status = Status,
 
 StartSession = StartSession,
 JoinSession = JoinSession,
+
+attach_status_update = attach_status_update,
 
 }
 
