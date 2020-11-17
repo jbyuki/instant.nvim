@@ -995,22 +995,34 @@ end
 
 @functions+=
 local function findCharPositionExact(opid)
-	local x, y = 1, 1
-	for _,lpid in ipairs(pids) do
-		x = 1 
-		for _,pid in ipairs(lpid) do
-			if isPIDEqual(pid, opid) then 
-				return x, y
-			end
+	local y1, y2 = 1, #pids
+	@compute_line_with_sorted_binary_search
+	@compute_col_with_linear_search
+end
 
-			if not isLower(pid, opid) then
-				return nil
-			end
-			x = x + 1 
-		end
-		y = y + 1
+@compute_line_with_sorted_binary_search+=
+while true do
+	local ym = math.floor((y2 + y1)/2)
+	if ym == y1 then break end
+	if isLower(pids[ym][1], opid) then
+		y1 = ym
+	else
+		y2 = ym
 	end
 end
+
+@compute_col_with_linear_search+=
+local y = y1
+for x,pid in ipairs(pids[y]) do
+	if isPIDEqual(pid, opid) then 
+		return x, y
+	end
+
+	if not isLower(pid, opid) then
+		return nil
+	end
+end
+
 
 @find_pid_of_element_to_delete+=
 local sx, sy = findCharPositionExact(op[2])

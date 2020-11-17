@@ -346,21 +346,29 @@ function isPIDEqual(a, b)
 end
 
 local function findCharPositionExact(opid)
-	local x, y = 1, 1
-	for _,lpid in ipairs(pids) do
-		x = 1 
-		for _,pid in ipairs(lpid) do
-			if isPIDEqual(pid, opid) then 
-				return x, y
-			end
-
-			if not isLower(pid, opid) then
-				return nil
-			end
-			x = x + 1 
+	local y1, y2 = 1, #pids
+	while true do
+		local ym = math.floor((y2 + y1)/2)
+		if ym == y1 then break end
+		if isLower(pids[ym][1], opid) then
+			y1 = ym
+		else
+			y2 = ym
 		end
-		y = y + 1
 	end
+	
+	local y = y1
+	for x,pid in ipairs(pids[y]) do
+		if isPIDEqual(pid, opid) then 
+			return x, y
+		end
+	
+		if not isLower(pid, opid) then
+			return nil
+		end
+	end
+	
+	
 end
 
 function isLower(a, b)
