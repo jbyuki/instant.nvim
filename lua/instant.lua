@@ -44,10 +44,6 @@ local websocketkey
 
 events = {}
 
-masktexttime = 0
-convertframetostringtime = 0
-sendframetime = 0
-
 local iptable = {}
 
 local frames = {}
@@ -640,7 +636,6 @@ function instantOpenOrCreateBuffer(buf)
 					end
 					
 		
-					local t2 = StartTimer()
 					prev = allprev[buf]
 					pids = allpids[buf]
 					
@@ -818,7 +813,6 @@ function instantOpenOrCreateBuffer(buf)
 					allprev[buf] = prev
 					allpids[buf] = pids
 					
-					table.insert(events, "total time " .. StopTimer(t2))
 				end,
 				on_detach = function(_, buf)
 					table.insert(events, "detached " .. buf)
@@ -1349,7 +1343,6 @@ local function StartClient(first, appuri, port)
 															end
 															
 												
-															local t2 = StartTimer()
 															prev = allprev[buf]
 															pids = allpids[buf]
 															
@@ -1527,7 +1520,6 @@ local function StartClient(first, appuri, port)
 															allprev[buf] = prev
 															allpids[buf] = pids
 															
-															table.insert(events, "total time " .. StopTimer(t2))
 														end,
 														on_detach = function(_, buf)
 															table.insert(events, "detached " .. buf)
@@ -1662,7 +1654,6 @@ local function StartClient(first, appuri, port)
 																end
 																
 													
-																local t2 = StartTimer()
 																prev = allprev[buf]
 																pids = allpids[buf]
 																
@@ -1840,7 +1831,6 @@ local function StartClient(first, appuri, port)
 																allprev[buf] = prev
 																allpids[buf] = pids
 																
-																table.insert(events, "total time " .. StopTimer(t2))
 															end,
 															on_detach = function(_, buf)
 																table.insert(events, "detached " .. buf)
@@ -2067,7 +2057,6 @@ local function StartClient(first, appuri, port)
 															end
 															
 												
-															local t2 = StartTimer()
 															prev = allprev[buf]
 															pids = allpids[buf]
 															
@@ -2245,7 +2234,6 @@ local function StartClient(first, appuri, port)
 															allprev[buf] = prev
 															allpids[buf] = pids
 															
-															table.insert(events, "total time " .. StopTimer(t2))
 														end,
 														on_detach = function(_, buf)
 															table.insert(events, "detached " .. buf)
@@ -2520,7 +2508,6 @@ local function StartClient(first, appuri, port)
 																end
 																
 													
-																local t2 = StartTimer()
 																prev = allprev[buf]
 																pids = allpids[buf]
 																
@@ -2698,7 +2685,6 @@ local function StartClient(first, appuri, port)
 																allprev[buf] = prev
 																allpids[buf] = pids
 																
-																table.insert(events, "total time " .. StopTimer(t2))
 															end,
 															on_detach = function(_, buf)
 																table.insert(events, "detached " .. buf)

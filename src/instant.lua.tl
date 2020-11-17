@@ -185,11 +185,6 @@ events = {}
 @declare_functions+=
 local SendText
 
-@script_variables+=
-masktexttime = 0
-convertframetostringtime = 0
-sendframetime = 0
-
 @functions+=
 function SendText(str)
 	@generate_mask
@@ -408,7 +403,6 @@ if not attached[buf] then
 			@return_true_if_detach
 			@if_ignore_tick_return
 
-			local t2 = StartTimer()
 			@get_context_for_current_buffer
 			@get_both_ranges
 			@get_xor_range
@@ -416,7 +410,6 @@ if not attached[buf] then
 			@if_there_is_text_to_delete_delete_it
 			@if_there_is_text_to_insert_insert_it
 			@set_context_for_current_buffer
-			table.insert(events, "total time " .. StopTimer(t2))
 		end,
 		on_detach = function(_, buf)
 			table.insert(events, "detached " .. buf)
