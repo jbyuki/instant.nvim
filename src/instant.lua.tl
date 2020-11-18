@@ -1607,7 +1607,7 @@ local getConfig
 
 @functions+=
 function getConfig(varname, default)
-	local v, value = pcall(function() return vim.api.nvim_get_var("instant_name_hl_group") end)
+	local v, value = pcall(function() return vim.api.nvim_get_var(varname) end)
 	if not v then value = default end
 	return value
 end
