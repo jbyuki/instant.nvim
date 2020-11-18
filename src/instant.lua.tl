@@ -2,6 +2,8 @@
 @requires
 @declare_functions
 @script_variables
+@message_types
+@operation_types
 @fill_base64_table
 @init_typeset
 
@@ -206,7 +208,7 @@ local bit = require("bit")
 @mask_text+=
 local masked = {}
 for i=0,#str-1 do
-	local j = i%4
+	local j = bit.band(i, 0x3)
 	local trans = bit.bxor(string.byte(string.sub(str, i+1, i+1)), mask[j+1])
 	table.insert(masked, trans)
 end
@@ -410,6 +412,7 @@ if not attached[buf] then
 			@if_there_is_text_to_delete_delete_it
 			@if_there_is_text_to_insert_insert_it
 			@set_context_for_current_buffer
+
 		end,
 		on_detach = function(_, buf)
 			table.insert(events, "detached " .. buf)
@@ -462,7 +465,7 @@ local add_range = {
 }
 
 @script_variables+=
-allprev = {}
+local allprev = {}
 local prev = { "" }
 
 @get_both_ranges+=
@@ -593,11 +596,14 @@ for i,pid in ipairs(pids[y+2]) do
 end
 table.remove(pids, y+2)
 
+@operation_types+=
+local OP_DEL = 1
+
 @send_delete_operation_for_newline+=
-SendOp(buf, { "del", del_pid })
+SendOp(buf, { OP_DEL, del_pid })
 
 @send_delete_operation_for_character+=
-SendOp(buf, { "del", del_pid })
+SendOp(buf, { OP_DEL, del_pid })
 
 @if_there_is_text_to_insert_insert_it+=
 local startx = add_range.sx
@@ -636,8 +642,11 @@ local new_pid = genPID(before_pid, after_pid, agent, 1)
 
 table.insert(pids[y+2], x+2, new_pid)
 
+@operation_types+=
+local OP_INS = 2
+
 @send_insert_operation_for_character+=
-SendOp(buf, { "ins", c, before_pid, new_pid })
+SendOp(buf, { OP_INS, c, before_pid, new_pid })
 
 @insert_newline_by_splitting_text+=
 if cur_lines[y-firstline] then
@@ -666,7 +675,7 @@ table.insert(r, 1, new_pid)
 table.insert(pids, y+2, r)
 
 @send_insert_operation_for_newline+=
-SendOp(buf, { "ins", "\n", before_pid, new_pid })
+SendOp(buf, { OP_INS, "\n", before_pid, new_pid })
 
 @declare_functions+=
 local utf8len, utf8char
@@ -744,7 +753,7 @@ end
 local agent = 0
 
 @init_client_id+=
-agent = decoded["client_id"]
+agent = client_id
 
 @declare_functions+=
 local SendOp
@@ -759,13 +768,17 @@ end
 @script_variables+=
 local author = vim.api.nvim_get_var("instant_username")
 
+@message_types+=
+local MSG_TEXT = 1
+
 @encode_operation_in_json_object+=
 local obj = {
-	["type"] = "text",
-	["ops"] = { op },
-	["buf"] = rem,
-	["author"] = author,
+	MSG_TEXT,
+	{ op },
+	rem,
+	author,
 }
+
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 
 @if_text_was_replaced_add_and_remove_text+=
@@ -794,17 +807,17 @@ else
 	table.insert(pids, py+2, { new_pid })
 end
 
-SendOp(buf, { "ins", "\n", before_pid, new_pid })
+SendOp(buf, { OP_INS, "\n", before_pid, new_pid })
 
 @insert_normal_character+=
 local before_pid = pids[py+1][px+1]
 local after_pid = afterPID(px+1, py+1)
 local new_pid = genPID(before_pid, after_pid, agent, 1)
 table.insert(pids[py+1], px+2, new_pid)
-SendOp(buf, { "ins", c, before_pid, new_pid })
+SendOp(buf, { OP_INS, c, before_pid, new_pid })
 
 @delete_newline_character+=
-SendOp(buf, { "del", pids[py+2][1] })
+SendOp(buf, { OP_DEL, pids[py+2][1] })
 for i,pid in ipairs(pids[py+2]) do
 	if i > 1 then
 		table.insert(pids[py+1], pid)
@@ -813,7 +826,7 @@ end
 table.remove(pids, py+2)
 
 @delete_regular_character+=
-SendOp(buf, { "del", pids[py+2][px+2] })
+SendOp(buf, { OP_DEL, pids[py+2][px+2] })
 table.remove(pids[py+2], px+2)
 
 @interpret_received_text+=
@@ -829,12 +842,12 @@ else
 end
 
 @if_text_do_actions+=
-if decoded["type"] == "text" then
+if decoded[1] == MSG_TEXT then
 	@play_operations
 end
 
 @decode_json+=
-local decoded = vim.api.nvim_call_function("json_decode", {fragmented})
+local decoded = vim.api.nvim_call_function("json_decode", {  fragmented })
 
 @script_variables+=
 local ignores = {}
@@ -853,7 +866,7 @@ if ignores[buf][changedtick] then
 end
 
 @play_operations+=
-local ops = decoded["ops"]
+local _, ops, other_rem, other_agent = unpack(decoded)
 local opline = 0
 local opcol = 0
 local lastPID
@@ -861,17 +874,18 @@ for _,op in ipairs(ops) do
 	-- table.insert(events, "receive op " .. vim.inspect(op))
 	-- @display_states
 	@get_buffer_number_to_apply_modifications
+	@get_local_buf_from_remote
 	@get_context_for_current_buffer
 	@get_changedtick_and_add_to_ignore
-	if op[1] == "ins" then
+	if op[1] == OP_INS then
 		@save_last_inserted_pid
 		@apply_insert_operation
-	elseif op[1] == "del" then
+	elseif op[1] == OP_DEL then
 		@save_last_deleted_pid
 		@apply_delete_operation
 	end
 	@set_context_for_current_buffer
-	local aut = decoded["author"]
+	@get_author_from_other_agent_id
 	@update_cursor_highlight
 	@notify_status_callbacks
 	-- @check_if_pid_match_with_prev
@@ -1144,7 +1158,7 @@ StopClient()
 
 
 @if_request_send_all_lines+=
-if decoded["type"] == "request" then
+if decoded[1] == MSG_REQUEST then
 	local encoded
 	if not sessionshare then
 		local buf = singlebuf
@@ -1163,9 +1177,12 @@ if decoded["type"] == "request" then
 	end
 end
 
+@message_types+=
+local MSG_AVAILABLE = 2
+
 @handshake_finished+=
 local obj = {
-	["type"] = "available"
+	MSG_AVAILABLE
 }
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
@@ -1174,9 +1191,24 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 SendText(encoded)
 -- table.insert(events, "sent " .. encoded)
 
+@declare_functions+=
+local MsgPackToString
+
+@functions+=
+function MsgPackToString(el)
+	if el then
+		local val = el["_VAL"]
+		if val then
+			return val[1]
+		end
+	end
+end
+
 @if_initial_and_not_initialized_set_buffer_lines+=
-if decoded["type"] == "initial" then
-	local ag, bufid = unpack(decoded["bufid"])
+if decoded[1] == MSG_INITIAL then
+	local _, bufname, bufid, new_pids, content = unpack(decoded)
+
+	local ag, bufid = unpack(bufid)
 	if not rem2loc[ag] or not rem2loc[ag][bufid] then
 		local buf
 		if not sessionshare then
@@ -1214,8 +1246,9 @@ if decoded["type"] == "initial" then
 end
 
 @if_available_check_if_its_ok+=
-if decoded["type"] == "response" then
-	if decoded["is_first"] and first then
+if decoded[1] == MSG_AVAILABLE then
+	local _, is_first, client_id, is_sessionshare  = unpack(decoded)
+	if is_first and first then
 		@init_client_id
 		@send_client_informations
 		print("Connected!")
@@ -1228,6 +1261,7 @@ if decoded["type"] == "response" then
 			local buf = singlebuf
 
 			@attach_to_current_buffer
+			@map_new_buffer_id
 
 			@get_buffer_lines
 			@init_pids_of_buffer_content
@@ -1237,8 +1271,8 @@ if decoded["type"] == "response" then
 		end
 
 		@register_autocommands_for_buffer_open_and_create
-	elseif not decoded["is_first"] and not first then
-		if decoded["sessionshare"] ~= sessionshare then
+	elseif not is_first and not first then
+		if is_sessionshare ~= sessionshare then
 			print("ERROR: Share mode client server mismatch (session mode, single buffer mode)")
 			@stop
 		else
@@ -1251,24 +1285,28 @@ if decoded["type"] == "response" then
 				@attach_to_current_buffer
 			end
 			@send_request_for_initial_content
+			@register_autocommands_for_buffer_open_and_create
 			print("Connected!")
 		end
-	elseif decoded["is_first"] and not first then
+	elseif is_first and not first then
 		table.insert(events, "ERROR: Tried to join an empty server")
 		print("ERROR: Tried to join an empty server")
 		@stop
-	elseif not decoded["is_first"] and first then
+	elseif not is_first and first then
 		table.insert(events, "ERROR: Tried to start a server which is already busy")
 		print("ERROR: Tried to start a server which is already busy")
 		@stop
 	end
 end
 
+@message_types+=
+local MSG_REQUEST = 3
+
 @send_request_for_initial_content+=
 local obj = {
-	["type"] = "request",
+	MSG_REQUEST,
 }
-local encoded = vim.api.nvim_call_function("json_encode", { obj })
+local encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 @send_encoded
 
 @check_for_connection_errors+=
@@ -1311,26 +1349,30 @@ local lines = vim.api.nvim_buf_get_lines(
 	singlebuf,
 	0, -1, true)
 
+@message_types+=
+local MSG_INITIAL = 6
+
 @encode_initial_content_single+=
 local obj = {
-	["type"] = "initial",
-	["name"] = bufname,
-	["bufid"] = rem,
-	["pids"] = allpids[buf],
-	["content"] = allprev[buf]
+	MSG_INITIAL,
+	bufname,
+	rem,
+	allpids[buf],
+	allprev[buf]
 }
-encoded = vim.api.nvim_call_function("json_encode", { obj })
+
+encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 
 @set_lines_for_initial_prev+=
-prev = decoded["content"]
+prev = content
 
 @set_pids_for_initial+=
-pids = decoded["pids"]
+pids = new_pids
 
 @set_lines_in_current_buffer+=
 vim.api.nvim_buf_set_lines(
 	buf,
-	0, -1, false, decoded["content"])
+	0, -1, false, prev)
 
 @status_function+=
 local function Status()
@@ -1341,9 +1383,12 @@ local function Status()
 	end
 end
 
+@message_types+=
+local MSG_STATUS = 4
+
 @send_server_status+=
 local obj = {
-	["type"] = "status",
+	MSG_STATUS
 }
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
@@ -1352,8 +1397,9 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 Status = Status,
 
 @if_status_echo_status+=
-if decoded["type"] == "status" then
-	print("Connected: " .. tostring(decoded["num_clients"]) .. " client(s). ")
+if decoded[1] == MSG_STATUS then
+	local _, num_clients = unpack(decoded)
+	print("Connected: " .. tostring(num_clients) .. " client(s). ")
 end
 
 @check_if_client_is_not_connected+=
@@ -1630,7 +1676,6 @@ end
 @set_match_of_user+=
 if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
 	local bx = vim.str_byteindex(prev[y-1], x-2)
-	table.insert(events, "cursorGroup " .. cursorGroup)
 	cursors[aut] = {
 		id = vim.api.nvim_buf_add_highlight(buf,
 			0, cursorGroup, y-2, bx, bx+1),
@@ -1706,11 +1751,15 @@ else
 	buf = singlebuf
 end
 
+@message_types+=
+local MSG_INFO = 5
+
 @send_client_informations+=
 local obj = {
-	["type"] = "info",
-	["sessionshare"] = sessionshare,
-	["author"] = author,
+	MSG_INFO,
+	sessionshare,
+	author,
+	agent,
 }
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
@@ -1727,7 +1776,6 @@ loc2rem = {}
 rem2loc = {}
 
 @map_received_buffer_id+=
-local ag, bufid = unpack(decoded["bufid"])
 if not rem2loc[ag] then
 	rem2loc[ag] = {}
 end
@@ -1739,7 +1787,7 @@ loc2rem[buf] = { ag, bufid }
 local rem = loc2rem[buf]
 
 @get_local_buf_from_remote+=
-local ag, bufid = unpack(decoded["buf"])
+local ag, bufid = unpack(other_rem)
 buf = rem2loc[ag][bufid]
 
 @set_buf_table_for_opened_buffers+=
@@ -1761,9 +1809,7 @@ if bufname == fullname then
 end
 
 @rename_buffer_to_initial+=
-if decoded["name"] and string.len(decoded["name"]) > 0 then
-	vim.api.nvim_buf_set_name(buf, decoded["name"])
-end
+vim.api.nvim_buf_set_name(buf, bufname)
 
 @get_all_text_edit_buffers+=
 local allbufs = vim.api.nvim_list_bufs()
@@ -1879,3 +1925,33 @@ if c.ext_id then
 else
 	line= c.y
 end
+
+@declare_functions+=
+local SendBinary
+
+@functions+=
+function SendBinary(str)
+	@generate_mask
+	@mask_text
+	@create_base_frame_binary
+	@convert_frame_to_string
+	@send_frame
+end
+
+@create_base_frame_binary+=
+local frame = {
+	0x82, 0x80
+}
+
+@write_payload_length
+
+for i=1,4 do
+	table.insert(frame, mask[i])
+end
+
+for i=1,#masked do
+	table.insert(frame, masked[i])
+end
+
+@get_author_from_other_agent_id+=
+local aut = other_agent

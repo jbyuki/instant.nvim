@@ -1,5 +1,6 @@
 @*=
 @requires
+@messages_types
 @script_variables
 @create_http_server
 @create_ws_server
@@ -16,12 +17,14 @@ const wss = new WebSocket.Server({
 wss.on('connection', (ws) => {
 	ws.on('message', (msg) => {
 		@decode_message
-		@if_request_send_to_first_client_in_list
-		@if_text_broadcast_to_others
-		@if_initial_broadcast_to_others
-		@if_available_send_response_back
-		@if_check_status_send_response_back
-		@if_info_save_client_info
+		if(decoded !== undefined) {
+			@if_request_send_to_first_client_in_list
+			@if_text_broadcast_to_others
+			@if_initial_broadcast_to_others
+			@if_available_send_response_back
+			@if_check_status_send_response_back
+			@if_info_save_client_info
+		}
 	});
 	ws.on('close', (reasonCode, desc) => {
 		console.log("Peer disconnected!");
@@ -32,7 +35,7 @@ wss.on('connection', (ws) => {
 });
 
 @if_text_broadcast_to_others+=
-if(decoded.type == "text") {
+if(decoded[0] == MSG_TEXT) {
 	wss.clients.forEach((client) => {
 		if(client.readyState == WebSocket.OPEN && client != ws) {
 			client.send(msg);
@@ -42,10 +45,9 @@ if(decoded.type == "text") {
 
 @decode_message+=
 const decoded = JSON.parse(msg);
-// console.log(decoded);
 
 @if_request_send_to_first_client_in_list+=
-if(decoded.type == "request") {
+if(decoded[0] == MSG_REQUEST) {
 	if(wss.clients.size <= 1) {
 		@if_no_other_client_return_empty_initial
 	} else {
@@ -61,7 +63,7 @@ if(decoded.type == "request") {
 }
 
 @if_initial_broadcast_to_others+=
-if(decoded.type == "initial") {
+if(decoded[0] == MSG_INITIAL) {
 	wss.clients.forEach((client) => {
 		if(client.readyState == WebSocket.OPEN && client != ws) {
 			client.send(msg);
@@ -73,23 +75,26 @@ if(decoded.type == "initial") {
 let client_id = 100;
 
 @if_available_send_response_back+=
-if(decoded.type == "available") {
-	const response = {
-		type: "response",
-		is_first: wss.clients.size == 1,
-		client_id: client_id,
-		sessionshare: sessionshare
-	};
+if(decoded[0] == MSG_AVAILABLE) {
+	const is_first = wss.clients.size == 1;
+	const response = [
+		MSG_AVAILABLE,
+		is_first,
+		client_id,
+		sessionshare
+	];
+
 	client_id++;
 	ws.send(JSON.stringify(response));
 }
 
 @if_check_status_send_response_back+=
-if(decoded.type == "status") {
-	const response = {
-		type: "status",
-		num_clients: wss.clients.size
-	};
+if(decoded[0] == MSG_STATUS) {
+	const num_clients = wss.clients.size;
+	const response = [
+		MSG_STATUS,
+		num_clients
+	];
 	ws.send(JSON.stringify(response));
 }
 
@@ -103,12 +108,22 @@ if(wss.clients.size == 0) {
 }
 
 @if_info_save_client_info+=
-if(decoded.type == "info") {
+if(decoded[0] == MSG_INFO) {
 	if(!is_initialized) {
-		sessionshare = decoded.sessionshare;
+		sessionshare = decoded[1];
 		is_initialized = true;
 	}
+
+	@send_client_connect_to_other_clients
 }
 
 @create_ws_server+=
 wss.on('listening', () => console.log(`Server is listening on port ${port}`))
+
+@messages_types+=
+const MSG_TEXT = 1;
+const MSG_AVAILABLE = 2;
+const MSG_REQUEST = 3;
+const MSG_INITIAL = 6;
+const MSG_STATUS = 4;
+const MSG_INFO = 5;
