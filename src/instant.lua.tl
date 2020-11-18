@@ -1,4 +1,4 @@
-@*=
+@../lua/instant.lua=
 @requires
 @declare_functions
 @script_variables
@@ -1842,22 +1842,30 @@ vimcmd("augroup instantSession")
 vimcmd("autocmd!")
 vimcmd("augroup end")
 
+@script_variables+=
+local only_share_cwd
+
+@init_client+=
+only_share_cwd = getConfig("g:instant_only_cwd", true)
+
 @functions+=
 function instantOpenOrCreateBuffer(buf)
 	if sessionshare or buf == singlebuf then
-		@get_buffer_lines
-		@init_pids_of_buffer_content
-		@init_prev_of_buffer_content
-		@set_context_for_current_buffer
-
 		@get_buf_name_relative_to_cwd_or_just_tail
-		@map_new_buffer_id
-		@encode_initial_content_single
-		@send_encoded
 
-		@attach_to_current_buffer
+		if cwdname ~= fullname or not only_share_cwd then
+			@get_buffer_lines
+			@init_pids_of_buffer_content
+			@init_prev_of_buffer_content
+			@set_context_for_current_buffer
+
+			@map_new_buffer_id
+			@encode_initial_content_single
+			@send_encoded
+
+			@attach_to_current_buffer
+		end
 	end
-
 end
 
 @map_new_buffer_id+=
