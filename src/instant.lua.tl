@@ -1641,9 +1641,11 @@ old_namespace = {}
 
 @clear_virtual_text_if_present+=
 if old_namespace[aut] then
-	vim.api.nvim_buf_clear_namespace(
-		old_namespace[aut].buf, old_namespace[aut].id,
-		0, -1)
+	if attached[old_namespace[aut].buf] then
+		vim.api.nvim_buf_clear_namespace(
+			old_namespace[aut].buf, old_namespace[aut].id,
+			0, -1)
+	end
 	old_namespace[aut] = nil
 end
 
@@ -1667,9 +1669,11 @@ cursors = {}
 
 @clear_match_if_present+=
 if cursors[aut] then
-	vim.api.nvim_buf_clear_namespace(
-		cursors[aut].buf, cursors[aut].id,
-		0, -1)
+	if attached[cursors[aut].buf] then
+		vim.api.nvim_buf_clear_namespace(
+			cursors[aut].buf, cursors[aut].id,
+			0, -1)
+	end
 	cursors[aut] = nil
 end
 

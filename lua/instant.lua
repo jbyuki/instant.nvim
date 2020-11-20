@@ -993,16 +993,20 @@ local function StartClient(first, appuri, port)
 			
 			for aut,_ in pairs(cursors) do
 				if cursors[aut] then
-					vim.api.nvim_buf_clear_namespace(
-						cursors[aut].buf, cursors[aut].id,
-						0, -1)
+					if attached[cursors[aut].buf] then
+						vim.api.nvim_buf_clear_namespace(
+							cursors[aut].buf, cursors[aut].id,
+							0, -1)
+					end
 					cursors[aut] = nil
 				end
 				
 				if old_namespace[aut] then
-					vim.api.nvim_buf_clear_namespace(
-						old_namespace[aut].buf, old_namespace[aut].id,
-						0, -1)
+					if attached[old_namespace[aut].buf] then
+						vim.api.nvim_buf_clear_namespace(
+							old_namespace[aut].buf, old_namespace[aut].id,
+							0, -1)
+					end
 					old_namespace[aut] = nil
 				end
 				
@@ -1031,16 +1035,20 @@ local function StartClient(first, appuri, port)
 				
 				for aut,_ in pairs(cursors) do
 					if cursors[aut] then
-						vim.api.nvim_buf_clear_namespace(
-							cursors[aut].buf, cursors[aut].id,
-							0, -1)
+						if attached[cursors[aut].buf] then
+							vim.api.nvim_buf_clear_namespace(
+								cursors[aut].buf, cursors[aut].id,
+								0, -1)
+						end
 						cursors[aut] = nil
 					end
 					
 					if old_namespace[aut] then
-						vim.api.nvim_buf_clear_namespace(
-							old_namespace[aut].buf, old_namespace[aut].id,
-							0, -1)
+						if attached[old_namespace[aut].buf] then
+							vim.api.nvim_buf_clear_namespace(
+								old_namespace[aut].buf, old_namespace[aut].id,
+								0, -1)
+						end
 						old_namespace[aut] = nil
 					end
 					
@@ -1260,16 +1268,20 @@ local function StartClient(first, appuri, port)
 												local x, y = findCharPositionExact(lastPID)
 												
 												if old_namespace[aut] then
-													vim.api.nvim_buf_clear_namespace(
-														old_namespace[aut].buf, old_namespace[aut].id,
-														0, -1)
+													if attached[old_namespace[aut].buf] then
+														vim.api.nvim_buf_clear_namespace(
+															old_namespace[aut].buf, old_namespace[aut].id,
+															0, -1)
+													end
 													old_namespace[aut] = nil
 												end
 												
 												if cursors[aut] then
-													vim.api.nvim_buf_clear_namespace(
-														cursors[aut].buf, cursors[aut].id,
-														0, -1)
+													if attached[cursors[aut].buf] then
+														vim.api.nvim_buf_clear_namespace(
+															cursors[aut].buf, cursors[aut].id,
+															0, -1)
+													end
 													cursors[aut] = nil
 												end
 												
@@ -2552,16 +2564,20 @@ local function StartClient(first, appuri, port)
 												
 												for aut,_ in pairs(cursors) do
 													if cursors[aut] then
-														vim.api.nvim_buf_clear_namespace(
-															cursors[aut].buf, cursors[aut].id,
-															0, -1)
+														if attached[cursors[aut].buf] then
+															vim.api.nvim_buf_clear_namespace(
+																cursors[aut].buf, cursors[aut].id,
+																0, -1)
+														end
 														cursors[aut] = nil
 													end
 													
 													if old_namespace[aut] then
-														vim.api.nvim_buf_clear_namespace(
-															old_namespace[aut].buf, old_namespace[aut].id,
-															0, -1)
+														if attached[old_namespace[aut].buf] then
+															vim.api.nvim_buf_clear_namespace(
+																old_namespace[aut].buf, old_namespace[aut].id,
+																0, -1)
+														end
 														old_namespace[aut] = nil
 													end
 													
@@ -2837,16 +2853,20 @@ local function StartClient(first, appuri, port)
 											
 											for aut,_ in pairs(cursors) do
 												if cursors[aut] then
-													vim.api.nvim_buf_clear_namespace(
-														cursors[aut].buf, cursors[aut].id,
-														0, -1)
+													if attached[cursors[aut].buf] then
+														vim.api.nvim_buf_clear_namespace(
+															cursors[aut].buf, cursors[aut].id,
+															0, -1)
+													end
 													cursors[aut] = nil
 												end
 												
 												if old_namespace[aut] then
-													vim.api.nvim_buf_clear_namespace(
-														old_namespace[aut].buf, old_namespace[aut].id,
-														0, -1)
+													if attached[old_namespace[aut].buf] then
+														vim.api.nvim_buf_clear_namespace(
+															old_namespace[aut].buf, old_namespace[aut].id,
+															0, -1)
+													end
 													old_namespace[aut] = nil
 												end
 												
@@ -2871,16 +2891,20 @@ local function StartClient(first, appuri, port)
 											
 											for aut,_ in pairs(cursors) do
 												if cursors[aut] then
-													vim.api.nvim_buf_clear_namespace(
-														cursors[aut].buf, cursors[aut].id,
-														0, -1)
+													if attached[cursors[aut].buf] then
+														vim.api.nvim_buf_clear_namespace(
+															cursors[aut].buf, cursors[aut].id,
+															0, -1)
+													end
 													cursors[aut] = nil
 												end
 												
 												if old_namespace[aut] then
-													vim.api.nvim_buf_clear_namespace(
-														old_namespace[aut].buf, old_namespace[aut].id,
-														0, -1)
+													if attached[old_namespace[aut].buf] then
+														vim.api.nvim_buf_clear_namespace(
+															old_namespace[aut].buf, old_namespace[aut].id,
+															0, -1)
+													end
 													old_namespace[aut] = nil
 												end
 												
@@ -3030,16 +3054,20 @@ local function Stop()
 	
 	for aut,_ in pairs(cursors) do
 		if cursors[aut] then
-			vim.api.nvim_buf_clear_namespace(
-				cursors[aut].buf, cursors[aut].id,
-				0, -1)
+			if attached[cursors[aut].buf] then
+				vim.api.nvim_buf_clear_namespace(
+					cursors[aut].buf, cursors[aut].id,
+					0, -1)
+			end
 			cursors[aut] = nil
 		end
 		
 		if old_namespace[aut] then
-			vim.api.nvim_buf_clear_namespace(
-				old_namespace[aut].buf, old_namespace[aut].id,
-				0, -1)
+			if attached[old_namespace[aut].buf] then
+				vim.api.nvim_buf_clear_namespace(
+					old_namespace[aut].buf, old_namespace[aut].id,
+					0, -1)
+			end
 			old_namespace[aut] = nil
 		end
 		
