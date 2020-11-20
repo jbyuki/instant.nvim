@@ -74,8 +74,9 @@ end
 
 @generate_16_bytes_array+=
 key = {}
+math.randomseed(os.time())
 for i =0,15 do
-	table.insert(key, math.floor(math.random()*255))
+	table.insert(key, math.floor(math.random(0, 255)))
 end
 
 @script_variables+=
