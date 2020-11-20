@@ -1,4 +1,4 @@
-@../lua/tests/single_buffer.lua=
+@../test/single_buffer.lua=
 @script_variables
 @create_window_test
 @declare_functions
@@ -17,8 +17,8 @@ handle, pid = vim.loop.spawn("node",
 		cwd = "../server"
 	}, function(code, signal)
 		vim.schedule(function()
-			log("exit code", code)
-			log("exit signal", signal)
+			log("exit code" .. code)
+			log("exit signal" .. signal)
 			@terminate_socket_connection_to_vim
 		end)
 	end)
@@ -97,8 +97,8 @@ table.insert(events, "Both clients connected and it's all fine")
 @stop_both_clients+=
 vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
 vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
-vim.fn.rpcrequest(client1, 'nvim_exec', "bwipeout! %", false)
-vim.fn.rpcrequest(client2, 'nvim_exec', "bwipeout! %", false)
+vim.fn.rpcrequest(client1, 'nvim_exec', "bufdo bwipeout! %", false)
+vim.fn.rpcrequest(client2, 'nvim_exec', "bufdo bwipeout! %", false)
 
 @script_variables+=
 local outputbuf
@@ -321,5 +321,41 @@ assertEq(#content2, 3)
 assertEq(content2[1], "alll")
 assertEq(content2[2], "testo")
 assertEq(content2[3], "another")
+
+vim.wait(100)
+
+@do_tests+=
+vim.wait(100)
+vim.fn.rpcrequest(client2, 'nvim_buf_set_lines', 0, 2, 3, false, { "hehe" } )
+vim.wait(100)
+local content2 = vim.fn.rpcrequest(client1, 'nvim_buf_get_lines', 0, 0, -1, true)
+assertEq(#content2, 3)
+assertEq(content2[1], "alll")
+assertEq(content2[2], "testo")
+assertEq(content2[3], "hehe")
+
+vim.wait(100)
+
+@do_tests+=
+vim.wait(100)
+vim.fn.rpcrequest(client2, 'nvim_buf_set_lines', 0, 2, 3, false, { "hat the" } )
+vim.wait(100)
+local content2 = vim.fn.rpcrequest(client1, 'nvim_buf_get_lines', 0, 0, -1, true)
+assertEq(#content2, 3)
+assertEq(content2[1], "alll")
+assertEq(content2[2], "testo")
+assertEq(content2[3], "hat the")
+
+vim.wait(100)
+
+@do_tests+=
+vim.wait(100)
+vim.fn.rpcrequest(client2, 'nvim_buf_set_lines', 0, 0, 1, false, { "lll" } )
+vim.wait(100)
+local content2 = vim.fn.rpcrequest(client1, 'nvim_buf_get_lines', 0, 0, -1, true)
+assertEq(#content2, 3)
+assertEq(content2[1], "lll")
+assertEq(content2[2], "testo")
+assertEq(content2[3], "hat the")
 
 vim.wait(100)
