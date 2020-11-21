@@ -7,3 +7,4 @@ src/test.lua.tl
 src/test2.lua.tl
 src/test3.lua.tl
 src/typernd.lua.tl
+lua/profiler.lua

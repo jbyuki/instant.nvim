@@ -1,4 +1,4 @@
-@*=
+@../plugin/instant.vim=
 @header
 @save_line_continuation
 @plugin_load_guard
@@ -43,3 +43,9 @@ command! -nargs=* InstantStartSession call instant#StartSessionWrapper(<f-args>)
 
 @register_commands+=
 command! -nargs=* InstantJoinSession call instant#JoinSessionWrapper(<f-args>)
+
+@register_commands+=
+command! -nargs=* InstantFollow call instant#StartFollowWrapper(<f-args>)
+
+@register_commands+=
+command! InstantStopFollow call instant#StopFollowWrapper()

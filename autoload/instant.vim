@@ -49,3 +49,16 @@ function instant#JoinSessionWrapper(...)
 		call luaeval('require("instant").JoinSession("' .. a:1 .. '", ' .. a:2 .. ')')
 	endif
 endfunction
+
+function instant#StartFollowWrapper(...)
+	if a:0 == 0 || a:0 > 1
+		echoerr "ARGUMENTS: [username]"
+		return
+	endif
+
+	call luaeval('require("instant").StartFollow("' .. a:1.. '")')
+endfunction
+
+function instant#StopFollowWrapper()
+	call luaeval('require("instant").StopFollow()')
+endfunction

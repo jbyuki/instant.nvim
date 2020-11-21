@@ -9,8 +9,6 @@
 
 @functions
 
-@type_random_function
-
 @start_client
 @stop_client
 
@@ -24,6 +22,7 @@
 @stop_session_function
 
 @status_function
+@follow_function
 
 return {
 @export_symbols
@@ -206,13 +205,22 @@ end
 @requires+=
 local bit = require("bit")
 
-@mask_text+=
-local masked = {}
-for i=0,#str-1 do
-	local j = bit.band(i, 0x3)
-	local trans = bit.bxor(string.byte(string.sub(str, i+1, i+1)), mask[j+1])
-	table.insert(masked, trans)
+@declare_functions+=
+local maskText
+
+@functions+=
+function maskText(str, mask)
+	local masked = {}
+	for i=0,#str-1 do
+		local j = bit.band(i, 0x3)
+		local trans = bit.bxor(string.byte(string.sub(str, i+1, i+1)), mask[j+1])
+		table.insert(masked, trans)
+	end
+	return masked
 end
+
+@mask_text+=
+local masked = maskText(str, mask)
 
 @create_base_frame+=
 local frame = {
@@ -403,6 +411,7 @@ local attached = {}
 if not attached[buf] then
 	local attach_success = vim.api.nvim_buf_attach(buf, false, {
 		on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
+			@start_profiler
 			@return_true_if_detach
 			@if_ignore_tick_return
 
@@ -413,6 +422,7 @@ if not attached[buf] then
 			@if_there_is_text_to_delete_delete_it
 			@if_there_is_text_to_insert_insert_it
 			@set_context_for_current_buffer
+			@stop_profiler
 
 		end,
 		on_detach = function(_, buf)
@@ -761,9 +771,11 @@ local SendOp
 
 @functions+=
 function SendOp(buf, op)
-	@convert_local_to_remote_buffer
-	@encode_operation_in_json_object
-	@send_encoded
+	vim.schedule(function()
+		@convert_local_to_remote_buffer
+		@encode_operation_in_json_object
+		@send_encoded
+	end)
 end
 
 @script_variables+=
@@ -1449,144 +1461,6 @@ table.insert(pids[i+1], newpid)
 @insert_newline_character_pid+=
 table.insert(pids, i+1, { newpid })
 
--- For testing purposes
--- @script_variables+=
--- local typeset = {}
--- 
--- @init_typeset+=
--- for i=string.byte('a'),string.byte('z') do
--- 	table.insert(typeset, string.char(i))
--- end
--- 
--- for i=string.byte('A'),string.byte('Z') do
--- 	table.insert(typeset, string.char(i))
--- end
--- 
--- for i=string.byte('0'),string.byte('9') do
--- 	table.insert(typeset, string.char(i))
--- end
--- 
--- @type_random_function+=
--- function TypeRandom(limit, ms)
--- 	ms = ms or 50
--- 	local timer = vim.loop.new_timer()
--- 	local i = 0
--- 	timer:start(300, ms, function()
--- 		vim.schedule(function()
--- 			if math.random() < 0.7 or vim.api.nvim_buf_line_count(0) < 2 then
--- 				if math.random() < 0.1 then
--- 					@pick_random_line
--- 					@insert_new_line
--- 				elseif math.random() < 0.1 then
--- 					@pick_random_line
--- 					@split_line_into_two_lines
--- 				else
--- 					@pick_random_line
--- 					@pick_random_position_in_line
--- 					@pick_random_character
--- 					@insert_character
--- 				end
--- 			elseif math.random() < 0.9 then
--- 				if math.random() < 0.1 then
--- 					@pick_random_line
--- 					@delete_line
--- 				elseif math.random() < 0.1 then
--- 					@pick_random_line
--- 					@concat_line
--- 				else
--- 					@pick_random_line
--- 					@pick_random_position_in_line
--- 					@delete_character
--- 				end
--- 			else
--- 				@pick_random_line
--- 				@replace_with_random_line
--- 			end
--- 		end)
--- 		if i > limit then timer:close() end
--- 		i = i + 1
--- 	end)
--- end
--- 
--- @pick_random_line+=
--- local lcount = vim.api.nvim_buf_line_count(0)
--- local lnum = math.random(0, lcount-1) -- # zero indexed
--- 
--- @insert_new_line+=
--- vim.api.nvim_buf_set_lines(0, lnum, lnum, true, { "" }) 
--- 
--- @pick_random_position_in_line+=
--- local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
--- local cnum = math.random(1, string.len(curline))
--- 
--- @pick_random_character+=
--- local c = typeset[math.floor(math.random()*(#typeset-1)+0.5)+1]
--- 
--- @insert_character+=
--- curline = string.sub(curline, 1, cnum-1) .. c .. string.sub(curline, cnum)
--- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
--- 
--- @delete_line+=
--- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, {})
--- 
--- @delete_character+=
--- curline = string.sub(curline, 1, cnum-1) .. string.sub(curline, cnum+1)
--- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { curline }) 
--- 
--- @split_line_into_two_lines+=
--- local curline = vim.api.nvim_buf_get_lines(0, lnum, lnum+1, true)[1]
--- local cnum = math.random(0, string.len(curline)-1) 
--- local r, l = utf8split(curline, cnum)
--- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { r, l }) 
--- 
--- @concat_line+=
--- if lnum < lcount-1 then 
--- 	local c = vim.api.nvim_buf_get_lines(0, lnum, lnum+2, true)
--- 	vim.api.nvim_buf_set_lines(0, lnum, lnum+2, true, { c[1] .. c[2] })
--- end
--- 
--- @replace_with_random_line+=
--- local lnewcount = math.random(1,20)
--- local newline = ""
--- for i=1,lnewcount do
--- 	@pick_random_character
--- 	newline = newline .. c
--- end
--- vim.api.nvim_buf_set_lines(0, lnum, lnum+1, true, { newline })
--- 
--- @display_xor_ranges+=
--- table.insert(events, "add range " .. vim.inspect(add_range))
--- table.insert(events, "del range " .. vim.inspect(del_range))
--- 
--- @check_if_pid_match_with_prev+=
--- for i=1,#pids do
--- 	local exp
--- 	if i == 1 or i == #pids then
--- 		exp = 1
--- 	else
--- 		exp = #prev[i-1] + 1
--- 	end
--- 	local res = #pids[i]
--- 	if exp ~= res then
--- 		table.insert(events, exp .. " " .. res .. " NG\n")
--- 	end
--- end
--- 
--- @display_states+=
--- for i,lpid in ipairs(pids) do
--- 	table.insert(events, i .. ": " .. vim.inspect(lpid))
--- end
--- for i,line in ipairs(prev) do
--- 	table.insert(events, i .. ": " .. vim.inspect(line))
--- end
--- local all_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, true)
--- for i,line in ipairs(all_lines) do
--- 	if prev[i] ~= line then
--- 		table.insert(events, "DISC")
--- 	end
--- 	table.insert(events, i .. "> " .. vim.inspect(line))
--- end
-
 @save_last_inserted_pid+=
 lastPID = op[4]
 
@@ -1629,6 +1503,7 @@ if lastPID then
 		@set_virtual_text_of_user
 		@set_match_of_user
 	end
+	@if_follow_this_author_center_view
 end
 
 @find_pid_of_cursor+=
@@ -1968,3 +1843,38 @@ end
 
 @get_author_from_other_agent_id+=
 local aut = other_agent
+
+@script_variables+=
+local follow = false
+local follow_aut
+
+@follow_function+=
+local function StartFollow(aut)
+	follow = true
+	follow_aut = aut
+	print("Following " .. aut)
+end
+
+local function StopFollow()
+	follow = false
+	print("Following Stopped.")
+end
+
+@export_symbols+=
+StartFollow = StartFollow,
+StopFollow = StopFollow,
+
+@if_follow_this_author_center_view+=
+if follow and follow_aut == aut then
+	@if_different_buffer_switch
+	@go_to_line_and_center_view
+end
+
+@if_different_buffer_switch+=
+local curbuf = vim.api.nvim_get_current_buf()
+if curbuf ~= buf then
+	vim.api.nvim_set_current_buf(buf)
+end
+
+@go_to_line_and_center_view+=
+vim.api.nvim_command("normal " .. (y-1) .. "gg")

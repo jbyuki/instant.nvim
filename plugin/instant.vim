@@ -22,6 +22,10 @@ command! -nargs=* InstantStop call luaeval('require("instant").Stop()')
 command! -nargs=* InstantStartSession call instant#StartSessionWrapper(<f-args>)
 
 command! -nargs=* InstantJoinSession call instant#JoinSessionWrapper(<f-args>)
+
+command! -nargs=* InstantFollow call instant#StartFollowWrapper(<f-args>)
+
+command! InstantStopFollow call instant#StopFollowWrapper()
 let &cpo = s:save_cpo
 unlet s:save_cpo
 
