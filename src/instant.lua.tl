@@ -2,7 +2,9 @@
 @requires
 @declare_functions
 @script_variables
+local MSG_TYPE = {
 @message_types
+}
 @operation_types
 @fill_base64_table
 @init_typeset
@@ -189,11 +191,22 @@ local SendText
 
 @functions+=
 function SendText(str)
+	table.insert(events, "Sending " .. string.len(str) .. " bytes")
 	@generate_mask
 	@mask_text
-	@create_base_frame
-	@convert_frame_to_string
-	@send_frame
+
+	local remain = #masked
+	local sent = 0
+	while remain > 0 do
+		local send = math.min(8192, remain) -- max size before fragment
+		remain = remain - send
+		@create_base_frame
+		table.insert(events, "fin " .. fin)
+		table.insert(events, "opcode " .. opcode)
+		@convert_frame_to_string
+		@send_frame
+		sent = sent + send
+	end
 end
 
 @generate_mask+=
@@ -223,8 +236,17 @@ end
 local masked = maskText(str, mask)
 
 @create_base_frame+=
+local fin
+if remain == 0 then fin = 0x80
+else fin = 0 end
+
+local opcode
+if sent == 0 then opcode = 1
+else opcode = 0 end
+
+
 local frame = {
-	0x81, 0x80
+	fin+opcode, 0x80
 }
 
 @write_payload_length
@@ -233,7 +255,7 @@ for i=1,4 do
 	table.insert(frame, mask[i])
 end
 
-for i=1,#masked do
+for i=sent+1,sent+1+(send-1) do
 	table.insert(frame, masked[i])
 end
 
@@ -289,6 +311,9 @@ if chunk then
 	end
 end
 
+@script_variables+=
+local wsdata = ""
+
 @do_opcode+=
 if opcode == 0x1 then -- TEXT
 	@read_payload_length
@@ -303,8 +328,13 @@ if opcode == 0x1 then -- TEXT
 		chunk = ""
 	end
 
+
 	if remaining == 0 then
-		@interpret_received_text
+		wsdata = wsdata .. fragmented
+		if fin ~= 0 then
+			@interpret_received_text
+			wsdata = ""
+		end
 	end
 end
 
@@ -359,10 +389,11 @@ end
 if opcode == 0x9 then -- PING
 	@read_payload_length
 	@send_pong
+	chunk = ""
 end
 
 @send_pong+=
---table.insert(frames, "SENT PONG")
+-- table.insert(frames, "SENT PONG")
 @generate_mask
 local frame = {
 	0x8A, 0x80,
@@ -374,18 +405,18 @@ end
 @send_frame
 
 @write_payload_length+=
-if #masked <= 125 then
-	frame[2] = frame[2] + #masked
-elseif #masked < math.pow(2, 16) then
+if send <= 125 then
+	frame[2] = frame[2] + send
+elseif send < math.pow(2, 16) then
 	frame[2] = frame[2] + 126
-	local b1 = bit.rshift(#masked, 8)
-	local b2 = bit.band(#masked, 0xFF)
+	local b1 = bit.rshift(send, 8)
+	local b2 = bit.band(send, 0xFF)
 	table.insert(frame, b1)
 	table.insert(frame, b2)
 else
 	frame[2] = frame[2] + 127
 	for i=0,7 do
-		local b = bit.band(bit.rshift(#masked, (7-i)*8), 0xFF)
+		local b = bit.band(bit.rshift(send, (7-i)*8), 0xFF)
 		table.insert(frame, b)
 	end
 end
@@ -728,7 +759,7 @@ end
 
 @script_variables+=
 -- pos = [(num, site)]
-local MAXINT = 2^15 -- can be adjusted
+local MAXINT = 2^20 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
@@ -771,22 +802,20 @@ local SendOp
 
 @functions+=
 function SendOp(buf, op)
-	vim.schedule(function()
-		@convert_local_to_remote_buffer
-		@encode_operation_in_json_object
-		@send_encoded
-	end)
+	@convert_local_to_remote_buffer
+	@encode_operation_in_json_object
+	@send_encoded
 end
 
 @script_variables+=
 local author = vim.api.nvim_get_var("instant_username")
 
 @message_types+=
-local MSG_TEXT = 1
+TEXT = 1,
 
 @encode_operation_in_json_object+=
 local obj = {
-	MSG_TEXT,
+	MSG_TYPE.TEXT,
 	{ op },
 	rem,
 	author,
@@ -851,16 +880,16 @@ if decoded then
 	@if_available_check_if_its_ok
 	@if_status_echo_status
 else
-	table.insert(events, "Could not decode json " .. fragmented)
+	table.insert(events, "Could not decode json " .. wsdata)
 end
 
 @if_text_do_actions+=
-if decoded[1] == MSG_TEXT then
+if decoded[1] == MSG_TYPE.TEXT then
 	@play_operations
 end
 
 @decode_json+=
-local decoded = vim.api.nvim_call_function("json_decode", {  fragmented })
+local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
 
 @script_variables+=
 local ignores = {}
@@ -1171,7 +1200,7 @@ StopClient()
 
 
 @if_request_send_all_lines+=
-if decoded[1] == MSG_REQUEST then
+if decoded[1] == MSG_TYPE.REQUEST then
 	local encoded
 	if not sessionshare then
 		local buf = singlebuf
@@ -1191,11 +1220,11 @@ if decoded[1] == MSG_REQUEST then
 end
 
 @message_types+=
-local MSG_AVAILABLE = 2
+AVAILABLE = 2,
 
 @handshake_finished+=
 local obj = {
-	MSG_AVAILABLE
+	MSG_TYPE.AVAILABLE
 }
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
@@ -1218,8 +1247,8 @@ function MsgPackToString(el)
 end
 
 @if_initial_and_not_initialized_set_buffer_lines+=
-if decoded[1] == MSG_INITIAL then
-	local _, bufname, bufid, new_pids, content = unpack(decoded)
+if decoded[1] == MSG_TYPE.INITIAL then
+	local _, bufname, bufid, pidslist, content = unpack(decoded)
 
 	local ag, bufid = unpack(bufid)
 	if not rem2loc[ag] or not rem2loc[ag][bufid] then
@@ -1259,7 +1288,7 @@ if decoded[1] == MSG_INITIAL then
 end
 
 @if_available_check_if_its_ok+=
-if decoded[1] == MSG_AVAILABLE then
+if decoded[1] == MSG_TYPE.AVAILABLE then
 	local _, is_first, client_id, is_sessionshare  = unpack(decoded)
 	if is_first and first then
 		@init_client_id
@@ -1313,11 +1342,11 @@ if decoded[1] == MSG_AVAILABLE then
 end
 
 @message_types+=
-local MSG_REQUEST = 3
+REQUEST = 3,
 
 @send_request_for_initial_content+=
 local obj = {
-	MSG_REQUEST,
+	MSG_TYPE.REQUEST,
 }
 local encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 @send_encoded
@@ -1363,16 +1392,25 @@ local lines = vim.api.nvim_buf_get_lines(
 	0, -1, true)
 
 @message_types+=
-local MSG_INITIAL = 6
+INITIAL = 6,
 
 @encode_initial_content_single+=
+local pidslist = {}
+for _,lpid in ipairs(allpids[buf]) do
+	for _,pid in ipairs(lpid) do
+		table.insert(pidslist, pid[1][1])
+	end
+end
+
 local obj = {
-	MSG_INITIAL,
+	MSG_TYPE.INITIAL,
 	bufname,
 	rem,
-	allpids[buf],
+	pidslist,
 	allprev[buf]
 }
+
+table.insert(events, "size json " .. string.len(vim.api.nvim_call_function("json_encode", { obj[4] })))
 
 encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 
@@ -1380,7 +1418,24 @@ encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 prev = content
 
 @set_pids_for_initial+=
-pids = new_pids
+local pidindex = 1
+pids = {}
+
+table.insert(pids, { { { pidslist[pidindex], 0 } } })
+pidindex = pidindex + 1
+
+for _, line in ipairs(content) do
+	local lpid = {}
+	for i=0,utf8len(line) do
+		table.insert(lpid, { { pidslist[pidindex], ag } })
+		pidindex = pidindex + 1
+	end
+	table.insert(pids, lpid)
+end
+
+table.insert(pids, { { { pidslist[pidindex], 0 } } })
+
+table.insert(events, "pids " .. vim.inspect(pids))
 
 @set_lines_in_current_buffer+=
 vim.api.nvim_buf_set_lines(
@@ -1397,11 +1452,11 @@ local function Status()
 end
 
 @message_types+=
-local MSG_STATUS = 4
+STATUS = 4,
 
 @send_server_status+=
 local obj = {
-	MSG_STATUS
+	MSG_TYPE.STATUS
 }
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
@@ -1410,7 +1465,7 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 Status = Status,
 
 @if_status_echo_status+=
-if decoded[1] == MSG_STATUS then
+if decoded[1] == MSG_TYPE.STATUS then
 	local _, num_clients = unpack(decoded)
 	print("Connected: " .. tostring(num_clients) .. " client(s). ")
 end
@@ -1434,8 +1489,20 @@ pids = {
 	{ endpos },
 }
 
-local bpid = pids[2][1] -- middlepos
-local epid = pids[3][1] -- endpos
+local numgen = 0
+for i=1,#lines do
+	local line = lines[i]
+	if i > 1 then
+		numgen = numgen + 1
+	end
+
+	for j=1,string.len(line) do
+		numgen = numgen + 1
+	end
+end
+
+local newpidindex = 1
+local newpids = genPIDSeq(middlepos, endpos, agent, 1, numgen)
 
 for i=1,#lines do
 	local line = lines[i]
@@ -1448,12 +1515,11 @@ for i=1,#lines do
 		@generate_character_pid
 		@insert_character_pid
 	end
-
 end
 
 @generate_character_pid+=
-local newpid = genPID(bpid, epid, agent, 1)
-bpid = newpid
+local newpid = newpids[newpidindex]
+newpidindex = newpidindex + 1
 
 @insert_character_pid+=
 table.insert(pids[i+1], newpid)
@@ -1632,11 +1698,11 @@ else
 end
 
 @message_types+=
-local MSG_INFO = 5
+INFO = 5,
 
 @send_client_informations+=
 local obj = {
-	MSG_INFO,
+	MSG_TYPE.INFO,
 	sessionshare,
 	author,
 	agent,
@@ -1702,25 +1768,22 @@ for _,buf in ipairs(allbufs) do
 	end
 end
 
-@script_variables+=
-local vimcmd = vim.api.nvim_command
-
 @register_autocommands_for_buffer_open_and_create+=
-vimcmd("augroup instantSession")
-vimcmd("autocmd!")
+vim.api.nvim_command("augroup instantSession")
+vim.api.nvim_command("autocmd!")
 -- this is kind of messy
 -- a better way to write this
 -- would be great
-vimcmd("autocmd BufNewFile,BufRead * call execute('lua instantOpenOrCreateBuffer(' . expand('<abuf>') . ')', '')")
-vimcmd("augroup end")
+vim.api.nvim_command("autocmd BufNewFile,BufRead * call execute('lua instantOpenOrCreateBuffer(' . expand('<abuf>') . ')', '')")
+vim.api.nvim_command("augroup end")
 
 @stop+=
 @unregister_autocommands
 
 @unregister_autocommands+=
-vimcmd("augroup instantSession")
-vimcmd("autocmd!")
-vimcmd("augroup end")
+vim.api.nvim_command("augroup instantSession")
+vim.api.nvim_command("autocmd!")
+vim.api.nvim_command("augroup end")
 
 @script_variables+=
 local only_share_cwd
@@ -1734,6 +1797,7 @@ function instantOpenOrCreateBuffer(buf)
 		@get_buf_name_relative_to_cwd_or_just_tail
 
 		if cwdname ~= fullname or not only_share_cwd then
+			local t1 = StartTimer()
 			@get_buffer_lines
 			@init_pids_of_buffer_content
 			@init_prev_of_buffer_content
@@ -1744,6 +1808,7 @@ function instantOpenOrCreateBuffer(buf)
 			@send_encoded
 
 			@attach_to_current_buffer
+			table.insert(events, "time needed to start " .. StopTimer(t1))
 		end
 	end
 end
@@ -1837,7 +1902,7 @@ for i=1,4 do
 	table.insert(frame, mask[i])
 end
 
-for i=1,#masked do
+for i=sent+1,sent+1+(send-1) do
 	table.insert(frame, masked[i])
 end
 
@@ -1878,3 +1943,32 @@ end
 
 @go_to_line_and_center_view+=
 vim.api.nvim_command("normal " .. (y-1) .. "gg")
+
+@declare_functions+=
+local genPIDSeq
+
+@functions+=
+function genPIDSeq(p, q, s, i, N)
+	local a = (p[i] and p[i][1]) or 0
+	local b = (q[i] and q[i][1]) or MAXINT
+
+	if a+N < b-1 then
+		local step = math.floor((b-1 - (a+1))/N)
+		local start = a+1
+		local G = {}
+		for i=1,N do
+			table.insert(G,
+				{{math.random(start,start+step-1), s}})
+			start = start + step
+		end
+		return G
+	end
+
+	local G = genPIDSeq(p, q, s, i+1, N)
+	for j=1,N do
+		table.insert(G[j], 1, {
+			(p[i] and p[i][1]) or 0, 
+			(p[i] and p[i][2]) or s})
+	end
+	return G
+end

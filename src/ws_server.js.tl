@@ -45,7 +45,7 @@ if(decoded[0] == MSG_TEXT) {
 
 @decode_message+=
 const decoded = JSON.parse(msg);
-// console.log(decoded)
+console.log(decoded)
 
 @if_request_send_to_first_client_in_list+=
 if(decoded[0] == MSG_REQUEST) {
