@@ -14,6 +14,8 @@ local maskText
 
 local nocase
 
+local SendJSON
+
 local StartTimer, StopTimer
 
 local DetachFromBuffer
@@ -53,6 +55,8 @@ local websocketkey
 events = {}
 
 local iptable = {}
+
+local opcode
 
 local wsdata = ""
 
@@ -249,8 +253,6 @@ function SendText(str)
 			table.insert(frame, masked[i])
 		end
 		
-		table.insert(events, "fin " .. fin)
-		table.insert(events, "opcode " .. opcode)
 		local s = ConvertBytesToString(frame)
 		
 		client:write(s)
@@ -258,6 +260,7 @@ function SendText(str)
 		sent = sent + send
 	end
 end
+
 
 function maskText(str, mask)
 	local masked = {}
@@ -280,6 +283,11 @@ function nocase (s)
 		end
 	end)
 	return s
+end
+
+function SendJSON(obj)
+	local encoded = vim.api.nvim_call_function("json_encode", { obj })
+	SendText(encoded)
 end
 
 function StartTimer()
@@ -1018,7 +1026,7 @@ local function StartClient(first, appuri, port)
 						
 					end
 				else
-					local opcode, fin
+					local fin
 					-- if multiple tcp packets are 
 					-- sent at once
 					while string.len(chunk) > 0 do
@@ -1032,7 +1040,9 @@ local function StartClient(first, appuri, port)
 						-- table.insert(frames, "OPCODE " .. bit.band(b1, 0xF))
 						local b2 = string.byte(string.sub(first_chunk,2,2))
 						-- table.insert(frames, "MASK " .. bit.band(b2, 0x80))
-						opcode = bit.band(b1, 0xF)
+						if string.len(wsdata) == 0 then
+							opcode = bit.band(b1, 0xF)
+						end
 						fin = bit.rshift(b1, 7)
 						
 						if opcode == 0x1 then -- TEXT
@@ -1060,11 +1070,11 @@ local function StartClient(first, appuri, port)
 								fragmented = text
 								remaining = paylen - string.len(text)
 							else
-								fragmented = fragmented .. chunk
-								remaining = remaining - string.len(chunk)
-								chunk = ""
+								local rest = math.min(remaining, string.len(chunk))
+								fragmented = fragmented .. string.sub(chunk, 1, rest)
+								remaining = remaining - rest
+								chunk = string.sub(chunk, rest+1)
 							end
-						
 						
 							if remaining == 0 then
 								wsdata = wsdata .. fragmented

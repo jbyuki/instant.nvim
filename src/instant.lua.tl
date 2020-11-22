@@ -201,13 +201,12 @@ function SendText(str)
 		local send = math.min(8192, remain) -- max size before fragment
 		remain = remain - send
 		@create_base_frame
-		table.insert(events, "fin " .. fin)
-		table.insert(events, "opcode " .. opcode)
 		@convert_frame_to_string
 		@send_frame
 		sent = sent + send
 	end
 end
+
 
 @generate_mask+=
 local mask = {}
@@ -287,6 +286,9 @@ function nocase (s)
 	return s
 end
 
+@script_variables+=
+local opcode
+
 @read_response+=
 if chunk then
 	if string.match(chunk, nocase("^HTTP")) then
@@ -296,7 +298,7 @@ if chunk then
 			@handshake_finished
 		end
 	else
-		local opcode, fin
+		local fin
 		-- if multiple tcp packets are 
 		-- sent at once
 		while string.len(chunk) > 0 do
@@ -323,11 +325,11 @@ if opcode == 0x1 then -- TEXT
 		fragmented = text
 		remaining = paylen - string.len(text)
 	else
-		fragmented = fragmented .. chunk
-		remaining = remaining - string.len(chunk)
-		chunk = ""
+		local rest = math.min(remaining, string.len(chunk))
+		fragmented = fragmented .. string.sub(chunk, 1, rest)
+		remaining = remaining - rest
+		chunk = string.sub(chunk, rest+1)
 	end
-
 
 	if remaining == 0 then
 		wsdata = wsdata .. fragmented
@@ -336,6 +338,15 @@ if opcode == 0x1 then -- TEXT
 			wsdata = ""
 		end
 	end
+end
+
+@declare_functions+=
+local SendJSON
+
+@functions+=
+function SendJSON(obj)
+	local encoded = vim.api.nvim_call_function("json_encode", { obj })
+	SendText(encoded)
 end
 
 @script_variables+=
@@ -350,7 +361,9 @@ local b1 = string.byte(string.sub(first_chunk,1,1))
 -- table.insert(frames, "OPCODE " .. bit.band(b1, 0xF))
 local b2 = string.byte(string.sub(first_chunk,2,2))
 -- table.insert(frames, "MASK " .. bit.band(b2, 0x80))
-opcode = bit.band(b1, 0xF)
+if string.len(wsdata) == 0 then
+	opcode = bit.band(b1, 0xF)
+end
 fin = bit.rshift(b1, 7)
 
 @read_payload_length+=
