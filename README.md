@@ -87,6 +87,8 @@ Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/e
 
 ### Share current directory
 
+[![Untitled-Project.gif](https://i.postimg.cc/8zsBjprk/Untitled-Project.gif)](https://postimg.cc/mPfFnGwK)
+
 1. Navigate to the directory
 
 ```
