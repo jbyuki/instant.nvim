@@ -6,7 +6,6 @@ const MSG_TEXT = 1;
 const MSG_AVAILABLE = 2;
 const MSG_REQUEST = 3;
 const MSG_INITIAL = 6;
-const MSG_STATUS = 4;
 const MSG_INFO = 5;
 const MSG_CONNECT = 7;
 const MSG_DISCONNECT = 8;
@@ -115,15 +114,6 @@ wss.on('request', (req) => {
 					
 				
 					client_id++;
-					ws.sendUTF(JSON.stringify(response));
-				}
-				
-				if(decoded[0] == MSG_STATUS) {
-					const num_clients = clients.length;
-					const response = [
-						MSG_STATUS,
-						num_clients
-					];
 					ws.sendUTF(JSON.stringify(response));
 				}
 				

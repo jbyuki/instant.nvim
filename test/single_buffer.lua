@@ -1,6 +1,6 @@
 local client1, client2
-local client1pipe = [[\\.\\pipe\nvim-16528-0]]
-local client2pipe = [[\\.\\pipe\nvim-28356-0]]
+local client1pipe = [[\\.\\pipe\nvim-19380-0]]
+local client2pipe = [[\\.\\pipe\nvim-17240-0]]
 
 local num_connected = 0
 

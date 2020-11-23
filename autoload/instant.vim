@@ -62,3 +62,11 @@ endfunction
 function instant#StopFollowWrapper()
 	call luaeval('require("instant").StopFollow()')
 endfunction
+
+function instant#SaveAllWrapper(bang)
+	if a:bang == 1
+		call luaeval('require("instant").SaveBuffers(true)')
+	else
+		call luaeval('require("instant").SaveBuffers(false)')
+	endif
+endfunction

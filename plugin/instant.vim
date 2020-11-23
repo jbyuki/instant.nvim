@@ -26,6 +26,10 @@ command! -nargs=* InstantJoinSession call instant#JoinSessionWrapper(<f-args>)
 command! -nargs=* InstantFollow call instant#StartFollowWrapper(<f-args>)
 
 command! InstantStopFollow call instant#StopFollowWrapper()
+
+command! -bang InstantSaveAll call instant#SaveAllWrapper(<bang>0)
+
+command! InstantOpenAll call luaeval('require("instant").OpenBuffers()')
 let &cpo = s:save_cpo
 unlet s:save_cpo
 

@@ -25,6 +25,8 @@ local MSG_TYPE = {
 
 @status_function
 @follow_function
+@special_save_function
+@special_open_function
 
 return {
 @export_symbols
@@ -890,7 +892,6 @@ if decoded then
 	@if_request_send_all_lines
 	@if_initial_and_not_initialized_set_buffer_lines
 	@if_available_check_if_its_ok
-	@if_status_echo_status
 	@if_connect_save_client_id_and_username
 else
 	table.insert(events, "Could not decode json " .. wsdata)
@@ -1455,30 +1456,22 @@ vim.api.nvim_buf_set_lines(
 @status_function+=
 local function Status()
 	if client and client:is_active() then
-		@send_server_status
+		@get_all_user_infos
+		@print_connection_status
 	else
-		print("Disconnected")
+		print("Disconnected.")
 	end
 end
-
-@message_types+=
-STATUS = 4,
-
-@send_server_status+=
-local obj = {
-	MSG_TYPE.STATUS
-}
-local encoded = vim.api.nvim_call_function("json_encode", { obj })
-@send_encoded
 
 @export_symbols+=
 Status = Status,
 
-@if_status_echo_status+=
-if decoded[1] == MSG_TYPE.STATUS then
-	local _, num_clients = unpack(decoded)
-	print("Connected: " .. tostring(num_clients) .. " client(s). ")
+@print_connection_status+=
+local info_str = {}
+for _,pos in ipairs(positions) do
+	table.insert(info_str, table.concat(pos, " "))
 end
+print("Connected. " .. #info_str .. " other client(s)\n\n" .. table.concat(info_str, "\n"))
 
 @check_if_client_is_not_connected+=
 if client and client:is_active() then
@@ -1865,7 +1858,7 @@ for aut, c in pairs(cursors) do
 	local buf = c.buf
 	@get_buf_name_relative_to_cwd_or_just_tail
 	@get_cursor_position_of_user
-	table.insert(positions , {aut, bufname, line})
+	table.insert(positions , {aut, bufname, line+1})
 end
 
 @get_cursor_position_of_user+=
@@ -1983,4 +1976,74 @@ if decoded[1] == MSG_TYPE.CONNECT then
 	local _, new_id, new_aut = unpack(decoded)
 	author2id[new_aut] = new_id
 	id2author[new_id] = new_aut
+end
+
+@special_save_function+=
+local function SaveBuffers(force)
+	@get_all_text_edit_buffers
+	@remove_any_empty_name_buffers
+	for _,buf in ipairs(bufs) do
+		@get_buffer_name
+		@check_if_containing_directory_exists_and_create_if_not
+		@save_all_buffers
+	end
+end
+
+@export_symbols+=
+SaveBuffers = SaveBuffers,
+
+@remove_any_empty_name_buffers+=
+local i = 1
+while i < #bufs do
+	local buf = bufs[i]
+	@get_buffer_name
+	if string.len(fullname) == 0 then
+		table.remove(bufs, i)
+	else
+		i = i + 1
+	end
+end
+
+@get_buffer_name+=
+local fullname = vim.api.nvim_buf_get_name(buf)
+
+@check_if_containing_directory_exists_and_create_if_not+=
+local parentdir = vim.api.nvim_call_function("fnamemodify", { fullname, ":h" })
+local isdir = vim.api.nvim_call_function("isdirectory", { parentdir })
+if isdir == 0 then
+	vim.api.nvim_call_function("mkdir", { parentdir, "p" } )
+end
+
+@save_all_buffers+=
+vim.api.nvim_command("b " .. buf)
+if force then
+	vim.api.nvim_command("w!") -- write all
+else 
+	vim.api.nvim_command("w") -- write all
+end
+
+@special_open_function+=
+function OpenBuffers()
+	@global_all_files_in_cwd
+	local num_files = 0
+	for _,file in ipairs(files) do
+		vim.api.nvim_command("args " .. file)
+		num_files = num_files + 1 
+	end
+	print("Opened " .. num_files .. " files.")
+end
+
+@export_symbols+=
+OpenBuffers = OpenBuffers,
+
+@global_all_files_in_cwd+=
+local all = vim.api.nvim_call_function("glob", { "**" })
+local files = {}
+if string.len(all) > 0 then
+	for path in vim.gsplit(all, "\n") do
+		local isdir = vim.api.nvim_call_function("isdirectory", { path })
+		if isdir == 0 then
+			table.insert(files, path)
+		end
+	end
 end

@@ -46,7 +46,6 @@ wss.on('request', (req) => {
 				@if_text_broadcast_to_others
 				@if_initial_broadcast_to_others
 				@if_available_send_response_back
-				@if_check_status_send_response_back
 				@if_info_save_client_info
 			}
 		}
@@ -125,16 +124,6 @@ if(decoded[0] == MSG_INFO) {
 	ws.sendUTF(JSON.stringify(response));
 }
 
-@if_check_status_send_response_back+=
-if(decoded[0] == MSG_STATUS) {
-	const num_clients = clients.length;
-	const response = [
-		MSG_STATUS,
-		num_clients
-	];
-	ws.sendUTF(JSON.stringify(response));
-}
-
 @script_variables+=
 let is_initialized = false;
 let sessionshare = false;
@@ -149,7 +138,6 @@ const MSG_TEXT = 1;
 const MSG_AVAILABLE = 2;
 const MSG_REQUEST = 3;
 const MSG_INITIAL = 6;
-const MSG_STATUS = 4;
 const MSG_INFO = 5;
 const MSG_CONNECT = 7;
 const MSG_DISCONNECT = 8;

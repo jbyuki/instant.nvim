@@ -49,3 +49,9 @@ command! -nargs=* InstantFollow call instant#StartFollowWrapper(<f-args>)
 
 @register_commands+=
 command! InstantStopFollow call instant#StopFollowWrapper()
+
+@register_commands+=
+command! -bang InstantSaveAll call instant#SaveAllWrapper(<bang>0)
+
+@register_commands+=
+command! InstantOpenAll call luaeval('require("instant").OpenBuffers()')

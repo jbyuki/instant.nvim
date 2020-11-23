@@ -119,8 +119,6 @@ REQUEST = 3,
 
 INITIAL = 6,
 
-STATUS = 4,
-
 INFO = 5,
 
 CONNECT = 7,
@@ -819,7 +817,7 @@ local function attach_status_update(cb)
 			line= c.y
 		end
 		
-		table.insert(positions , {aut, bufname, line})
+		table.insert(positions , {aut, bufname, line+1})
 	end
 	
 	return positions
@@ -1301,7 +1299,7 @@ local function StartClient(first, appuri, port)
 														line= c.y
 													end
 													
-													table.insert(positions , {aut, bufname, line})
+													table.insert(positions , {aut, bufname, line+1})
 												end
 												
 												for _,cb in ipairs(status_cb) do
@@ -2652,16 +2650,12 @@ local function StartClient(first, appuri, port)
 											end
 										end
 										
-										if decoded[1] == MSG_TYPE.STATUS then
-											local _, num_clients = unpack(decoded)
-											print("Connected: " .. tostring(num_clients) .. " client(s). ")
-										end
-										
 										if decoded[1] == MSG_TYPE.CONNECT then
 											local _, new_id, new_aut = unpack(decoded)
 											author2id[new_aut] = new_id
 											id2author[new_id] = new_aut
 										end
+										
 									else
 										table.insert(events, "Could not decode json " .. wsdata)
 									end
@@ -2851,16 +2845,37 @@ end
 
 local function Status()
 	if client and client:is_active() then
-		local obj = {
-			MSG_TYPE.STATUS
-		}
-		local encoded = vim.api.nvim_call_function("json_encode", { obj })
-		SendText(encoded)
-		-- table.insert(events, "sent " .. encoded)
+		local positions = {}
+		for aut, c in pairs(cursors) do 
+			local buf = c.buf
+			local fullname = vim.api.nvim_buf_get_name(buf)
+			local cwdname = vim.api.nvim_call_function("fnamemodify",
+				{ fullname, ":." })
+			local bufname = cwdname
+			if bufname == fullname then
+				bufname = vim.api.nvim_call_function("fnamemodify",
+				{ fullname, ":t" })
+			end
+			
+			local line
+			if c.ext_id then
+				line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
+						buf, c.id, c.ext_id, {}))
+			else
+				line= c.y
+			end
+			
+			table.insert(positions , {aut, bufname, line+1})
+		end
 		
+		local info_str = {}
+		for _,pos in ipairs(positions) do
+			table.insert(info_str, table.concat(pos, " "))
+		end
+		print("Connected. " .. #info_str .. " other client(s)\n\n" .. table.concat(info_str, "\n"))
 		
 	else
-		print("Disconnected")
+		print("Disconnected.")
 	end
 end
 
@@ -2873,6 +2888,67 @@ end
 local function StopFollow()
 	follow = false
 	print("Following Stopped.")
+end
+
+local function SaveBuffers(force)
+	local allbufs = vim.api.nvim_list_bufs()
+	local bufs = {}
+	-- skip terminal, help, ... buffers
+	for _,buf in ipairs(allbufs) do
+		local buftype = vim.api.nvim_buf_get_option(buf, "buftype")
+		if buftype == "" then
+			table.insert(bufs, buf)
+		end
+	end
+	
+	local i = 1
+	while i < #bufs do
+		local buf = bufs[i]
+		local fullname = vim.api.nvim_buf_get_name(buf)
+		
+		if string.len(fullname) == 0 then
+			table.remove(bufs, i)
+		else
+			i = i + 1
+		end
+	end
+	
+	for _,buf in ipairs(bufs) do
+		local fullname = vim.api.nvim_buf_get_name(buf)
+		
+		local parentdir = vim.api.nvim_call_function("fnamemodify", { fullname, ":h" })
+		local isdir = vim.api.nvim_call_function("isdirectory", { parentdir })
+		if isdir == 0 then
+			vim.api.nvim_call_function("mkdir", { parentdir, "p" } )
+		end
+		
+		vim.api.nvim_command("b " .. buf)
+		if force then
+			vim.api.nvim_command("w!") -- write all
+		else 
+			vim.api.nvim_command("w") -- write all
+		end
+		
+	end
+end
+
+function OpenBuffers()
+	local all = vim.api.nvim_call_function("glob", { "**" })
+	local files = {}
+	if string.len(all) > 0 then
+		for path in vim.gsplit(all, "\n") do
+			local isdir = vim.api.nvim_call_function("isdirectory", { path })
+			if isdir == 0 then
+				table.insert(files, path)
+			end
+		end
+	end
+	local num_files = 0
+	for _,file in ipairs(files) do
+		vim.api.nvim_command("args " .. file)
+		num_files = num_files + 1 
+	end
+	print("Opened " .. num_files .. " files.")
 end
 
 
@@ -2892,6 +2968,10 @@ attach_status_update = attach_status_update,
 
 StartFollow = StartFollow,
 StopFollow = StopFollow,
+
+SaveBuffers = SaveBuffers,
+
+OpenBuffers = OpenBuffers,
 
 }
 
