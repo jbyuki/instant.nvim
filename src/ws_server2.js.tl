@@ -18,8 +18,8 @@ const server = http.createServer((req, res) => {
 
 @listen_http_server+=
 const port = process.env.PORT || 8080
-const host = "0.0.0.0"; // remote usage
-// const host = "127.0.0.1"; // remote usage
+// const host = "0.0.0.0"; // remote usage
+const host = "127.0.0.1"; // remote usage
 server.listen(port, host, () => console.log(`Server is listening on port ${port}`))
 
 @requires+=
