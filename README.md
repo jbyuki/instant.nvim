@@ -55,30 +55,85 @@ See [here](https://github.com/jbyuki/instant.nvim/wiki/Customization) for more c
 Usage
 -----
 
+### Start server
+
+Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/en/).
+
 ### Buffer sharing
 
-1. Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/en/).
-2. Open an instance and connect to the server.
+1. Open an instance and connect to the server.
 ```
 :InstantStartSingle 127.0.0.1 8080
 ```
-3. Open another instance and join.
+2. Open another instance and join.
 ```
 :InstantJoinSingle 127.0.0.1 8080
 ```
-4. Now the two buffers are synced
+3. Now the two buffers are synced
 
 ### Session sharing
 
 [![Untitled-Project.gif](https://i.postimg.cc/ydM961f3/Untitled-Project.gif)](https://postimg.cc/gXKrNWbG)
 
-1. Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/en/).
-2. Open an instance and connect to the server.
+1. Open an instance and connect to the server.
 ```
 :InstantStartSession 127.0.0.1 8080
 ```
-3. Open another instance and join.
+2. Open another instance and join.
 ```
 :InstantJoinSession 127.0.0.1 8080
 ```
-4. Now all the buffers are synced
+3. Now all the buffers are synced
+
+### Share current directory
+
+1. Navigate to the directory
+
+```
+cd project
+```
+
+2. Start a session share
+
+```
+:InstantStartSession 127.0.0.1 8080
+```
+
+3. Open all files in directory
+
+```
+:InstantOpenAll
+```
+
+The first client is connected with all its content opened in the buffers. This allows to send the whole directory in session share.
+
+4. Create a new directory and open another instance
+
+```
+mkdir client1-project
+cd client1-project
+```
+
+5. Join the server
+
+```
+:InstantJoinSession 127.0.0.1 8080
+```
+
+6. Optionally save the files
+```
+:InstantSaveAll
+```
+
+7. See the current status
+```
+:InstantStatus
+```
+
+8. To quit use vim `qall`
+
+```
+:qall
+```
+
+This is the general workflow to share a whole directory between clients. Feel free to adapt it to your needs.
