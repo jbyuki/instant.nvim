@@ -55,6 +55,7 @@ wss.on('request', (req) => {
 		console.log("Peer disconnected!");
 		console.log(clients.length, " clients remaining");
 		@check_if_no_more_peer
+		@send_client_disconnect
 	});
 	console.log("Peer connected");
 });
@@ -101,7 +102,12 @@ if(decoded[0] == MSG_INITIAL) {
 let client_id = 100;
 
 @if_available_send_response_back+=
-if(decoded[0] == MSG_AVAILABLE) {
+if(decoded[0] == MSG_INFO) {
+	if(!is_initialized) {
+		sessionshare = decoded[1];
+		is_initialized = true;
+	}
+
 	const is_first = clients.length == 1;
 	const response = [
 		MSG_AVAILABLE,
@@ -109,6 +115,10 @@ if(decoded[0] == MSG_AVAILABLE) {
 		client_id,
 		sessionshare
 	];
+
+	@send_current_connected_client_to_client
+	@send_client_connect_to_other_clients
+	@save_client_id
 
 	client_id++;
 	ws.sendUTF(JSON.stringify(response));
@@ -133,16 +143,6 @@ if(clients.length == 0) {
 	is_initialized = false;
 }
 
-@if_info_save_client_info+=
-if(decoded[0] == MSG_INFO) {
-	if(!is_initialized) {
-		sessionshare = decoded[1];
-		is_initialized = true;
-	}
-
-	@send_client_connect_to_other_clients
-}
-
 @messages_types+=
 const MSG_TEXT = 1;
 const MSG_AVAILABLE = 2;
@@ -150,7 +150,55 @@ const MSG_REQUEST = 3;
 const MSG_INITIAL = 6;
 const MSG_STATUS = 4;
 const MSG_INFO = 5;
+const MSG_CONNECT = 7;
+const MSG_DISCONNECT = 8;
 
 @remove_client_from_clients+=
 var pos = clients.indexOf(ws);
 clients.splice(pos, 1);
+
+@send_client_connect_to_other_clients+=
+const connect = [
+	MSG_CONNECT,
+	client_id,
+	decoded[2],
+];
+
+clients.forEach((client) => {
+	if(client != ws) {
+		client.sendUTF(JSON.stringify(connect));
+	}
+});
+
+@script_variables+=
+const clientIDs = new Map();
+const clientUsernames = new Map();
+
+@save_client_id+=
+clientIDs.set(ws, client_id);
+clientUsernames.set(client_id, decoded[2]);
+
+@send_client_disconnect+=
+const remove_id = clientIDs.get(ws);
+clientIDs.delete(ws);
+clientUsernames.delete(remove_id);
+const disconnect = [
+	MSG_DISCONNECT,
+	remove_id,
+];
+
+clients.forEach((client) => {
+	if(client != ws) {
+		client.sendUTF(JSON.stringify(disconnect));
+	}
+});
+
+@send_current_connected_client_to_client+=
+for(var v of clientUsernames) {
+	const connect = [
+		MSG_CONNECT,
+		v[0],
+		v[1],
+	];
+	ws.sendUTF(JSON.stringify(connect));
+}

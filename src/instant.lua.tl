@@ -191,7 +191,6 @@ local SendText
 
 @functions+=
 function SendText(str)
-	table.insert(events, "Sending " .. string.len(str) .. " bytes")
 	@generate_mask
 	@mask_text
 
@@ -829,9 +828,9 @@ TEXT = 1,
 @encode_operation_in_json_object+=
 local obj = {
 	MSG_TYPE.TEXT,
-	{ op },
+	op,
 	rem,
-	author,
+	agent,
 }
 
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
@@ -892,6 +891,7 @@ if decoded then
 	@if_initial_and_not_initialized_set_buffer_lines
 	@if_available_check_if_its_ok
 	@if_status_echo_status
+	@if_connect_save_client_id_and_username
 else
 	table.insert(events, "Could not decode json " .. wsdata)
 end
@@ -921,30 +921,29 @@ if ignores[buf][changedtick] then
 end
 
 @play_operations+=
-local _, ops, other_rem, other_agent = unpack(decoded)
+local _, op, other_rem, other_agent = unpack(decoded)
 local opline = 0
 local opcol = 0
 local lastPID
-for _,op in ipairs(ops) do
-	-- table.insert(events, "receive op " .. vim.inspect(op))
-	-- @display_states
-	@get_buffer_number_to_apply_modifications
-	@get_local_buf_from_remote
-	@get_context_for_current_buffer
-	@get_changedtick_and_add_to_ignore
-	if op[1] == OP_INS then
-		@save_last_inserted_pid
-		@apply_insert_operation
-	elseif op[1] == OP_DEL then
-		@save_last_deleted_pid
-		@apply_delete_operation
-	end
-	@set_context_for_current_buffer
-	@get_author_from_other_agent_id
-	@update_cursor_highlight
-	@notify_status_callbacks
-	-- @check_if_pid_match_with_prev
+
+-- table.insert(events, "receive op " .. vim.inspect(op))
+-- @display_states
+@get_buffer_number_to_apply_modifications
+@get_local_buf_from_remote
+@get_context_for_current_buffer
+@get_changedtick_and_add_to_ignore
+if op[1] == OP_INS then
+	@save_last_inserted_pid
+	@apply_insert_operation
+elseif op[1] == OP_DEL then
+	@save_last_deleted_pid
+	@apply_delete_operation
 end
+@set_context_for_current_buffer
+@get_author_from_other_agent_id
+@update_cursor_highlight
+@notify_status_callbacks
+-- @check_if_pid_match_with_prev
 
 @set_op_line_insert+=
 if op[2] == "\n" then
@@ -1232,12 +1231,13 @@ if decoded[1] == MSG_TYPE.REQUEST then
 	end
 end
 
-@message_types+=
-AVAILABLE = 2,
 
 @handshake_finished+=
 local obj = {
-	MSG_TYPE.AVAILABLE
+	MSG_TYPE.INFO,
+	sessionshare,
+	author,
+	agent,
 }
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
@@ -1300,12 +1300,14 @@ if decoded[1] == MSG_TYPE.INITIAL then
 	end
 end
 
+@message_types+=
+AVAILABLE = 2,
+
 @if_available_check_if_its_ok+=
 if decoded[1] == MSG_TYPE.AVAILABLE then
 	local _, is_first, client_id, is_sessionshare  = unpack(decoded)
 	if is_first and first then
 		@init_client_id
-		@send_client_informations
 		print("Connected!")
 
 		if sessionshare then
@@ -1332,7 +1334,6 @@ if decoded[1] == MSG_TYPE.AVAILABLE then
 			@stop
 		else
 			@init_client_id
-			@send_client_informations
 
 			if not sessionshare then
 				local buf = singlebuf
@@ -1423,8 +1424,6 @@ local obj = {
 	allprev[buf]
 }
 
-table.insert(events, "size json " .. string.len(vim.api.nvim_call_function("json_encode", { obj[4] })))
-
 encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 
 @set_lines_for_initial_prev+=
@@ -1447,8 +1446,6 @@ for _, line in ipairs(content) do
 end
 
 table.insert(pids, { { { pidslist[pidindex], 0 } } })
-
-table.insert(events, "pids " .. vim.inspect(pids))
 
 @set_lines_in_current_buffer+=
 vim.api.nvim_buf_set_lines(
@@ -1713,16 +1710,6 @@ end
 @message_types+=
 INFO = 5,
 
-@send_client_informations+=
-local obj = {
-	MSG_TYPE.INFO,
-	sessionshare,
-	author,
-	agent,
-}
-local encoded = vim.api.nvim_call_function("json_encode", { obj })
-@send_encoded
-
 @create_new_buffer+=
 buf = vim.api.nvim_create_buf(true, true)
 
@@ -1810,7 +1797,6 @@ function instantOpenOrCreateBuffer(buf)
 		@get_buf_name_relative_to_cwd_or_just_tail
 
 		if cwdname ~= fullname or not only_share_cwd then
-			local t1 = StartTimer()
 			@get_buffer_lines
 			@init_pids_of_buffer_content
 			@init_prev_of_buffer_content
@@ -1821,7 +1807,6 @@ function instantOpenOrCreateBuffer(buf)
 			@send_encoded
 
 			@attach_to_current_buffer
-			table.insert(events, "time needed to start " .. StopTimer(t1))
 		end
 	end
 end
@@ -1920,7 +1905,7 @@ for i=sent+1,sent+1+(send-1) do
 end
 
 @get_author_from_other_agent_id+=
-local aut = other_agent
+local aut = id2author[other_agent]
 
 @script_variables+=
 local follow = false
@@ -1984,4 +1969,18 @@ function genPIDSeq(p, q, s, i, N)
 			(p[i] and p[i][2]) or s})
 	end
 	return G
+end
+
+@script_variables+=
+author2id = {}
+id2author = {}
+
+@message_types+=
+CONNECT = 7,
+
+@if_connect_save_client_id_and_username+=
+if decoded[1] == MSG_TYPE.CONNECT then
+	local _, new_id, new_aut = unpack(decoded)
+	author2id[new_aut] = new_id
+	id2author[new_id] = new_aut
 end

@@ -107,6 +107,9 @@ local status_cb = {}
 local follow = false
 local follow_aut
 
+author2id = {}
+id2author = {}
+
 local MSG_TYPE = {
 TEXT = 1,
 
@@ -119,6 +122,8 @@ INITIAL = 6,
 STATUS = 4,
 
 INFO = 5,
+
+CONNECT = 7,
 
 }
 local OP_DEL = 1
@@ -201,7 +206,6 @@ function ConvertBytesToString(tab)
 end
 
 function SendText(str)
-	table.insert(events, "Sending " .. string.len(str) .. " bytes")
 	local mask = {}
 	for i=1,4 do
 		table.insert(mask, math.floor(math.random() * 255))
@@ -351,9 +355,9 @@ function SendOp(buf, op)
 	
 	local obj = {
 		MSG_TYPE.TEXT,
-		{ op },
+		op,
 		rem,
-		author,
+		agent,
 	}
 	
 	local encoded = vim.api.nvim_call_function("json_encode", { obj })
@@ -496,7 +500,6 @@ function instantOpenOrCreateBuffer(buf)
 		
 
 		if cwdname ~= fullname or not only_share_cwd then
-			local t1 = StartTimer()
 			local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, true)
 			
 			local middlepos = genPID(startpos, endpos, agent, 1)
@@ -569,8 +572,6 @@ function instantOpenOrCreateBuffer(buf)
 				pidslist,
 				allprev[buf]
 			}
-			
-			table.insert(events, "size json " .. string.len(vim.api.nvim_call_function("json_encode", { obj[4] })))
 			
 			encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 			
@@ -792,7 +793,6 @@ function instantOpenOrCreateBuffer(buf)
 			
 			
 			
-			table.insert(events, "time needed to start " .. StopTimer(t1))
 		end
 	end
 end
@@ -892,6 +892,7 @@ function genPIDSeq(p, q, s, i, N)
 	end
 	return G
 end
+
 
 local function StartClient(first, appuri, port)
 	local v, username = pcall(function() return vim.api.nvim_get_var("instant_username") end)
@@ -1017,7 +1018,10 @@ local function StartClient(first, appuri, port)
 					if string.match(chunk, nocase("Sec%-WebSocket%-Accept")) then
 						table.insert(events, "handshake was successful")
 						local obj = {
-							MSG_TYPE.AVAILABLE
+							MSG_TYPE.INFO,
+							sessionshare,
+							author,
+							agent,
 						}
 						local encoded = vim.api.nvim_call_function("json_encode", { obj })
 						SendText(encoded)
@@ -1083,230 +1087,229 @@ local function StartClient(first, appuri, port)
 									
 									if decoded then
 										if decoded[1] == MSG_TYPE.TEXT then
-											local _, ops, other_rem, other_agent = unpack(decoded)
+											local _, op, other_rem, other_agent = unpack(decoded)
 											local opline = 0
 											local opcol = 0
 											local lastPID
-											for _,op in ipairs(ops) do
-												-- table.insert(events, "receive op " .. vim.inspect(op))
-												-- @display_states
-												local buf
-												if sessionshare then
-													local ag, bufid = unpack(other_rem)
-													buf = rem2loc[ag][bufid]
-													
-												else
-													buf = singlebuf
-												end
-												
+											
+											-- table.insert(events, "receive op " .. vim.inspect(op))
+											-- @display_states
+											local buf
+											if sessionshare then
 												local ag, bufid = unpack(other_rem)
 												buf = rem2loc[ag][bufid]
 												
-												prev = allprev[buf]
-												pids = allpids[buf]
-												
-												local tick = vim.api.nvim_buf_get_changedtick(buf)+1
-												ignores[buf][tick] = true
-												
-												if op[1] == OP_INS then
-													lastPID = op[4]
-													
-													local x, y = findCharPositionBefore(op[3], op[4])
-													
-													if op[2] == "\n" then
-														opline = y-1
-													else
-														opline = y-2
-													end
-													opcol = x
-													
-													if op[2] == "\n" then 
-														local py, py1 = splitArray(pids[y], x+1)
-														pids[y] = py
-														table.insert(py1, 1, op[4])
-														table.insert(pids, y+1, py1)
-													else table.insert(pids[y], x+1, op[4] ) end
-													
-													if op[2] == "\n" then 
-														if y-2 >= 0 then
-															local curline = vim.api.nvim_buf_get_lines(buf, y-2, y-1, true)[1]
-															local l, r = utf8split(curline, x-1)
-															vim.api.nvim_buf_set_lines(buf, y-2, y-1, true, { l, r })
-														else
-															vim.api.nvim_buf_set_lines(buf, 0, 0, true, { "" })
-														end
-													else 
-														local curline = vim.api.nvim_buf_get_lines(buf, y-2, y-1, true)[1]
-														curline = utf8insert(curline, x-1, op[2])
-														vim.api.nvim_buf_set_lines(buf, y-2, y-1, true, { curline })
-													end
-													
-													if op[2] == "\n" then 
-														if y-1 >= 1 then
-															local l, r = utf8split(prev[y-1], x-1)
-															prev[y-1] = l
-															table.insert(prev, y, r)
-														else
-															table.insert(prev, y, "")
-														end
-													else 
-														prev[y-1] = utf8insert(prev[y-1], x-1, op[2])
-													end
-													
-													
-												elseif op[1] == OP_DEL then
-													lastPID = findPIDBefore(op[2])
-													
-													local sx, sy = findCharPositionExact(op[2])
-													
-													if sx then
-														if sx == 1 then
-															opline = sy-1
-														else
-															opline = sy-2
-														end
-														opcol = sx-2
-														
-														if sx == 1 then
-															if sy-3 >= 0 then
-																local prevline = vim.api.nvim_buf_get_lines(buf, sy-3, sy-2, true)[1]
-																local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
-																vim.api.nvim_buf_set_lines(buf, sy-3, sy-1, true, { prevline .. curline })
-															else
-																vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, {})
-															end
-														else
-															if sy > 1 then
-																local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
-																curline = utf8remove(curline, sx-2)
-																vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, { curline })
-															end
-														end
-														
-														if sx == 1 then
-															if sy-2 >= 1 then
-																prev[sy-2] = prev[sy-2] .. string.sub(prev[sy-1], 1)
-															end
-															table.remove(prev, sy-1)
-														else
-															if sy > 1 then
-																local curline = prev[sy-1]
-																curline = utf8remove(curline, sx-2)
-																prev[sy-1] = curline
-															end
-														end
-														
-														if sx == 1 then
-															for i,pid in ipairs(pids[sy]) do
-																if i > 1 then
-																	table.insert(pids[sy-1], pid)
-																end
-															end
-															table.remove(pids, sy)
-														else
-															table.remove(pids[sy], sx)
-														end
-														
-													end
-													
-												end
-												allprev[buf] = prev
-												allpids[buf] = pids
-												
-												local aut = other_agent
-												
-												if lastPID then
-													local x, y = findCharPositionExact(lastPID)
-													
-													if old_namespace[aut] then
-														if attached[old_namespace[aut].buf] then
-															vim.api.nvim_buf_clear_namespace(
-																old_namespace[aut].buf, old_namespace[aut].id,
-																0, -1)
-														end
-														old_namespace[aut] = nil
-													end
-													
-													if cursors[aut] then
-														if attached[cursors[aut].buf] then
-															vim.api.nvim_buf_clear_namespace(
-																cursors[aut].buf, cursors[aut].id,
-																0, -1)
-														end
-														cursors[aut] = nil
-													end
-													
-													if x then
-														if x == 1 then x = 2 end
-														old_namespace[aut] = {
-															id = vim.api.nvim_buf_set_virtual_text(
-																buf, 0, 
-																math.max(y-2, 0), 
-																{{ aut, vtextGroup }}, 
-																{}),
-															buf = buf
-														}
-														
-														if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
-															local bx = vim.str_byteindex(prev[y-1], x-2)
-															cursors[aut] = {
-																id = vim.api.nvim_buf_add_highlight(buf,
-																	0, cursorGroup, y-2, bx, bx+1),
-																buf = buf,
-																line = y-2,
-															}
-															if vim.api.nvim_buf_set_extmark then
-																cursors[aut].ext_id = 
-																	vim.api.nvim_buf_set_extmark(
-																		buf, cursors[aut].id, y-2, bx, {})
-															end
-															
-														end
-														
-													end
-													if follow and follow_aut == aut then
-														local curbuf = vim.api.nvim_get_current_buf()
-														if curbuf ~= buf then
-															vim.api.nvim_set_current_buf(buf)
-														end
-														
-														vim.api.nvim_command("normal " .. (y-1) .. "gg")
-														
-													end
-													
-												end
-												
-												if #status_cb > 0 then
-													local positions = {}
-													for aut, c in pairs(cursors) do 
-														local buf = c.buf
-														local fullname = vim.api.nvim_buf_get_name(buf)
-														local cwdname = vim.api.nvim_call_function("fnamemodify",
-															{ fullname, ":." })
-														local bufname = cwdname
-														if bufname == fullname then
-															bufname = vim.api.nvim_call_function("fnamemodify",
-															{ fullname, ":t" })
-														end
-														
-														local line
-														if c.ext_id then
-															line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
-																	buf, c.id, c.ext_id, {}))
-														else
-															line= c.y
-														end
-														
-														table.insert(positions , {aut, bufname, line})
-													end
-													
-													for _,cb in ipairs(status_cb) do
-														cb(positions)
-													end
-												end
-												
-												-- @check_if_pid_match_with_prev
+											else
+												buf = singlebuf
 											end
+											
+											local ag, bufid = unpack(other_rem)
+											buf = rem2loc[ag][bufid]
+											
+											prev = allprev[buf]
+											pids = allpids[buf]
+											
+											local tick = vim.api.nvim_buf_get_changedtick(buf)+1
+											ignores[buf][tick] = true
+											
+											if op[1] == OP_INS then
+												lastPID = op[4]
+												
+												local x, y = findCharPositionBefore(op[3], op[4])
+												
+												if op[2] == "\n" then
+													opline = y-1
+												else
+													opline = y-2
+												end
+												opcol = x
+												
+												if op[2] == "\n" then 
+													local py, py1 = splitArray(pids[y], x+1)
+													pids[y] = py
+													table.insert(py1, 1, op[4])
+													table.insert(pids, y+1, py1)
+												else table.insert(pids[y], x+1, op[4] ) end
+												
+												if op[2] == "\n" then 
+													if y-2 >= 0 then
+														local curline = vim.api.nvim_buf_get_lines(buf, y-2, y-1, true)[1]
+														local l, r = utf8split(curline, x-1)
+														vim.api.nvim_buf_set_lines(buf, y-2, y-1, true, { l, r })
+													else
+														vim.api.nvim_buf_set_lines(buf, 0, 0, true, { "" })
+													end
+												else 
+													local curline = vim.api.nvim_buf_get_lines(buf, y-2, y-1, true)[1]
+													curline = utf8insert(curline, x-1, op[2])
+													vim.api.nvim_buf_set_lines(buf, y-2, y-1, true, { curline })
+												end
+												
+												if op[2] == "\n" then 
+													if y-1 >= 1 then
+														local l, r = utf8split(prev[y-1], x-1)
+														prev[y-1] = l
+														table.insert(prev, y, r)
+													else
+														table.insert(prev, y, "")
+													end
+												else 
+													prev[y-1] = utf8insert(prev[y-1], x-1, op[2])
+												end
+												
+												
+											elseif op[1] == OP_DEL then
+												lastPID = findPIDBefore(op[2])
+												
+												local sx, sy = findCharPositionExact(op[2])
+												
+												if sx then
+													if sx == 1 then
+														opline = sy-1
+													else
+														opline = sy-2
+													end
+													opcol = sx-2
+													
+													if sx == 1 then
+														if sy-3 >= 0 then
+															local prevline = vim.api.nvim_buf_get_lines(buf, sy-3, sy-2, true)[1]
+															local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
+															vim.api.nvim_buf_set_lines(buf, sy-3, sy-1, true, { prevline .. curline })
+														else
+															vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, {})
+														end
+													else
+														if sy > 1 then
+															local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
+															curline = utf8remove(curline, sx-2)
+															vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, { curline })
+														end
+													end
+													
+													if sx == 1 then
+														if sy-2 >= 1 then
+															prev[sy-2] = prev[sy-2] .. string.sub(prev[sy-1], 1)
+														end
+														table.remove(prev, sy-1)
+													else
+														if sy > 1 then
+															local curline = prev[sy-1]
+															curline = utf8remove(curline, sx-2)
+															prev[sy-1] = curline
+														end
+													end
+													
+													if sx == 1 then
+														for i,pid in ipairs(pids[sy]) do
+															if i > 1 then
+																table.insert(pids[sy-1], pid)
+															end
+														end
+														table.remove(pids, sy)
+													else
+														table.remove(pids[sy], sx)
+													end
+													
+												end
+												
+											end
+											allprev[buf] = prev
+											allpids[buf] = pids
+											
+											local aut = id2author[other_agent]
+											
+											if lastPID then
+												local x, y = findCharPositionExact(lastPID)
+												
+												if old_namespace[aut] then
+													if attached[old_namespace[aut].buf] then
+														vim.api.nvim_buf_clear_namespace(
+															old_namespace[aut].buf, old_namespace[aut].id,
+															0, -1)
+													end
+													old_namespace[aut] = nil
+												end
+												
+												if cursors[aut] then
+													if attached[cursors[aut].buf] then
+														vim.api.nvim_buf_clear_namespace(
+															cursors[aut].buf, cursors[aut].id,
+															0, -1)
+													end
+													cursors[aut] = nil
+												end
+												
+												if x then
+													if x == 1 then x = 2 end
+													old_namespace[aut] = {
+														id = vim.api.nvim_buf_set_virtual_text(
+															buf, 0, 
+															math.max(y-2, 0), 
+															{{ aut, vtextGroup }}, 
+															{}),
+														buf = buf
+													}
+													
+													if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
+														local bx = vim.str_byteindex(prev[y-1], x-2)
+														cursors[aut] = {
+															id = vim.api.nvim_buf_add_highlight(buf,
+																0, cursorGroup, y-2, bx, bx+1),
+															buf = buf,
+															line = y-2,
+														}
+														if vim.api.nvim_buf_set_extmark then
+															cursors[aut].ext_id = 
+																vim.api.nvim_buf_set_extmark(
+																	buf, cursors[aut].id, y-2, bx, {})
+														end
+														
+													end
+													
+												end
+												if follow and follow_aut == aut then
+													local curbuf = vim.api.nvim_get_current_buf()
+													if curbuf ~= buf then
+														vim.api.nvim_set_current_buf(buf)
+													end
+													
+													vim.api.nvim_command("normal " .. (y-1) .. "gg")
+													
+												end
+												
+											end
+											
+											if #status_cb > 0 then
+												local positions = {}
+												for aut, c in pairs(cursors) do 
+													local buf = c.buf
+													local fullname = vim.api.nvim_buf_get_name(buf)
+													local cwdname = vim.api.nvim_call_function("fnamemodify",
+														{ fullname, ":." })
+													local bufname = cwdname
+													if bufname == fullname then
+														bufname = vim.api.nvim_call_function("fnamemodify",
+														{ fullname, ":t" })
+													end
+													
+													local line
+													if c.ext_id then
+														line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
+																buf, c.id, c.ext_id, {}))
+													else
+														line= c.y
+													end
+													
+													table.insert(positions , {aut, bufname, line})
+												end
+												
+												for _,cb in ipairs(status_cb) do
+													cb(positions)
+												end
+											end
+											
+											-- @check_if_pid_match_with_prev
 											
 										end
 										
@@ -1338,8 +1341,6 @@ local function StartClient(first, appuri, port)
 													pidslist,
 													allprev[buf]
 												}
-												
-												table.insert(events, "size json " .. string.len(vim.api.nvim_call_function("json_encode", { obj[4] })))
 												
 												encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 												
@@ -1383,8 +1384,6 @@ local function StartClient(first, appuri, port)
 														allprev[buf]
 													}
 													
-													table.insert(events, "size json " .. string.len(vim.api.nvim_call_function("json_encode", { obj[4] })))
-													
 													encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 													
 													SendText(encoded)
@@ -1393,6 +1392,7 @@ local function StartClient(first, appuri, port)
 												end
 											end
 										end
+										
 										
 										if decoded[1] == MSG_TYPE.INITIAL then
 											local _, bufname, bufid, pidslist, content = unpack(decoded)
@@ -1660,8 +1660,6 @@ local function StartClient(first, appuri, port)
 												
 												table.insert(pids, { { { pidslist[pidindex], 0 } } })
 												
-												table.insert(events, "pids " .. vim.inspect(pids))
-												
 										
 												local tick = vim.api.nvim_buf_get_changedtick(buf)+1
 												ignores[buf][tick] = true
@@ -1695,8 +1693,6 @@ local function StartClient(first, appuri, port)
 												
 												table.insert(pids, { { { pidslist[pidindex], 0 } } })
 												
-												table.insert(events, "pids " .. vim.inspect(pids))
-												
 										
 												local tick = vim.api.nvim_buf_get_changedtick(buf)+1
 												ignores[buf][tick] = true
@@ -1724,17 +1720,6 @@ local function StartClient(first, appuri, port)
 											local _, is_first, client_id, is_sessionshare  = unpack(decoded)
 											if is_first and first then
 												agent = client_id
-												
-												local obj = {
-													MSG_TYPE.INFO,
-													sessionshare,
-													author,
-													agent,
-												}
-												local encoded = vim.api.nvim_call_function("json_encode", { obj })
-												SendText(encoded)
-												-- table.insert(events, "sent " .. encoded)
-												
 												
 												print("Connected!")
 										
@@ -2351,17 +2336,6 @@ local function StartClient(first, appuri, port)
 												else
 													agent = client_id
 													
-													local obj = {
-														MSG_TYPE.INFO,
-														sessionshare,
-														author,
-														agent,
-													}
-													local encoded = vim.api.nvim_call_function("json_encode", { obj })
-													SendText(encoded)
-													-- table.insert(events, "sent " .. encoded)
-													
-													
 										
 													if not sessionshare then
 														local buf = singlebuf
@@ -2683,6 +2657,11 @@ local function StartClient(first, appuri, port)
 											print("Connected: " .. tostring(num_clients) .. " client(s). ")
 										end
 										
+										if decoded[1] == MSG_TYPE.CONNECT then
+											local _, new_id, new_aut = unpack(decoded)
+											author2id[new_aut] = new_id
+											id2author[new_id] = new_aut
+										end
 									else
 										table.insert(events, "Could not decode json " .. wsdata)
 									end

@@ -8,6 +8,8 @@ const MSG_REQUEST = 3;
 const MSG_INITIAL = 6;
 const MSG_STATUS = 4;
 const MSG_INFO = 5;
+const MSG_CONNECT = 7;
+const MSG_DISCONNECT = 8;
 
 var clients = [];
 
@@ -15,6 +17,9 @@ let client_id = 100;
 
 let is_initialized = false;
 let sessionshare = false;
+
+const clientIDs = new Map();
+const clientUsernames = new Map();
 
 const server = http.createServer((req, res) => {
 	console.log((new Date()) + ' Received request for ' + req.url);
@@ -70,7 +75,12 @@ wss.on('request', (req) => {
 					});
 				}
 				
-				if(decoded[0] == MSG_AVAILABLE) {
+				if(decoded[0] == MSG_INFO) {
+					if(!is_initialized) {
+						sessionshare = decoded[1];
+						is_initialized = true;
+					}
+				
 					const is_first = clients.length == 1;
 					const response = [
 						MSG_AVAILABLE,
@@ -78,6 +88,30 @@ wss.on('request', (req) => {
 						client_id,
 						sessionshare
 					];
+				
+					for(var v of clientUsernames) {
+						const connect = [
+							MSG_CONNECT,
+							v[0],
+							v[1],
+						];
+						ws.sendUTF(JSON.stringify(connect));
+					}
+					const connect = [
+						MSG_CONNECT,
+						client_id,
+						decoded[2],
+					];
+					
+					clients.forEach((client) => {
+						if(client != ws) {
+							client.sendUTF(JSON.stringify(connect));
+						}
+					});
+					
+					clientIDs.set(ws, client_id);
+					clientUsernames.set(client_id, decoded[2]);
+					
 				
 					client_id++;
 					ws.sendUTF(JSON.stringify(response));
@@ -92,25 +126,32 @@ wss.on('request', (req) => {
 					ws.sendUTF(JSON.stringify(response));
 				}
 				
-				if(decoded[0] == MSG_INFO) {
-					if(!is_initialized) {
-						sessionshare = decoded[1];
-						is_initialized = true;
-					}
-				
-				}
-				
 			}
 		}
 	});
 	ws.on('close', (reasonCode, desc) => {
 		var pos = clients.indexOf(ws);
 		clients.splice(pos, 1);
+		
 		console.log("Peer disconnected!");
 		console.log(clients.length, " clients remaining");
 		if(clients.length == 0) {
 			is_initialized = false;
 		}
+		
+		const remove_id = clientIDs.get(ws);
+		clientIDs.delete(ws);
+		clientUsernames.delete(remove_id);
+		const disconnect = [
+			MSG_DISCONNECT,
+			remove_id,
+		];
+		
+		clients.forEach((client) => {
+			if(client != ws) {
+				client.sendUTF(JSON.stringify(disconnect));
+			}
+		});
 		
 	});
 	console.log("Peer connected");
