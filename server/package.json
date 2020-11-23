@@ -2,18 +2,14 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "ws_server.js",
   "scripts": {
-    "start": "node ws_server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "msgpack": "^1.0.3",
-    "msgpack5": "^4.2.1",
-    "websocket": "^1.0.32",
-    "ws": "^7.3.1"
+    "websocket": "^1.0.32"
   }
 }

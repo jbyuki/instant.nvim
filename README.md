@@ -6,6 +6,7 @@ instant.nvim
 **This is in prototype stage. It should work but some important features are still missing!**
 **The transfer protocol is not optimized for large files transfer!**
 
+* [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart)
 * [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
 * [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
 * [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
@@ -22,6 +23,8 @@ Features
 * See who is editing
 
 * Share a session
+
+* Follow users
 
 Requirements
 ------------

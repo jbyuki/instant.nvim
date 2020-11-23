@@ -12,14 +12,15 @@ const http = require('http');
 
 @create_http_server+=
 const server = http.createServer((req, res) => {
-	console.log((new Date()) + ' Received request for ' + req.url);
-    res.writeHead(404);
-    res.end();
+ 	res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end("#users: " + clients.length + "\nsession-share: " + sessionshare);
 });
 
 @listen_http_server+=
 const port = process.env.PORT || 8080
-server.listen(port, "127.0.0.1", () => console.log(`Server is listening on port ${port}`))
+const host = "0.0.0.0"; // remote usage
+// const host = "127.0.0.1"; // remote usage
+server.listen(port, host, () => console.log(`Server is listening on port ${port}`))
 
 @requires+=
 const WebSocketServer = require('websocket').server;
