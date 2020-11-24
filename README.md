@@ -3,7 +3,6 @@ instant.nvim
 
 **instant.nvim** is a **collaborative** editing plugin for **Neovim** written in **Lua** with no dependencies.
 
-**This is in prototype stage. It should work but some important features are still missing!**
 **The transfer protocol is not optimized for large files transfer!**
 
 * [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart)

@@ -67,13 +67,14 @@ local rem2loc = {}
 
 local only_share_cwd
 
-local status_cb = {}
-
 local follow = false
 local follow_aut
 
 local author2id = {}
 local id2author = {}
+
+local api_attach = {}
+local api_attach_id = 1
 
 local MSG_TYPE = {
 TEXT = 1,
@@ -89,6 +90,8 @@ INFO = 5,
 CONNECT = 7,
 
 DISCONNECT = 8,
+
+DATA = 9,
 
 }
 local OP_DEL = 1
@@ -589,39 +592,6 @@ function instantOpenOrCreateBuffer(buf)
 	end
 end
 
-local function attach_status_update(cb)
-	table.insert(status_cb, cb)
-	local positions = {}
-	for _, aut in pairs(id2author) do 
-		local c = cursors[aut]
-		if c then
-			local buf = c.buf
-			local fullname = vim.api.nvim_buf_get_name(buf)
-			local cwdname = vim.api.nvim_call_function("fnamemodify",
-				{ fullname, ":." })
-			local bufname = cwdname
-			if bufname == fullname then
-				bufname = vim.api.nvim_call_function("fnamemodify",
-				{ fullname, ":t" })
-			end
-			
-			local line
-			if c.ext_id then
-				line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
-						buf, c.id, c.ext_id, {}))
-			else
-				line= c.y
-			end
-			
-			table.insert(positions , {aut, bufname, line+1})
-		else
-			table.insert(positions , {aut, "", ""})
-		end
-	end
-	
-	return positions
-end
-
 function SendBinary(str)
 	local frame = {
 		0x82, 0x80
@@ -698,6 +668,15 @@ local function StartClient(first, appuri, port)
 			ws_client:send_text(encoded)
 			-- table.insert(events, "sent " .. encoded)
 			
+			
+			table.insert(events, "connected!")
+			table.insert(events, vim.inspect(api_attach))
+			table.insert(events, "api attach id " .. api_attach_id)
+			for _, o in pairs(api_attach) do
+				if o.on_connect then
+					o.on_connect()
+				end
+			end
 			
 		end,
 		on_text = function(wsdata)
@@ -896,42 +875,14 @@ local function StartClient(first, appuri, port)
 							
 						end
 						
-					end
-					
-					if #status_cb > 0 then
-						local positions = {}
-						for _, aut in pairs(id2author) do 
-							local c = cursors[aut]
-							if c then
-								local buf = c.buf
-								local fullname = vim.api.nvim_buf_get_name(buf)
-								local cwdname = vim.api.nvim_call_function("fnamemodify",
-									{ fullname, ":." })
-								local bufname = cwdname
-								if bufname == fullname then
-									bufname = vim.api.nvim_call_function("fnamemodify",
-									{ fullname, ":t" })
-								end
-								
-								local line
-								if c.ext_id then
-									line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
-											buf, c.id, c.ext_id, {}))
-								else
-									line= c.y
-								end
-								
-								table.insert(positions , {aut, bufname, line+1})
-							else
-								table.insert(positions , {aut, "", ""})
+						
+						for _, o in pairs(api_attach) do
+							if o.on_change then
+								o.on_change(aut, buf, y-2)
 							end
 						end
 						
-						for _,cb in ipairs(status_cb) do
-							cb(positions)
-						end
 					end
-					
 					-- @check_if_pid_match_with_prev
 					
 				end
@@ -2276,6 +2227,12 @@ local function StartClient(first, appuri, port)
 					local _, new_id, new_aut = unpack(decoded)
 					author2id[new_aut] = new_id
 					id2author[new_id] = new_aut
+					for _, o in pairs(api_attach) do
+						if o.on_clientconnected then
+							o.on_clientconnected(new_aut)
+						end
+					end
+					
 				end
 				
 				if decoded[1] == MSG_TYPE.DISCONNECT then
@@ -2284,8 +2241,25 @@ local function StartClient(first, appuri, port)
 					if aut then
 						author2id[aut] = nil
 						id2author[remove_id] = nil
+						for _, o in pairs(api_attach) do
+							if o.on_clientdisconnected then
+								o.on_clientdisconnected(aut)
+							end
+						end
+						
 					end
 				end
+				
+				if decoded[1] == MSG_TYPE.DATA then
+					local _, data = unpack(decoded)
+					for _, o in pairs(api_attach) do
+						if o.on_data then
+							o.on_data(data)
+						end
+					end
+					
+				end
+				
 			else
 				table.insert(events, "Could not decode json " .. wsdata)
 			end
@@ -2325,6 +2299,12 @@ local function StartClient(first, appuri, port)
 			vim.api.nvim_command("autocmd!")
 			vim.api.nvim_command("augroup end")
 			
+			
+			for _, o in pairs(api_attach) do
+				if o.on_disconnect then
+					o.on_disconnect()
+				end
+			end
 			
 			print("Disconnected.")
 		end
@@ -2513,6 +2493,73 @@ function OpenBuffers()
 end
 
 
+local function attach(callbacks)
+	local o = {}
+	for name, fn in pairs(callbacks) do
+		if name == "on_connect" then
+			o.on_connect = callbacks.on_connect
+			table.insert(events, "con " .. vim.inspect(o))
+		
+		elseif name == "on_disconnect" then
+			o.on_disconnect = callbacks.on_disconnect
+		
+		elseif name == "on_change" then
+			o.on_change = callbacks.on_change
+		
+		elseif name == "on_clientconnected" then
+			o.on_clientconnected = callbacks.on_clientconnected
+		
+		elseif name == "on_clientdisconnected" then
+			o.on_clientdisconnected = callbacks.on_clientdisconnected
+		
+		elseif name == "on_data" then
+			o.on_data = callbacks.on_data
+		
+		else 
+			error("[instant.nvim] Unknown callback " .. name)
+		end
+	end
+	api_attach[api_attach_id] = o
+	api_attach_id = api_attach_id + 1
+	return api_attach_id
+end
+
+local function detach(id)
+	if not api_attach[id] then
+		error("[instant.nvim] Could not detach (already detached?")
+	end
+	api_attach[id] = nil
+end
+
+local function get_connected_list()
+	local connected = {}
+	for _, aut in pairs(id2author) do
+		table.insert(connected, aut)
+	end
+	return connected
+end
+
+local function send_data(data)
+	local obj = {
+		MSG_TYPE.DATA,
+		data
+	}
+
+local encoded = vim.api.nvim_call_function("json_encode", { obj })
+	ws_client:send_text(encoded)
+	-- table.insert(events, "sent " .. encoded)
+	
+end
+
+local function get_connected_buf_list()
+	local bufs = {}
+	for buf, _ in pairs(loc2rem) do
+		table.insert(bufs, buf)
+	end
+	return bufs
+end
+
+
 return {
 Start = Start,
 Join = Join,
@@ -2525,8 +2572,6 @@ Status = Status,
 StartSession = StartSession,
 JoinSession = JoinSession,
 
-attach_status_update = attach_status_update,
-
 StartFollow = StartFollow,
 StopFollow = StopFollow,
 
@@ -2534,5 +2579,14 @@ SaveBuffers = SaveBuffers,
 
 OpenBuffers = OpenBuffers,
 
+attach = attach,
+
+detach = detach,
+
+get_connected_list = get_connected_list,
+
+send_data = send_data,
+
+get_connected_buf_list = get_connected_buf_list,
 }
 

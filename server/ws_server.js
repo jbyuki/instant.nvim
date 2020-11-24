@@ -10,6 +10,8 @@ const MSG_INFO = 5;
 const MSG_CONNECT = 7;
 const MSG_DISCONNECT = 8;
 
+const MSG_DATA = 9;
+
 var clients = [];
 
 let client_id = 100;
@@ -97,6 +99,7 @@ wss.on('request', (req) => {
 						];
 						ws.sendUTF(JSON.stringify(connect));
 					}
+					
 					const connect = [
 						MSG_CONNECT,
 						client_id,
@@ -117,6 +120,13 @@ wss.on('request', (req) => {
 					ws.sendUTF(JSON.stringify(response));
 				}
 				
+				if(decoded[0] == MSG_DATA) {
+					clients.forEach((client) => {
+						if(client != ws) {
+							client.sendUTF(msg.utf8Data);
+						}
+					});
+				}
 			}
 		}
 	});

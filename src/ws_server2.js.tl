@@ -46,7 +46,7 @@ wss.on('request', (req) => {
 				@if_text_broadcast_to_others
 				@if_initial_broadcast_to_others
 				@if_available_send_response_back
-				@if_info_save_client_info
+				@if_data_send_to_other_clients
 			}
 		}
 	});
@@ -190,4 +190,16 @@ for(var v of clientUsernames) {
 		v[1],
 	];
 	ws.sendUTF(JSON.stringify(connect));
+}
+
+@messages_types+=
+const MSG_DATA = 9;
+
+@if_data_send_to_other_clients+=
+if(decoded[0] == MSG_DATA) {
+	clients.forEach((client) => {
+		if(client != ws) {
+			client.sendUTF(msg.utf8Data);
+		}
+	});
 }
