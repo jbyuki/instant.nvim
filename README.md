@@ -46,7 +46,7 @@ Plug 'jbyuki/instant.nvim'
 Configurations
 --------------
 
-* Set your username in your $MYVIMRC. This **must be** set to start or join a server.
+* Set your username in your `init.vim`. This **must be** set to start or join a server.
 
 ```
 let g:instant_username = "USERNAME"
@@ -61,83 +61,80 @@ Usage
 
 Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/en/).
 
+For [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart) for more informations.
+
 ### Buffer sharing
 
-1. Open an instance and connect to the server.
-```
-:InstantStartSingle 127.0.0.1 8080
-```
-2. Open another instance and join.
-```
-:InstantJoinSingle 127.0.0.1 8080
-```
-3. Now the two buffers are synced
+For a similar experience to Google Docs. Simply share the current buffer.
+
+#### Client 1
+1. `:InstantStartSingle 127.0.0.1 8080` : Open an instance of Neovim and connect with 
+2. A `Connected!` notification should appear
+
+#### Client 2
+1. `:InstantJoinSingle 127.0.0.1 8080` : Open another instance of Neovim and join with 
+2. Now the two current buffers are synced
+
+When done the connection can be stopped with `:InstantStop`
 
 ### Session sharing
 
+For a more advanced sharing setup. It shares all opened buffers (including hidden) with
+the other user. Newly created buffers are automatically synced. There are still some issues
+with renaming but should be fixed soon.
+
 [![Untitled-Project.gif](https://i.postimg.cc/ydM961f3/Untitled-Project.gif)](https://postimg.cc/gXKrNWbG)
 
-1. Open an instance and connect to the server.
-```
-:InstantStartSession 127.0.0.1 8080
-```
-2. Open another instance and join.
-```
-:InstantJoinSession 127.0.0.1 8080
-```
-3. Now all the buffers are synced
+#### Client 1
+1. `:InstantStartSession 127.0.0.1 8080` : Start a session share
+
+#### Client 2
+2. `:InstantJoinSession 127.0.0.1 8080`
+
+Now all the buffers are synced.
+
+Like with single buffer share, stop the connection with `:InstantStop`
+
+Note: 
+	* The current connection status can be print with `:InstantStatus`
+	* A user can be followed through its text edits with `:InstantFollow [username]`
+	* To stop the follow, call `:InstantStopFollow`
 
 ### Share current directory
 
+To provide a more similar experience to programming project sharing which is done
+for example to do remote pair programming, a session share can be initiated. As a strategic choice,
+it was decided that the plugin doesn't directly write to the filesystem implicitly.
+
+As such, the session share can be to share the whole project directory. For larger
+projects, it can be problematic and a more advanced solution (more granular control) will be required.
+
 [![Untitled-Project.gif](https://i.postimg.cc/cLXwWr14/Untitled-Project.gif)](https://postimg.cc/3k0dCrDP)
 
-1. Navigate to the directory
+#### Client 1
+
+Navigate to the project directory:
 
 ```
-cd project
+cd project-dir
 ```
 
-2. Start a session share
+1. `:InstantStartSession 127.0.0.1 8080`
+2. `:InstantOpenAll` - instant.nvim will open **all** files in the current directory as buffers
+
+#### Client 2
+
+Create a share directory and navigate to it:
 
 ```
-:InstantStartSession 127.0.0.1 8080
+mkdir share-dir
+cd share-dir
 ```
 
-3. Open all files in directory
+1. `:InstantStartSession 127.0.0.1 8080`
+2. `:InstantSaveAll` - instant.nvim will save the files (and also create missing directories).
 
-```
-:InstantOpenAll
-```
-
-The first client is connected with all its content opened in the buffers. This allows to send the whole directory in session share.
-
-4. Create a new directory and open another instance
-
-```
-mkdir client1-project
-cd client1-project
-```
-
-5. Join the server
-
-```
-:InstantJoinSession 127.0.0.1 8080
-```
-
-6. Optionally save the files
-```
-:InstantSaveAll
-```
-
-7. See the current status
-```
-:InstantStatus
-```
-
-8. To quit use vim `qall`
-
-```
-:qall
-```
-
-This is the general workflow to share a whole directory between clients. Feel free to adapt it to your needs.
+Note:
+	* Use `:InstantSaveAll!` to overwrite files
+	* This is just an example workflow and it can be adapted for your needs of course.
+	* Use `qall` or `qall!` to close all buffers at once
