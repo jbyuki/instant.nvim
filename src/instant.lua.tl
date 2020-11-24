@@ -6,16 +6,13 @@ local MSG_TYPE = {
 @message_types
 }
 @operation_types
-@fill_base64_table
 @init_typeset
 
 @functions
 
 @start_client
-@stop_client
 
 @detach_from_buffer
-@write_queued_changes
 
 @start_function
 @stop_function
@@ -33,421 +30,32 @@ return {
 }
 
 @script_variables+=
-local client
+local ws_client
+
+@requires+=
+local websocket = require("instant.websocket")
 
 @start_client+=
 local function StartClient(first, appuri, port)
 	@check_if_has_username
 	@init_client
-	@set_port_as_80_if_not_provided
-	client = vim.loop.new_tcp()
-	@get_ip_address
-
-	client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
-		@check_for_connection_errors
-		client:read_start(vim.schedule_wrap(function(err, chunk)
-			@check_for_connection_errors_when_connected
-			@read_response
-		end))
-		@opening_handshake
-	end))
+	ws_client = websocket { uri = appuri, port = port }
+	ws_client:connect {
+		on_connect = function()
+			@handshake_finished
+		end,
+		on_text = function(wsdata)
+			@interpret_received_text
+		end,
+		on_disconnect = function()
+			@stop
+			print("Disconnected.")
+		end
+	}
 end
-
-@declare_functions+=
-local StopClient
 
 @stop_client+=
-function StopClient()
-	@send_close_frame
-	@close_client
-end
-
-@close_client+=
-client:close()
-client = nil
-
-@declare_functions+=
-local GenerateWebSocketKey -- we must forward declare local functions because otherwise it picks the global one
-
-@functions+=
-function GenerateWebSocketKey()
-	@generate_16_bytes_array
-	return key
-end
-
-@generate_16_bytes_array+=
-key = {}
-math.randomseed(os.time())
-for i =0,15 do
-	table.insert(key, math.random(0, 255))
-end
-
-@script_variables+=
-local base64 = {}
-
-@fill_base64_table+=
-local b64 = 0
-for i=string.byte('a'), string.byte('z') do base64[b64] = string.char(i) b64 = b64+1 end
-for i=string.byte('A'), string.byte('Z') do base64[b64] = string.char(i) b64 = b64+1 end
-for i=string.byte('0'), string.byte('9') do base64[b64] = string.char(i) b64 = b64+1 end
-base64[b64] = '+' b64 = b64+1
-base64[b64] = '/'
-
-@declare_functions+=
-local ConvertToBase64
-
-@functions+=
-function ConvertToBase64(array)
-	local i
-	local str = ""
-	for i=0,#array-3,3 do
-		local b1 = array[i+0+1]
-		local b2 = array[i+1+1]
-		local b3 = array[i+2+1]
-
-		local c1 = bit.rshift(b1, 2)
-		local c2 = bit.lshift(bit.band(b1, 0x3), 4)+bit.rshift(b2, 4)
-		local c3 = bit.lshift(bit.band(b2, 0xF), 2)+bit.rshift(b3, 6)
-		local c4 = bit.band(b3, 0x3F)
-
-		str = str .. base64[c1]
-		str = str .. base64[c2]
-		str = str .. base64[c3]
-		str = str .. base64[c4]
-	end
-
-	@add_padding_characters_to_24_multiple
-
-	return str
-end
-
-@add_padding_characters_to_24_multiple+=
-local rest = #array * 8 - #str * 6
-if rest == 8 then
-	local b1 = array[#array]
-
-	local c1 = bit.rshift(b1, 2)
-	local c2 = bit.lshift(bit.band(b1, 0x3), 4)
-
-	str = str .. base64[c1]
-	str = str .. base64[c2]
-	str = str .. "="
-	str = str .. "="
-
-elseif rest == 16 then
-	local b1 = array[#array-1]
-	local b2 = array[#array]
-
-	local c1 = bit.rshift(b1, 2)
-	local c2 = bit.lshift(bit.band(b1, 0x3), 4)+bit.rshift(b2, 4)
-	local c3 = bit.lshift(bit.band(b2, 0xF), 2)
-
-	str = str .. base64[c1]
-	str = str .. base64[c2]
-	str = str .. base64[c3]
-	str = str .. "="
-end
-
-@script_variables+=
-local websocketkey
-
-@opening_handshake+=
-client:write("GET / HTTP/1.1\r\n")
-client:write("Host: " .. appuri .. ":" .. port .. "\r\n")
-client:write("Upgrade: websocket\r\n")
-client:write("Connection: Upgrade\r\n")
-websocketkey = ConvertToBase64(GenerateWebSocketKey())
-client:write("Sec-WebSocket-Key: " .. websocketkey .. "\r\n")
-client:write("Sec-WebSocket-Version: 13\r\n")
-client:write("\r\n")
-
-@client_connected+=
-print("client connected!")
-
-@declare_functions+=
-local ConvertBytesToString
-
-@functions+=
-function ConvertBytesToString(tab)
-	local s = ""
-	for _,el in ipairs(tab) do
-		s = s .. string.char(el)
-	end
-	return s
-end
-
-@convert_frame_to_string+=
-local s = ConvertBytesToString(frame)
-
-@send_frame+=
-client:write(s)
-
-@script_variables+=
-events = {}
-
-@read_response+=
--- table.insert(events, "err: " .. vim.inspect(err) .. " chunk: " .. vim.inspect(chunk))
-
-@declare_functions+=
-local SendText
-
-@functions+=
-function SendText(str)
-	@generate_mask
-	@mask_text
-
-	local remain = #masked
-	local sent = 0
-	while remain > 0 do
-		local send = math.min(8192, remain) -- max size before fragment
-		remain = remain - send
-		@create_base_frame
-		@convert_frame_to_string
-		@send_frame
-		sent = sent + send
-	end
-end
-
-
-@generate_mask+=
-local mask = {}
-for i=1,4 do
-	table.insert(mask, math.floor(math.random() * 255))
-end
-
-@requires+=
-local bit = require("bit")
-
-@declare_functions+=
-local maskText
-
-@functions+=
-function maskText(str, mask)
-	local masked = {}
-	for i=0,#str-1 do
-		local j = bit.band(i, 0x3)
-		local trans = bit.bxor(string.byte(string.sub(str, i+1, i+1)), mask[j+1])
-		table.insert(masked, trans)
-	end
-	return masked
-end
-
-@mask_text+=
-local masked = maskText(str, mask)
-
-@create_base_frame+=
-local fin
-if remain == 0 then fin = 0x80
-else fin = 0 end
-
-local opcode
-if sent == 0 then opcode = 1
-else opcode = 0 end
-
-
-local frame = {
-	fin+opcode, 0x80
-}
-
-@write_payload_length
-
-for i=1,4 do
-	table.insert(frame, mask[i])
-end
-
-for i=sent+1,sent+1+(send-1) do
-	table.insert(frame, masked[i])
-end
-
-@script_variables+=
-local iptable = {}
-
-@get_ip_address+=
-iptable = vim.loop.getaddrinfo(appuri)
-if #iptable == 0 then
-	print("Could not resolve address")
-	return
-end
-local ipentry = iptable[1]
-
-@declare_functions+=
-local nocase
-
-@functions+=
-function nocase (s)
-	s = string.gsub(s, "%a", function (c)
-		if string.match(c, "[a-zA-Z]") then
-			return string.format("[%s%s]", 
-				string.lower(c),
-				string.upper(c))
-		else
-			return c
-		end
-	end)
-	return s
-end
-
-@script_variables+=
-local opcode
-
-@read_response+=
-if chunk then
-	if string.match(chunk, nocase("^HTTP")) then
-		-- can be Sec-WebSocket-Accept or Sec-Websocket-Accept
-		if string.match(chunk, nocase("Sec%-WebSocket%-Accept")) then
-			table.insert(events, "handshake was successful")
-			@handshake_finished
-		end
-	else
-		local fin
-		-- if multiple tcp packets are 
-		-- sent at once
-		while string.len(chunk) > 0 do
-			-- if tcp packets are sent
-			-- fragmented
-			if remaining == 0 then
-				first_chunk = chunk
-			end
-			@read_opcode
-			@do_opcode
-		end
-	end
-end
-
-@script_variables+=
-local wsdata = ""
-
-@do_opcode+=
-if opcode == 0x1 then -- TEXT
-	@read_payload_length
-	if remaining == 0 then
-		@read_payload
-		chunk = string.sub(chunk, 2+paylenlen+1+paylen)
-		fragmented = text
-		remaining = paylen - string.len(text)
-	else
-		local rest = math.min(remaining, string.len(chunk))
-		fragmented = fragmented .. string.sub(chunk, 1, rest)
-		remaining = remaining - rest
-		chunk = string.sub(chunk, rest+1)
-	end
-
-	if remaining == 0 then
-		wsdata = wsdata .. fragmented
-		if fin ~= 0 then
-			@interpret_received_text
-			wsdata = ""
-		end
-	end
-end
-
-@declare_functions+=
-local SendJSON
-
-@functions+=
-function SendJSON(obj)
-	local encoded = vim.api.nvim_call_function("json_encode", { obj })
-	SendText(encoded)
-end
-
-@script_variables+=
-local frames = {}
-local first_chunk
-local fragmented = ""
-local remaining = 0
-
-@read_opcode+=
-local b1 = string.byte(string.sub(first_chunk,1,1))
--- table.insert(frames, "FIN " .. bit.band(b1, 0x80))
--- table.insert(frames, "OPCODE " .. bit.band(b1, 0xF))
-local b2 = string.byte(string.sub(first_chunk,2,2))
--- table.insert(frames, "MASK " .. bit.band(b2, 0x80))
-if string.len(wsdata) == 0 then
-	opcode = bit.band(b1, 0xF)
-end
-fin = bit.rshift(b1, 7)
-
-@read_payload_length+=
-local paylen = bit.band(b2, 0x7F)
-local paylenlen = 0
-if paylen == 126 then -- 16 bits length
-	local b3 = string.byte(string.sub(first_chunk,3,3))
-	local b4 = string.byte(string.sub(first_chunk,4,4))
-	paylen = bit.lshift(b3, 8) + b4
-	paylenlen = 2
-elseif paylen == 127 then
-	paylen = 0
-	for i=0,7 do -- 64 bits length
-		paylen = bit.lshift(paylen, 8) 
-		paylen = paylen + string.byte(string.sub(first_chunk,i+3,i+3))
-	end
-	paylenlen = 8
-end
--- table.insert(frames, "PAYLOAD LENGTH " .. paylen)
-
-@read_payload+=
-local text = string.sub(chunk, 2+paylenlen+1, 2+paylenlen+1+(paylen-1))
-
-@send_close_frame+=
-@generate_mask
-local frame = {
-	0x88, 0x80,
-}
-for i=1,4 do 
-	table.insert(frame, mask[i])
-end
-@convert_frame_to_string
-@send_frame
-
-@do_opcode+=
-if opcode == 0x9 then -- PING
-	@read_payload_length
-	@send_pong
-	chunk = ""
-end
-
-@send_pong+=
--- table.insert(frames, "SENT PONG")
-@generate_mask
-local frame = {
-	0x8A, 0x80,
-}
-for i=1,4 do 
-	table.insert(frame, mask[i])
-end
-@convert_frame_to_string
-@send_frame
-
-@write_payload_length+=
-if send <= 125 then
-	frame[2] = frame[2] + send
-elseif send < math.pow(2, 16) then
-	frame[2] = frame[2] + 126
-	local b1 = bit.rshift(send, 8)
-	local b2 = bit.band(send, 0xFF)
-	table.insert(frame, b1)
-	table.insert(frame, b2)
-else
-	frame[2] = frame[2] + 127
-	for i=0,7 do
-		local b = bit.band(bit.rshift(send, (7-i)*8), 0xFF)
-		table.insert(frame, b)
-	end
-end
-
-@declare_functions+=
-local StartTimer, StopTimer
-
-@functions+=
-function StartTimer()
-	return vim.api.nvim_call_function("reltime", {})
-end
-
-function StopTimer(start)
-	local dt =  vim.api.nvim_call_function("reltime", { start })
-	return tonumber(vim.api.nvim_call_function("reltimestr", {dt}))
-end
-
+ws_client:disconnect()
 
 @script_variables+=
 local attached = {}
@@ -1200,8 +808,7 @@ StartClient(first, host, port)
 
 @stop_function+=
 local function Stop()
-	@stop
-	print("Disconnected!")
+	@stop_client
 end
 
 @stop+=
@@ -1210,7 +817,6 @@ for bufhandle,_ in pairs(allprev) do
 		DetachFromBuffer(bufhandle)
 	end
 end
-StopClient()
 
 
 @if_request_send_all_lines+=
@@ -1245,7 +851,7 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
 
 @send_encoded+=
-SendText(encoded)
+ws_client:send_text(encoded)
 -- table.insert(events, "sent " .. encoded)
 
 @declare_functions+=

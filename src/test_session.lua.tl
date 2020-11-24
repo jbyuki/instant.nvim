@@ -56,8 +56,9 @@ end
 
 @script_variables+=
 local client1, client2
-local client1pipe = [[\\.\\pipe\nvim-20004-0]]
-local client2pipe = [[\\.\\pipe\nvim-28276-0]]
+
+local client1pipe = [[\\.\\pipe\nvim-2880-0]]
+local client2pipe = [[\\.\\pipe\nvim-20548-0]]
 
 @initiate_socket_connection_to_vim+=
 client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })
