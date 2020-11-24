@@ -7,6 +7,7 @@ instant.nvim
 
 * [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart)
 * [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
+* [API](https://github.com/jbyuki/instant.nvim/wiki/API)
 * [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
 * [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
 * [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
