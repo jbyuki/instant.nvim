@@ -107,8 +107,8 @@ local status_cb = {}
 local follow = false
 local follow_aut
 
-author2id = {}
-id2author = {}
+local author2id = {}
+local id2author = {}
 
 local MSG_TYPE = {
 TEXT = 1,
@@ -122,6 +122,8 @@ INITIAL = 6,
 INFO = 5,
 
 CONNECT = 7,
+
+DISCONNECT = 8,
 
 }
 local OP_DEL = 1
@@ -798,26 +800,31 @@ end
 local function attach_status_update(cb)
 	table.insert(status_cb, cb)
 	local positions = {}
-	for aut, c in pairs(cursors) do 
-		local buf = c.buf
-		local fullname = vim.api.nvim_buf_get_name(buf)
-		local cwdname = vim.api.nvim_call_function("fnamemodify",
-			{ fullname, ":." })
-		local bufname = cwdname
-		if bufname == fullname then
-			bufname = vim.api.nvim_call_function("fnamemodify",
-			{ fullname, ":t" })
-		end
-		
-		local line
-		if c.ext_id then
-			line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
-					buf, c.id, c.ext_id, {}))
+	for _, aut in pairs(id2author) do 
+		local c = cursors[aut]
+		if c then
+			local buf = c.buf
+			local fullname = vim.api.nvim_buf_get_name(buf)
+			local cwdname = vim.api.nvim_call_function("fnamemodify",
+				{ fullname, ":." })
+			local bufname = cwdname
+			if bufname == fullname then
+				bufname = vim.api.nvim_call_function("fnamemodify",
+				{ fullname, ":t" })
+			end
+			
+			local line
+			if c.ext_id then
+				line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
+						buf, c.id, c.ext_id, {}))
+			else
+				line= c.y
+			end
+			
+			table.insert(positions , {aut, bufname, line+1})
 		else
-			line= c.y
+			table.insert(positions , {aut, "", ""})
 		end
-		
-		table.insert(positions , {aut, bufname, line+1})
 	end
 	
 	return positions
@@ -1280,26 +1287,31 @@ local function StartClient(first, appuri, port)
 											
 											if #status_cb > 0 then
 												local positions = {}
-												for aut, c in pairs(cursors) do 
-													local buf = c.buf
-													local fullname = vim.api.nvim_buf_get_name(buf)
-													local cwdname = vim.api.nvim_call_function("fnamemodify",
-														{ fullname, ":." })
-													local bufname = cwdname
-													if bufname == fullname then
-														bufname = vim.api.nvim_call_function("fnamemodify",
-														{ fullname, ":t" })
-													end
-													
-													local line
-													if c.ext_id then
-														line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
-																buf, c.id, c.ext_id, {}))
+												for _, aut in pairs(id2author) do 
+													local c = cursors[aut]
+													if c then
+														local buf = c.buf
+														local fullname = vim.api.nvim_buf_get_name(buf)
+														local cwdname = vim.api.nvim_call_function("fnamemodify",
+															{ fullname, ":." })
+														local bufname = cwdname
+														if bufname == fullname then
+															bufname = vim.api.nvim_call_function("fnamemodify",
+															{ fullname, ":t" })
+														end
+														
+														local line
+														if c.ext_id then
+															line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
+																	buf, c.id, c.ext_id, {}))
+														else
+															line= c.y
+														end
+														
+														table.insert(positions , {aut, bufname, line+1})
 													else
-														line= c.y
+														table.insert(positions , {aut, "", ""})
 													end
-													
-													table.insert(positions , {aut, bufname, line+1})
 												end
 												
 												for _,cb in ipairs(status_cb) do
@@ -2656,6 +2668,14 @@ local function StartClient(first, appuri, port)
 											id2author[new_id] = new_aut
 										end
 										
+										if decoded[1] == MSG_TYPE.DISCONNECT then
+											local _, remove_id = unpack(decoded)
+											local aut = id2author[remove_id]
+											if aut then
+												author2id[aut] = nil
+												id2author[remove_id] = nil
+											end
+										end
 									else
 										table.insert(events, "Could not decode json " .. wsdata)
 									end
@@ -2846,26 +2866,31 @@ end
 local function Status()
 	if client and client:is_active() then
 		local positions = {}
-		for aut, c in pairs(cursors) do 
-			local buf = c.buf
-			local fullname = vim.api.nvim_buf_get_name(buf)
-			local cwdname = vim.api.nvim_call_function("fnamemodify",
-				{ fullname, ":." })
-			local bufname = cwdname
-			if bufname == fullname then
-				bufname = vim.api.nvim_call_function("fnamemodify",
-				{ fullname, ":t" })
-			end
-			
-			local line
-			if c.ext_id then
-				line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
-						buf, c.id, c.ext_id, {}))
+		for _, aut in pairs(id2author) do 
+			local c = cursors[aut]
+			if c then
+				local buf = c.buf
+				local fullname = vim.api.nvim_buf_get_name(buf)
+				local cwdname = vim.api.nvim_call_function("fnamemodify",
+					{ fullname, ":." })
+				local bufname = cwdname
+				if bufname == fullname then
+					bufname = vim.api.nvim_call_function("fnamemodify",
+					{ fullname, ":t" })
+				end
+				
+				local line
+				if c.ext_id then
+					line,_ = unpack(vim.api.nvim_buf_get_extmark_by_id(
+							buf, c.id, c.ext_id, {}))
+				else
+					line= c.y
+				end
+				
+				table.insert(positions , {aut, bufname, line+1})
 			else
-				line= c.y
+				table.insert(positions , {aut, "", ""})
 			end
-			
-			table.insert(positions , {aut, bufname, line+1})
 		end
 		
 		local info_str = {}
@@ -2943,6 +2968,7 @@ function OpenBuffers()
 			end
 		end
 	end
+	
 	local num_files = 0
 	for _,file in ipairs(files) do
 		vim.api.nvim_command("args " .. file)

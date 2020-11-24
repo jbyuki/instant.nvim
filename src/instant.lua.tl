@@ -893,6 +893,7 @@ if decoded then
 	@if_initial_and_not_initialized_set_buffer_lines
 	@if_available_check_if_its_ok
 	@if_connect_save_client_id_and_username
+	@if_disconnect_remove_client_id_and_username
 else
 	table.insert(events, "Could not decode json " .. wsdata)
 end
@@ -1854,11 +1855,16 @@ end
 
 @get_all_user_infos+=
 local positions = {}
-for aut, c in pairs(cursors) do 
-	local buf = c.buf
-	@get_buf_name_relative_to_cwd_or_just_tail
-	@get_cursor_position_of_user
-	table.insert(positions , {aut, bufname, line+1})
+for _, aut in pairs(id2author) do 
+	local c = cursors[aut]
+	if c then
+		local buf = c.buf
+		@get_buf_name_relative_to_cwd_or_just_tail
+		@get_cursor_position_of_user
+		table.insert(positions , {aut, bufname, line+1})
+	else
+		table.insert(positions , {aut, "", ""})
+	end
 end
 
 @get_cursor_position_of_user+=
@@ -1965,8 +1971,8 @@ function genPIDSeq(p, q, s, i, N)
 end
 
 @script_variables+=
-author2id = {}
-id2author = {}
+local author2id = {}
+local id2author = {}
 
 @message_types+=
 CONNECT = 7,
@@ -2045,5 +2051,18 @@ if string.len(all) > 0 then
 		if isdir == 0 then
 			table.insert(files, path)
 		end
+	end
+end
+
+@message_types+=
+DISCONNECT = 8,
+
+@if_disconnect_remove_client_id_and_username+=
+if decoded[1] == MSG_TYPE.DISCONNECT then
+	local _, remove_id = unpack(decoded)
+	local aut = id2author[remove_id]
+	if aut then
+		author2id[aut] = nil
+		id2author[remove_id] = nil
 	end
 end
