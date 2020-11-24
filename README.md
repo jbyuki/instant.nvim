@@ -68,25 +68,25 @@ For [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart) for mor
 For a similar experience to Google Docs. Simply share the current buffer.
 
 #### Client 1
-1. `:InstantStartSingle 127.0.0.1 8080` : Open an instance of Neovim and connect with 
+1. `:InstantStartSingle 127.0.0.1 8080`
 2. A `Connected!` notification should appear
 
 #### Client 2
-1. `:InstantJoinSingle 127.0.0.1 8080` : Open another instance of Neovim and join with 
+1. `:InstantJoinSingle 127.0.0.1 8080`
 2. Now the two current buffers are synced
 
 When done the connection can be stopped with `:InstantStop`
 
 ### Session sharing
 
-For a more advanced sharing setup. It shares all opened buffers (including hidden) with
+For a more advanced sharing setup. It shares all opened buffers (including hidden, not special) with
 the other user. Newly created buffers are automatically synced. There are still some issues
 with renaming but should be fixed soon.
 
 [![Untitled-Project.gif](https://i.postimg.cc/ydM961f3/Untitled-Project.gif)](https://postimg.cc/gXKrNWbG)
 
 #### Client 1
-1. `:InstantStartSession 127.0.0.1 8080` : Start a session share
+1. `:InstantStartSession 127.0.0.1 8080`
 
 #### Client 2
 2. `:InstantJoinSession 127.0.0.1 8080`
@@ -95,10 +95,11 @@ Now all the buffers are synced.
 
 Like with single buffer share, stop the connection with `:InstantStop`
 
-Note: 
-	* The current connection status can be print with `:InstantStatus`
-	* A user can be followed through its text edits with `:InstantFollow [username]`
-	* To stop the follow, call `:InstantStopFollow`
+**Note**: 
+
+* The current connection status can be print with `:InstantStatus`
+* A user can be followed through its text edits with `:InstantFollow [username]`
+* To stop the follow, call `:InstantStopFollow`
 
 ### Share current directory
 
@@ -134,7 +135,8 @@ cd share-dir
 1. `:InstantStartSession 127.0.0.1 8080`
 2. `:InstantSaveAll` - instant.nvim will save the files (and also create missing directories).
 
-Note:
-	* Use `:InstantSaveAll!` to overwrite files
-	* This is just an example workflow and it can be adapted for your needs of course.
-	* Use `qall` or `qall!` to close all buffers at once
+**Note**:
+
+* Use `:InstantSaveAll!` to overwrite files
+* This is just an example workflow and it can be adapted for your needs of course.
+* Use `qall` or `qall!` to close all buffers at once
