@@ -13,6 +13,7 @@ The plugin is still highly **unstable** and probably not suitable for normal usa
 * [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
 * [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
 * [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
+* [Technical Overview](https://github.com/jbyuki/instant.nvim/wiki/Technical-Overview)
 
 [![Untitled-Project.gif](https://i.postimg.cc/jjnrHMjY/Untitled-Project.gif)](https://postimg.cc/qtrY0Xn1)
 
