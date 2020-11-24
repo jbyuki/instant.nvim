@@ -61,7 +61,7 @@ Usage
 
 Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/en/).
 
-For [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart) for more informations.
+See [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart) for more informations.
 
 ### Buffer sharing
 
