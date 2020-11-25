@@ -87,6 +87,7 @@ function conn_proto:send_json(obj)
 	self:send_text(encoded)
 end
 
+
 local function WebSocketServer(opt)
 	local host = opt.host or "127.0.0.1"
 	
@@ -243,6 +244,25 @@ local function WebSocketServer(opt)
 	
 		if not ret then
 			error(err)
+		end
+	end
+	
+	function ws:close()
+		for _, conn in pairs(conns) do
+			if conn and conn.callbacks.on_disconnect then
+				conn.callbacks.on_disconnect()
+			end
+			
+			conns[conn.id] = nil
+			
+			conn.sock:shutdown()
+			conn.sock:close()
+		end
+	
+		if server then
+			server:shutdown()
+			server:close()
+			server = nil
 		end
 	end
 	

@@ -5,9 +5,17 @@
 @functions
 @initiate_socket_connection_to_vim
 local stdin, stdout, stderr
-@create_pipes
-@spawn_process
-@register_pipe_callbacks
+if nodejs then
+	@create_pipes
+	@spawn_process
+	@register_pipe_callbacks
+else
+	vim.schedule(function()
+		@start_server_on_vim_client
+		@start_connection_on_vim_clients
+	end)
+end
+
 
 @spawn_process+=
 handle, pid = vim.loop.spawn("node",
@@ -56,6 +64,7 @@ end
 
 @script_variables+=
 local client1, client2
+local nodejs = true
 local client1pipe = [[\\.\\pipe\nvim-8700-0]]
 local client2pipe = [[\\.\\pipe\nvim-16156-0]]
 

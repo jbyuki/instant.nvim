@@ -60,9 +60,11 @@ Usage
 
 ### Start server
 
-Fire up [ws_server.js](server/ws_server.js) using [node.js](https://nodejs.org/en/).
+In order to test the plugin, a server can be started in localhost directly in Neovim.
 
-See [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart) for more informations.
+1. `:InstantStartServer`
+
+For a more advanced (remote server) overview see [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
 
 ### Buffer sharing
 

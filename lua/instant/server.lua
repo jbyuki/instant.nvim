@@ -1,6 +1,7 @@
 local websocket_server = require("instant.websocket_server")
 
 local num_connected = 0
+local ws_server
 
 local is_initialized = false
 local session_share = false
@@ -19,7 +20,7 @@ DATA = 9,
 
 }
 local function StartServer()
-	local ws_server = websocket_server { host = "127.0.0.1", port = 8080 }
+	ws_server = websocket_server { host = "127.0.0.1", port = 8080 }
 
 	ws_server:listen {
 		on_connect = function(conn) 
@@ -100,6 +101,7 @@ local function StartServer()
 										client:send_text(wsdata)
 									end
 								end
+							
 							else 
 								table.insert(events, "Unknown message " .. vim.inspect(decoded))
 							end
@@ -136,9 +138,15 @@ local function StartServer()
 	print("Server is listening on port 8080...")
 end
 
+local function StopServer()
+	ws_server:close()
+	vim.schedule(function() print("Server shutdown.") end)
+end
+
 
 return {
 	StartServer = StartServer,
 	
+	StopServer = StopServer,
 }
 

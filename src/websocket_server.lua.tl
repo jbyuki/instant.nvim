@@ -322,3 +322,20 @@ function conn_proto:send_json(obj)
 	local encoded = vim.api.nvim_call_function("json_encode", {obj})
 	self:send_text(encoded)
 end
+
+@methods+=
+function ws:close()
+	for _, conn in pairs(conns) do
+		@close_client_callbacks
+		@remove_client
+		conn.sock:shutdown()
+		conn.sock:close()
+	end
+
+	if server then
+		server:shutdown()
+		server:close()
+		server = nil
+	end
+end
+

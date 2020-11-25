@@ -16,18 +16,20 @@ local websocket_server = require("instant.websocket_server")
 
 @script_variables+=
 local num_connected = 0
+local ws_server
 
 @export_symbols+=
 StartServer = StartServer,
 
 @functions+=
 local function StartServer()
-	local ws_server = websocket_server { host = "127.0.0.1", port = 8080 }
+	ws_server = websocket_server { host = "127.0.0.1", port = 8080 }
 
 	ws_server:listen {
 		on_connect = function(conn) 
 			num_connected = num_connected + 1
 			print("Peer connected! " .. num_connected .. " connected.")
+			@notify_peer_connected
 			@client_connected
 		end
 	}
@@ -180,3 +182,12 @@ elseif decoded[1] == MSG_TYPE.DATA then
 			client:send_text(wsdata)
 		end
 	end
+
+@functions+=
+local function StopServer()
+	ws_server:close()
+	vim.schedule(function() print("Server shutdown.") end)
+end
+
+@export_symbols+=
+StopServer = StopServer,

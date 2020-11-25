@@ -57,4 +57,7 @@ command! -bang InstantSaveAll call instant#SaveAllWrapper(<bang>0)
 command! InstantOpenAll call luaeval('require("instant").OpenBuffers()')
 
 @register_commands+=
-command! InstantStartServer call luaeval('require("instant").StartServer()')
+command! InstantStartServer call luaeval('require("instant.server").StartServer()')
+
+@register_commands+=
+command! InstantStopServer call luaeval('require("instant.server").StopServer()')

@@ -56,7 +56,7 @@ local function StartClient(first, appuri, port)
 		on_disconnect = function()
 			@stop
 			@call_disconnect_callbacks
-			print("Disconnected.")
+			vim.schedule(function() print("Disconnected.") end)
 		end
 	}
 end
@@ -1808,9 +1808,3 @@ end
 
 @export_symbols+=
 get_connected_buf_list = get_connected_buf_list,
-
-@requires+=
-local instant_server = require("instant.server")
-
-@export_symbols+=
-StartServer = instant_server.StartServer,

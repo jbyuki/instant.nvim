@@ -1,7 +1,5 @@
 local websocket_client = require("instant.websocket_client")
 
-local instant_server = require("instant.server")
-
 local DetachFromBuffer
 
 local utf8len, utf8char
@@ -2308,7 +2306,7 @@ local function StartClient(first, appuri, port)
 				end
 			end
 			
-			print("Disconnected.")
+			vim.schedule(function() print("Disconnected.") end)
 		end
 	}
 end
@@ -2590,7 +2588,5 @@ get_connected_list = get_connected_list,
 send_data = send_data,
 
 get_connected_buf_list = get_connected_buf_list,
-
-StartServer = instant_server.StartServer,
 }
 
