@@ -1,4 +1,6 @@
-local websocket = require("instant.websocket")
+local websocket_client = require("instant.websocket_client")
+
+local instant_server = require("instant.server")
 
 local DetachFromBuffer
 
@@ -42,7 +44,7 @@ local MAXINT = 2^20 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
-local allpids = {}
+allpids = {}
 local pids = {}
 
 local agent = 0
@@ -655,7 +657,7 @@ local function StartClient(first, appuri, port)
 	
 	only_share_cwd = getConfig("g:instant_only_cwd", true)
 	
-	ws_client = websocket { uri = appuri, port = port }
+	ws_client = websocket_client { uri = appuri, port = port }
 	ws_client:connect {
 		on_connect = function()
 			local obj = {
@@ -678,8 +680,10 @@ local function StartClient(first, appuri, port)
 				end
 			end
 			
+			print("Connected!")
 		end,
 		on_text = function(wsdata)
+			table.insert(events, "wsdata " .. wsdata)
 			local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
 			
 			if decoded then
@@ -1295,7 +1299,6 @@ local function StartClient(first, appuri, port)
 					if is_first and first then
 						agent = client_id
 						
-						print("Connected!")
 				
 						if sessionshare then
 							local allbufs = vim.api.nvim_list_bufs()
@@ -2144,7 +2147,6 @@ local function StartClient(first, appuri, port)
 							vim.api.nvim_command("autocmd BufNewFile,BufRead * call execute('lua instantOpenOrCreateBuffer(' . expand('<abuf>') . ')', '')")
 							vim.api.nvim_command("augroup end")
 							
-							print("Connected!")
 						end
 					elseif is_first and not first then
 						table.insert(events, "ERROR: Tried to join an empty server")
@@ -2319,7 +2321,7 @@ end
 
 
 local function Start(host, port)
-	if client and client:is_active() then
+	if ws_client and ws_client:is_active() then
 		error("Client is already connected. Use InstantStop first to disconnect.")
 	end
 	
@@ -2334,7 +2336,7 @@ local function Start(host, port)
 end
 
 local function Join(host, port)
-	if client and client:is_active() then
+	if ws_client and ws_client:is_active() then
 		error("Client is already connected. Use InstantStop first to disconnect.")
 	end
 	
@@ -2354,7 +2356,7 @@ end
 
 
 local function StartSession(host, port)
-	if client and client:is_active() then
+	if ws_client and ws_client:is_active() then
 		error("Client is already connected. Use InstantStop first to disconnect.")
 	end
 	
@@ -2366,7 +2368,7 @@ local function StartSession(host, port)
 end
 
 local function JoinSession(host, port)
-	if client and client:is_active() then
+	if ws_client and ws_client:is_active() then
 		error("Client is already connected. Use InstantStop first to disconnect.")
 	end
 	
@@ -2379,7 +2381,7 @@ end
 
 
 local function Status()
-	if client and client:is_active() then
+	if ws_client and ws_client:is_active() then
 		local positions = {}
 		for _, aut in pairs(id2author) do 
 			local c = cursors[aut]
@@ -2588,5 +2590,7 @@ get_connected_list = get_connected_list,
 send_data = send_data,
 
 get_connected_buf_list = get_connected_buf_list,
+
+StartServer = instant_server.StartServer,
 }
 

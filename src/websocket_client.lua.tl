@@ -1,11 +1,11 @@
-@../lua/instant/websocket.lua=
+@../lua/instant/websocket_client.lua=
 @requires
 @script_variables
 @fill_base64_table
 @declare_functions
 @functions
 
-local function WebSocket(opt)
+local function WebSocketClient(opt)
 	@get_ip_address
 	@set_port_as_80_if_not_provided
 	@create_new_tcp_connection
@@ -17,7 +17,7 @@ local function WebSocket(opt)
 	return setmetatable({}, { __index = ws})
 end
 
-return WebSocket
+return WebSocketClient
 
 @script_variables+=
 events = {}
@@ -38,15 +38,21 @@ local client = vim.loop.new_tcp()
 
 @methods+=
 function ws:connect(callbacks)
-	client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
+	local ret, err = client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
 		@save_on_disconnect_callback
 		@check_for_connection_errors
 		client:read_start(vim.schedule_wrap(function(err, chunk)
 			@check_for_connection_errors_when_connected
-			@read_response
+			if chunk then
+				@read_response
+			end
 		end))
 		@opening_handshake
 	end))
+
+	if not ret then
+		error(err)
+	end
 end
 
 @check_for_connection_errors+=
@@ -84,6 +90,7 @@ local base64 = require("instant.base64")
 
 @internal_variables+=
 local websocketkey
+local handshake_sent = false
 
 @opening_handshake+=
 client:write("GET / HTTP/1.1\r\n")
@@ -117,26 +124,37 @@ local frames = {}
 local fragmented = ""
 local remaining = 0
 local first_chunk
+local upgraded = false
+local http_chunk = ""
 
 @read_response+=
-if chunk then
-	if string.match(chunk, nocase("^HTTP")) then
-		-- can be Sec-WebSocket-Accept or Sec-Websocket-Accept
-		if string.match(chunk, nocase("Sec%-WebSocket%-Accept")) then
-			@handshake_finished
-		end
-	else
-		local fin
-		-- if multiple tcp packets are 
-		-- sent at once
-		while string.len(chunk) > 0 do
-			-- if tcp packets are sent
-			-- fragmented
-			if remaining == 0 then
-				first_chunk = chunk
+if not upgraded then
+	http_chunk = http_chunk .. chunk
+	if string.match(http_chunk, "\r\n\r\n$") then
+		if string.match(http_chunk, nocase("^HTTP")) then
+			-- can be Sec-WebSocket-Accept or Sec-Websocket-Accept
+			if string.match(http_chunk, nocase("Sec%-WebSocket%-Accept")) then
+				@handshake_finished
+				upgraded = true
 			end
-			@read_opcode
-			@do_opcode
+		end
+		http_chunk = ""
+	end
+else
+	local fin
+	-- if multiple tcp packets are 
+	-- sent at once
+	while string.len(chunk) > 0 do
+		-- if tcp packets are sent
+		-- fragmented
+		if remaining == 0 then
+			first_chunk = chunk
+		end
+		@read_opcode
+		@do_opcode
+		else 
+			chunk = ""
+			remaining = 0
 		end
 	end
 end
@@ -213,7 +231,6 @@ if opcode == 0x1 then -- TEXT
 			wsdata = ""
 		end
 	end
-end
 
 @read_payload_length+=
 local paylen = bit.band(b2, 0x7F)
@@ -241,11 +258,10 @@ if callbacks.on_text then
 end
 
 @do_opcode+=
-if opcode == 0x9 then -- PING
+elseif opcode == 0x9 then -- PING
 	@read_payload_length
 	@send_pong
 	chunk = ""
-end
 
 @send_pong+=
 @generate_mask
@@ -366,3 +382,8 @@ local s = convert_bytes_to_string(frame)
 
 @send_frame+=
 client:write(s)
+
+@methods+=
+function ws:is_active()
+	return client and client:is_active()
+end

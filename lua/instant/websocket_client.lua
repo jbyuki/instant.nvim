@@ -56,7 +56,7 @@ function convert_bytes_to_string(tab)
 end
 
 
-local function WebSocket(opt)
+local function WebSocketClient(opt)
 	local iptable = vim.loop.getaddrinfo(opt.uri)
 	if #iptable == 0 then
 		print("Could not resolve address")
@@ -70,11 +70,14 @@ local function WebSocket(opt)
 	
 
 	local websocketkey
+	local handshake_sent = false
 	
 	local frames = {}
 	local fragmented = ""
 	local remaining = 0
 	local first_chunk
+	local upgraded = false
+	local http_chunk = ""
 	
 	local wsdata = ""
 	local opcode
@@ -85,7 +88,7 @@ local function WebSocket(opt)
 	
 	local ws = {}
 	function ws:connect(callbacks)
-		client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
+		local ret, err = client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
 			on_disconnect = callbacks.on_disconnect
 			
 			if err then
@@ -108,13 +111,20 @@ local function WebSocket(opt)
 				end
 				
 				if chunk then
-					if string.match(chunk, nocase("^HTTP")) then
-						-- can be Sec-WebSocket-Accept or Sec-Websocket-Accept
-						if string.match(chunk, nocase("Sec%-WebSocket%-Accept")) then
-							if callbacks.on_connect then
-								callbacks.on_connect()
+					if not upgraded then
+						http_chunk = http_chunk .. chunk
+						if string.match(http_chunk, "\r\n\r\n$") then
+							if string.match(http_chunk, nocase("^HTTP")) then
+								-- can be Sec-WebSocket-Accept or Sec-Websocket-Accept
+								if string.match(http_chunk, nocase("Sec%-WebSocket%-Accept")) then
+									if callbacks.on_connect then
+										callbacks.on_connect()
+									end
+									
+									upgraded = true
+								end
 							end
-							
+							http_chunk = ""
 						end
 					else
 						local fin
@@ -173,9 +183,8 @@ local function WebSocket(opt)
 										wsdata = ""
 									end
 								end
-							end
 							
-							if opcode == 0x9 then -- PING
+							elseif opcode == 0x9 then -- PING
 								local paylen = bit.band(b2, 0x7F)
 								local paylenlen = 0
 								if paylen == 126 then -- 16 bits length
@@ -207,13 +216,17 @@ local function WebSocket(opt)
 								
 								client:write(s)
 								
+								
 								chunk = ""
-							end
 							
+							else 
+								chunk = ""
+								remaining = 0
+							end
 						end
 					end
+					
 				end
-				
 			end))
 			client:write("GET / HTTP/1.1\r\n")
 			client:write("Host: " .. opt.uri .. ":" .. port .. "\r\n")
@@ -225,6 +238,10 @@ local function WebSocket(opt)
 			client:write("\r\n")
 			
 		end))
+	
+		if not ret then
+			error(err)
+		end
 	end
 	
 	function ws:disconnect()
@@ -242,6 +259,7 @@ local function WebSocket(opt)
 		local s = convert_bytes_to_string(frame)
 		
 		client:write(s)
+		
 		
 		client:close()
 		client = nil
@@ -307,14 +325,18 @@ local function WebSocket(opt)
 			local s = convert_bytes_to_string(frame)
 			
 			client:write(s)
+			
 			sent = sent + send
 		end
 	end
 	
 	
+	function ws:is_active()
+		return client and client:is_active()
+	end
 
 	return setmetatable({}, { __index = ws})
 end
 
-return WebSocket
+return WebSocketClient
 

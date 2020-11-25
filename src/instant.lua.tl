@@ -11,6 +11,7 @@ local MSG_TYPE = {
 @functions
 
 @start_client
+@start_server
 
 @detach_from_buffer
 
@@ -35,19 +36,21 @@ return {
 local ws_client
 
 @requires+=
-local websocket = require("instant.websocket")
+local websocket_client = require("instant.websocket_client")
 
 @start_client+=
 local function StartClient(first, appuri, port)
 	@check_if_has_username
 	@init_client
-	ws_client = websocket { uri = appuri, port = port }
+	ws_client = websocket_client { uri = appuri, port = port }
 	ws_client:connect {
 		on_connect = function()
 			@handshake_finished
 			@call_connect_callbacks
+			print("Connected!")
 		end,
 		on_text = function(wsdata)
+			table.insert(events, "wsdata " .. wsdata)
 			@interpret_received_text
 		end,
 		on_disconnect = function()
@@ -389,7 +392,7 @@ local MAXINT = 2^20 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]
-local allpids = {}
+allpids = {}
 local pids = {}
 
 @declare_functions+=
@@ -924,7 +927,6 @@ if decoded[1] == MSG_TYPE.AVAILABLE then
 	local _, is_first, client_id, is_sessionshare  = unpack(decoded)
 	if is_first and first then
 		@init_client_id
-		print("Connected!")
 
 		if sessionshare then
 			@get_all_text_edit_buffers
@@ -958,7 +960,6 @@ if decoded[1] == MSG_TYPE.AVAILABLE then
 			end
 			@send_request_for_initial_content
 			@register_autocommands_for_buffer_open_and_create
-			print("Connected!")
 		end
 	elseif is_first and not first then
 		table.insert(events, "ERROR: Tried to join an empty server")
@@ -1070,7 +1071,7 @@ vim.api.nvim_buf_set_lines(
 
 @status_function+=
 local function Status()
-	if client and client:is_active() then
+	if ws_client and ws_client:is_active() then
 		@get_all_user_infos
 		@print_connection_status
 	else
@@ -1089,7 +1090,7 @@ end
 print("Connected. " .. #info_str .. " other client(s)\n\n" .. table.concat(info_str, "\n"))
 
 @check_if_client_is_not_connected+=
-if client and client:is_active() then
+if ws_client and ws_client:is_active() then
 	error("Client is already connected. Use InstantStop first to disconnect.")
 end
 
@@ -1807,3 +1808,9 @@ end
 
 @export_symbols+=
 get_connected_buf_list = get_connected_buf_list,
+
+@requires+=
+local instant_server = require("instant.server")
+
+@export_symbols+=
+StartServer = instant_server.StartServer,
