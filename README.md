@@ -90,7 +90,7 @@ with renaming but should be fixed soon.
 1. `:InstantStartSession 127.0.0.1 8080`
 
 #### Client 2
-2. `:InstantJoinSession 127.0.0.1 8080`
+1. `:InstantJoinSession 127.0.0.1 8080`
 
 Now all the buffers are synced.
 
@@ -133,7 +133,7 @@ mkdir share-dir
 cd share-dir
 ```
 
-1. `:InstantStartSession 127.0.0.1 8080`
+1. `:InstantJoinSession 127.0.0.1 8080`
 2. `:InstantSaveAll` - instant.nvim will save the files (and also create missing directories).
 
 **Note**:
