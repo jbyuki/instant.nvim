@@ -15,20 +15,22 @@ The plugin is still highly **unstable** and probably not suitable for normal usa
 * [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
 * [Technical Overview](https://github.com/jbyuki/instant.nvim/wiki/Technical-Overview)
 
-[![Untitled-Project.gif](https://i.postimg.cc/jjnrHMjY/Untitled-Project.gif)](https://postimg.cc/qtrY0Xn1)
+[![Untitled-Project.gif](https://i.postimg.cc/wxDFX40G/Untitled-Project.gif)](https://postimg.cc/fkTxZC4c)
 
 Features
 --------
 
-* Live editing with multiple users
+* Powerful collaborative editing algorithm
 
-* Share a buffer
+* Single buffer sharing
 
-* See who is editing
+* Multiple buffer sharing (Session sharing)
 
-* Share a session
+* Virtual cursors with username of other clients
 
-* Follow users
+* Follow/Spectate a user while he edits
+
+* Builtin localhost server
 
 Requirements
 ------------
@@ -60,7 +62,7 @@ Usage
 
 ### Start server
 
-In order to test the plugin, a server can be started in localhost directly in Neovim.
+A server in localhost (127.0.0.1) can be started easily using the builtin server.
 
 1. `:InstantStartServer`
 
