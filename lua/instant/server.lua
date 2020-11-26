@@ -19,8 +19,11 @@ DISCONNECT = 8,
 DATA = 9,
 
 }
-local function StartServer()
-	ws_server = websocket_server { host = "127.0.0.1", port = 8080 }
+local function StartServer(host, port)
+	local host = host or "127.0.0.1"
+	local port = port or 8080
+
+	ws_server = websocket_server { host = host, port = port }
 
 	ws_server:listen {
 		on_connect = function(conn) 
@@ -135,7 +138,7 @@ local function StartServer()
 			
 		end
 	}
-	print("Server is listening on port 8080...")
+	print("Server is listening on port " .. port .. "...")
 end
 
 local function StopServer()

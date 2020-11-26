@@ -58,11 +58,11 @@ function sha1(bytes)
 	}
 	
 	local W = {}
-	for i = 1,#bytes/64 do
+	for i = 1,#bytes,64 do
 		for j=0,15 do
 			W[j] = from8to32(
-				bytes[64*(i-1)+4*j+1],   bytes[64*(i-1)+4*j+2], 
-				bytes[64*(i-1)+4*j+3], bytes[64*(i-1)+4*j+4])
+				bytes[i+4*j+0], bytes[i+4*j+1], 
+				bytes[i+4*j+2], bytes[i+4*j+3])
 		end
 		
 		for t=16,79 do
@@ -93,6 +93,7 @@ function sha1(bytes)
 	end
 	return digest
 end
+
 
 return sha1
 

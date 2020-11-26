@@ -70,3 +70,14 @@ function instant#SaveAllWrapper(bang)
 		call luaeval('require("instant").SaveBuffers(false)')
 	endif
 endfunction
+
+function instant#StartServerWrapper(...)
+	if a:0 == 0
+		call luaeval('require("instant.server").StartServer()')
+	elseif a:0 == 2
+		call luaeval('require("instant.server").StartServer("' .. a:1 .. '",' .. a:2 .. ')')
+	else
+		echoerr "ARGUMENTS: [host] [port]"
+		return
+	endif
+endfunction

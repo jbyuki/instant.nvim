@@ -11,6 +11,8 @@ function sha1(bytes)
 	return digest
 end
 
+@test_sha1
+
 return sha1
 
 @requires+=
@@ -47,7 +49,7 @@ local H = {
 
 @compute_message_digest+=
 local W = {}
-for i = 1,#bytes/64 do
+for i = 1,#bytes,64 do
 	@split_M_into_W
 	@fill_remaing_W
 	@init_ABCDE_with_H
@@ -67,8 +69,8 @@ events = {}
 @split_M_into_W+=
 for j=0,15 do
 	W[j] = from8to32(
-		bytes[64*(i-1)+4*j+1],   bytes[64*(i-1)+4*j+2], 
-		bytes[64*(i-1)+4*j+3], bytes[64*(i-1)+4*j+4])
+		bytes[i+4*j+0], bytes[i+4*j+1], 
+		bytes[i+4*j+2], bytes[i+4*j+3])
 end
 
 @functions+=

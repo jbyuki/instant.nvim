@@ -31,7 +31,7 @@ command! -bang InstantSaveAll call instant#SaveAllWrapper(<bang>0)
 
 command! InstantOpenAll call luaeval('require("instant").OpenBuffers()')
 
-command! InstantStartServer call luaeval('require("instant.server").StartServer()')
+command! -nargs=* InstantStartServer call instant#StartServerWrapper(<f-args>)
 
 command! InstantStopServer call luaeval('require("instant.server").StopServer()')
 let &cpo = s:save_cpo
