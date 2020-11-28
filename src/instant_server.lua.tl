@@ -45,7 +45,6 @@ conn:attach {
 		vim.schedule(function()
 			@decode_json
 			if decoded then
-				table.insert(events, "SERVER " .. wsdata)
 				@if_text_broadcast_to_others
 				@if_request_send_to_first_client_in_list
 				@if_initial_broadcast_to_others
@@ -79,7 +78,6 @@ DATA = 9,
 
 @decode_json+=
 local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
-table.insert(events, "MSG " .. vim.inspect(decoded))
 
 @if_text_broadcast_to_others+=
 if decoded[1] == MSG_TYPE.TEXT then
@@ -95,9 +93,7 @@ elseif decoded[1] == MSG_TYPE.REQUEST then
 		-- only send request to one other client
 		for id, client in pairs(ws_server.conns) do
 			if id ~= conn.id then
-				table.insert(events, "sending to " .. id)
 				client:send_text(wsdata)
-				table.insert(events, "done")
 				break
 			end
 		end

@@ -33,10 +33,8 @@ local function StartServer(host, port)
 				on_text = function(wsdata)
 					vim.schedule(function()
 						local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
-						table.insert(events, "MSG " .. vim.inspect(decoded))
 						
 						if decoded then
-							table.insert(events, "SERVER " .. wsdata)
 							if decoded[1] == MSG_TYPE.TEXT then
 								for id, client in pairs(ws_server.conns) do
 									if id ~= conn.id then
@@ -49,9 +47,7 @@ local function StartServer(host, port)
 									-- only send request to one other client
 									for id, client in pairs(ws_server.conns) do
 										if id ~= conn.id then
-											table.insert(events, "sending to " .. id)
 											client:send_text(wsdata)
-											table.insert(events, "done")
 											break
 										end
 									end
