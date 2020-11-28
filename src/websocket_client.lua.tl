@@ -19,9 +19,6 @@ end
 
 return WebSocketClient
 
-@script_variables+=
-events = {}
-
 @get_ip_address+=
 local iptable = vim.loop.getaddrinfo(opt.uri)
 if #iptable == 0 then

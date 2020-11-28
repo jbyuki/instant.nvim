@@ -13,6 +13,11 @@ else
 	vim.schedule(function()
 		@start_server_on_vim_client
 		@start_connection_on_vim_clients
+		@do_tests
+		@stop_both_clients
+		@stop_server_on_vim_client
+		@terminate_socket_connection_to_vim
+		@display_final_result
 	end)
 end
 
@@ -65,8 +70,8 @@ end
 @script_variables+=
 local client1, client2
 local nodejs = true
-local client1pipe = [[\\.\\pipe\nvim-8700-0]]
-local client2pipe = [[\\.\\pipe\nvim-16156-0]]
+local client1pipe = [[\\.\\pipe\nvim-6760-0]]
+local client2pipe = [[\\.\\pipe\nvim-14476-0]]
 
 @initiate_socket_connection_to_vim+=
 client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })
@@ -80,6 +85,7 @@ vim.fn.chanclose(client1)
 vim.fn.rpcrequest(client1, 'nvim_exec', "new", false)
 vim.fn.rpcrequest(client2, 'nvim_exec', "new", false)
 vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartSingle 127.0.0.1 8080", false)
+vim.wait(1000)
 vim.fn.rpcrequest(client2, 'nvim_exec', "InstantJoinSingle 127.0.0.1 8080", false)
 
 @script_variables+=
@@ -104,6 +110,7 @@ end
 table.insert(events, "Both clients connected and it's all fine")
 
 @stop_both_clients+=
+vim.wait(1000)
 vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
 vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
 vim.fn.rpcrequest(client1, 'nvim_exec', "bufdo bwipeout! %", false)
@@ -368,3 +375,12 @@ assertEq(content2[2], "testo")
 assertEq(content2[3], "hat the")
 
 vim.wait(100)
+
+@start_server_on_vim_client+=
+vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartServer", false)
+vim.wait(1000)
+
+@stop_server_on_vim_client+=
+vim.wait(1000)
+vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStopServer", false)
+vim.wait(1000)

@@ -36,6 +36,7 @@ local function StartServer(host, port)
 						table.insert(events, "MSG " .. vim.inspect(decoded))
 						
 						if decoded then
+							table.insert(events, "SERVER " .. wsdata)
 							if decoded[1] == MSG_TYPE.TEXT then
 								for id, client in pairs(ws_server.conns) do
 									if id ~= conn.id then
@@ -113,7 +114,7 @@ local function StartServer(host, port)
 				end,
 				on_disconnect = function()
 					vim.schedule(function()
-						num_connected = num_connected - 1
+						num_connected = math.max(num_connected - 1, 0)
 						print("Disconnected. " .. num_connected .. " client(s) remaining.")
 						if num_connected  == 0 then
 							is_initialized = false
@@ -142,8 +143,12 @@ local function StartServer(host, port)
 end
 
 local function StopServer()
-	ws_server:close()
-	vim.schedule(function() print("Server shutdown.") end)
+	vim.schedule(function() 
+		ws_server:close()
+		num_connected = 0
+		is_initialized = false
+		print("Server shutdown.") 
+	end)
 end
 
 

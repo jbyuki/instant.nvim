@@ -5,9 +5,22 @@
 @functions
 @initiate_socket_connection_to_vim
 local stdin, stdout, stderr
-@create_pipes
-@spawn_process
-@register_pipe_callbacks
+if nodejs then
+	@create_pipes
+	@spawn_process
+	@register_pipe_callbacks
+else
+	vim.schedule(function()
+		@start_server_on_vim_client
+		@start_connection_on_vim_clients
+		@open_buffer_on_client2
+		@do_tests
+		@stop_both_clients
+		@stop_server_on_vim_client
+		@terminate_socket_connection_to_vim
+		@display_final_result
+	end)
+end
 
 @spawn_process+=
 handle, pid = vim.loop.spawn("node",
@@ -56,8 +69,9 @@ end
 
 @script_variables+=
 local client1, client2
-local client1pipe = [[\\.\\pipe\nvim-8700-0]]
-local client2pipe = [[\\.\\pipe\nvim-16156-0]]
+local nodejs = false
+local client1pipe = [[\\.\\pipe\nvim-6760-0]]
+local client2pipe = [[\\.\\pipe\nvim-14476-0]]
 
 @initiate_socket_connection_to_vim+=
 client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })
@@ -70,7 +84,9 @@ vim.fn.chanclose(client1)
 @start_connection_on_vim_clients+=
 vim.fn.rpcrequest(client1, 'nvim_exec', "new hello world", false)
 vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartSession 127.0.0.1 8080", false)
+vim.wait(1000)
 vim.fn.rpcrequest(client2, 'nvim_exec', "InstantJoinSession 127.0.0.1 8080", false)
+vim.wait(1000)
 
 @script_variables+=
 local num_connected = 0
@@ -166,7 +182,7 @@ vim.fn.rpcrequest(client2, 'nvim_exec', "b hello", false)
 @do_tests+=
 vim.wait(100)
 vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "test"} )
-vim.wait(100)
+vim.wait(1000)
 local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
 assertEq(#content2, 1)
 assertEq(content2[1], "test")
@@ -221,3 +237,12 @@ vim.fn.rpcrequest(client2, 'nvim_exec', "b hi", false)
 local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
 assertEq(#content2, 1)
 assertEq(content2[1], "hmm...")
+
+@start_server_on_vim_client+=
+vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartServer", false)
+vim.wait(1000)
+
+@stop_server_on_vim_client+=
+vim.wait(1000)
+vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStopServer", false)
+vim.wait(1000)

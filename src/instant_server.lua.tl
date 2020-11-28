@@ -45,6 +45,7 @@ conn:attach {
 		vim.schedule(function()
 			@decode_json
 			if decoded then
+				table.insert(events, "SERVER " .. wsdata)
 				@if_text_broadcast_to_others
 				@if_request_send_to_first_client_in_list
 				@if_initial_broadcast_to_others
@@ -58,7 +59,7 @@ conn:attach {
 	end,
 	on_disconnect = function()
 		vim.schedule(function()
-			num_connected = num_connected - 1
+			num_connected = math.max(num_connected - 1, 0)
 			print("Disconnected. " .. num_connected .. " client(s) remaining.")
 			@check_if_no_more_peer
 			@send_client_disconnect
@@ -188,8 +189,12 @@ elseif decoded[1] == MSG_TYPE.DATA then
 
 @functions+=
 local function StopServer()
-	ws_server:close()
-	vim.schedule(function() print("Server shutdown.") end)
+	vim.schedule(function() 
+		ws_server:close()
+		num_connected = 0
+		is_initialized = false
+		print("Server shutdown.") 
+	end)
 end
 
 @export_symbols+=

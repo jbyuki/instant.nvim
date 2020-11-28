@@ -1,7 +1,7 @@
 local client1, client2
 local nodejs = true
-local client1pipe = [[\\.\\pipe\nvim-8700-0]]
-local client2pipe = [[\\.\\pipe\nvim-16156-0]]
+local client1pipe = [[\\.\\pipe\nvim-6760-0]]
+local client2pipe = [[\\.\\pipe\nvim-14476-0]]
 
 local num_connected = 0
 
@@ -87,6 +87,7 @@ if nodejs then
 					vim.fn.rpcrequest(client1, 'nvim_exec', "new", false)
 					vim.fn.rpcrequest(client2, 'nvim_exec', "new", false)
 					vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartSingle 127.0.0.1 8080", false)
+					vim.wait(1000)
 					vim.fn.rpcrequest(client2, 'nvim_exec', "InstantJoinSingle 127.0.0.1 8080", false)
 					
 				end)
@@ -268,6 +269,8 @@ if nodejs then
 						assertEq(content2[3], "hat the")
 						
 						vim.wait(100)
+						
+						vim.wait(1000)
 						vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
 						vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
 						vim.fn.rpcrequest(client1, 'nvim_exec', "bufdo bwipeout! %", false)
@@ -306,10 +309,203 @@ if nodejs then
 	
 else
 	vim.schedule(function()
+		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartServer", false)
+		vim.wait(1000)
+		
 		vim.fn.rpcrequest(client1, 'nvim_exec', "new", false)
 		vim.fn.rpcrequest(client2, 'nvim_exec', "new", false)
 		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartSingle 127.0.0.1 8080", false)
+		vim.wait(1000)
 		vim.fn.rpcrequest(client2, 'nvim_exec', "InstantJoinSingle 127.0.0.1 8080", false)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "test"} )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "test")
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "hello"} )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "hello")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { ""} )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "test again" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "test again")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "test again", "hey hey" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 2)
+		assertEq(content2[1], "test again")
+		assertEq(content2[2], "hey hey")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "a" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "a")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "aaaaaaaa" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "aaaaaaaa")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "hello" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "hello")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "hallo" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "hallo")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "halllo" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "halllo")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "halll" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "halll")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "alll" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 1)
+		assertEq(content2[1], "alll")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 1, 1, false, { "test" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 2)
+		assertEq(content2[1], "alll")
+		assertEq(content2[2], "test")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 1, 2, false, { "testo" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 2)
+		assertEq(content2[1], "alll")
+		assertEq(content2[2], "testo")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 2, 2, false, { "another" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 3)
+		assertEq(content2[1], "alll")
+		assertEq(content2[2], "testo")
+		assertEq(content2[3], "another")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client2, 'nvim_buf_set_lines', 0, 2, 3, false, { "hehe" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client1, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 3)
+		assertEq(content2[1], "alll")
+		assertEq(content2[2], "testo")
+		assertEq(content2[3], "hehe")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client2, 'nvim_buf_set_lines', 0, 2, 3, false, { "hat the" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client1, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 3)
+		assertEq(content2[1], "alll")
+		assertEq(content2[2], "testo")
+		assertEq(content2[3], "hat the")
+		
+		vim.wait(100)
+		
+		vim.wait(100)
+		vim.fn.rpcrequest(client2, 'nvim_buf_set_lines', 0, 0, 1, false, { "lll" } )
+		vim.wait(100)
+		local content2 = vim.fn.rpcrequest(client1, 'nvim_buf_get_lines', 0, 0, -1, true)
+		assertEq(#content2, 3)
+		assertEq(content2[1], "lll")
+		assertEq(content2[2], "testo")
+		assertEq(content2[3], "hat the")
+		
+		vim.wait(100)
+		
+		vim.wait(1000)
+		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
+		vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
+		vim.fn.rpcrequest(client1, 'nvim_exec', "bufdo bwipeout! %", false)
+		vim.fn.rpcrequest(client2, 'nvim_exec', "bufdo bwipeout! %", false)
+		
+		vim.wait(1000)
+		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStopServer", false)
+		vim.wait(1000)
+		vim.fn.chanclose(client2)
+		vim.fn.chanclose(client1)
+		
+		log("")
+		log("PASSED " .. test_passed)
+		log("")
+		log("FAILED " .. test_failed)
+		log("")
 		
 	end)
 end

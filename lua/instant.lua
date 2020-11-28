@@ -354,6 +354,11 @@ function instantOpenOrCreateBuffer(buf)
 			local rem = loc2rem[buf]
 			
 			local pidslist = {}
+			if not allpids[buf] then
+				table.insert(events, "buf " .. buf)
+				table.insert(events, "allpids " .. vim.inspect(allpids))
+			end
+			
 			for _,lpid in ipairs(allpids[buf]) do
 				for _,pid in ipairs(lpid) do
 					table.insert(pidslist, pid[1][1])
@@ -904,6 +909,11 @@ local function StartClient(first, appuri, port)
 						end
 						
 						local pidslist = {}
+						if not allpids[buf] then
+							table.insert(events, "buf " .. buf)
+							table.insert(events, "allpids " .. vim.inspect(allpids))
+						end
+						
 						for _,lpid in ipairs(allpids[buf]) do
 							for _,pid in ipairs(lpid) do
 								table.insert(pidslist, pid[1][1])
@@ -946,6 +956,11 @@ local function StartClient(first, appuri, port)
 							end
 							
 							local pidslist = {}
+							if not allpids[buf] then
+								table.insert(events, "buf " .. buf)
+								table.insert(events, "allpids " .. vim.inspect(allpids))
+							end
+							
 							for _,lpid in ipairs(allpids[buf]) do
 								for _,pid in ipairs(lpid) do
 									table.insert(pidslist, pid[1][1])
@@ -2349,6 +2364,7 @@ end
 
 local function Stop()
 	ws_client:disconnect()
+	ws_client = nil
 	
 end
 

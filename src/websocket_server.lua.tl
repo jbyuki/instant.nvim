@@ -36,7 +36,6 @@ server:bind(host, port)
 @methods+=
 function ws:listen(callbacks)
 	local ret, err = server:listen(128, function(err)
-		assert(not err, err)
 		local sock = vim.loop.new_tcp()
 		server:accept(sock)
 		local conn
@@ -52,7 +51,6 @@ end
 
 @register_socket_read_callback+=
 sock:read_start(function(err, chunk)
-	assert(not err, err)
 	if chunk then
 		@read_message_tcp
 	else
@@ -263,7 +261,6 @@ local max_before_frag = 8192
 
 @client_connection_methods+=
 function conn_proto:send_text(str)
-	table.insert(events, "send text " .. self.id)
 	local remain = #str
 	local sent = 0
 	while remain > 0 do
@@ -314,7 +311,6 @@ local control = convert_bytes_to_string(frame)
 local tosend = control .. str
 
 @send_frame+=
-table.insert(events, "send text " .. self.id)
 conns[self.id].sock:write(tosend)
 
 @client_connection_methods+=
@@ -339,3 +335,9 @@ function ws:close()
 	end
 end
 
+@do_opcode+=
+if opcode == 0x8 then -- CLOSE
+	@close_client_callbacks
+	@remove_client
+	conn.sock:close()
+end

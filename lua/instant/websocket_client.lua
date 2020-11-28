@@ -2,8 +2,6 @@ local base64 = require("instant.base64")
 
 local bit = require("bit")
 
-events = {}
-
 local GenerateWebSocketKey -- we must forward declare local functions because otherwise it picks the global one
 
 local nocase

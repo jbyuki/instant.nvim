@@ -36,7 +36,6 @@ function conn_proto:attach(callbacks)
 end
 
 function conn_proto:send_text(str)
-	table.insert(events, "send text " .. self.id)
 	local remain = #str
 	local sent = 0
 	while remain > 0 do
@@ -75,7 +74,6 @@ function conn_proto:send_text(str)
 		local control = convert_bytes_to_string(frame)
 		local tosend = control .. str
 		
-		table.insert(events, "send text " .. self.id)
 		conns[self.id].sock:write(tosend)
 		
 		sent = sent + send
@@ -102,7 +100,6 @@ local function WebSocketServer(opt)
 	
 	function ws:listen(callbacks)
 		local ret, err = server:listen(128, function(err)
-			assert(not err, err)
 			local sock = vim.loop.new_tcp()
 			server:accept(sock)
 			local conn
@@ -127,7 +124,6 @@ local function WebSocketServer(opt)
 			end
 			
 			sock:read_start(function(err, chunk)
-				assert(not err, err)
 				if chunk then
 					if not upgraded then
 						http_data = http_data .. chunk
@@ -221,6 +217,15 @@ local function WebSocketServer(opt)
 									end
 								end
 							
+							if opcode == 0x8 then -- CLOSE
+								if conn and conn.callbacks.on_disconnect then
+									conn.callbacks.on_disconnect()
+								end
+								
+								conns[conn.id] = nil
+								
+								conn.sock:close()
+							end
 							else 
 								chunk = ""
 								remaining = 0
