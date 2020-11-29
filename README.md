@@ -1,7 +1,7 @@
 instant.nvim
 ============
 
-instant.nvim is a **collaborative editing** plugin for Neovim.
+> instant.nvim is a **collaborative editing** plugin for Neovim.
 
 [![Untitled-Project.gif](https://i.postimg.cc/wxDFX40G/Untitled-Project.gif)](https://postimg.cc/fkTxZC4c)
 
