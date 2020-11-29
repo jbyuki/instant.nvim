@@ -1,4 +1,3 @@
-
 instant.nvim
 ============
 
@@ -22,7 +21,7 @@ Features
 
 * Virtual cursors with username of other clients
 
-* Spectate a user while he edits
+* Spectate actions of a user
 
 * Built-in localhost server
 
@@ -67,7 +66,7 @@ For a more advanced (remote server) overview see [Deploy a server](https://githu
 
 ### Client (Neovim)
 
-To start the client, the first to connect must initiates the share must with a special commands in the form of `InstantStart...`. Subsequent joining clients, use a different command `InstantJoin...`. Having distinct commands to start and join a server ensures that files are not overwritten by accident on connection.
+To start the client, the first user to connect to the server must initiates the share with a special commands in the form of `InstantStart...`. Subsequent joining clients, use a different command `InstantJoin...`. Having distinct commands to start and join a server ensures that files are not overwritten by accident on connection.
 
 There are essentially two modes of sharing at moment.
 
@@ -85,10 +84,10 @@ For session sharing:
 * `:InstantJoinSession [host] [port]`
 * `:InstantStop`
 
-Additional useful share commands are:
+Additional useful sharing commands are:
 
 * `:InstantStatus` : Display the current connected clients as well as their locations
-* `:InstantFollow [user]` : Follow a user while he edits
+* `:InstantFollow [user]`
 * `:InstantStopFollow`
 * `:InstantOpenAll` : Open all files in buffers in the current directory. Useful to share the whole directory in session sharing
 * `:InstantSaveAll` : Save all opened buffers automatically. This will also create missing subdirectories.
