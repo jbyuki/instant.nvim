@@ -53,6 +53,7 @@ Usage
 Start the server in localhost
 
 1. `:InstantStartServer`
+2. When the message `Server is listening on port 8080...` appears, the server is ready
 
 For a more advanced (remote server) overview see [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
 
@@ -60,16 +61,16 @@ For a more advanced (remote server) overview see [Deploy a server](https://githu
 
 ### Client (Neovim)
 
-instant.nvim can be connected in two modes:
+Depending on your usage, buffer can be shared in two modes:
 
-* [Buffer sharing](#buffer-sharing)
+* [Single buffer sharing](#buffer-sharing)
 
-* [Session sharing](#session-sharing)
+* [Multiple buffer sharing](#session-sharing)
 
 
 #### Buffer sharing
 
-The will share the current buffer with the other clients.
+The will only share the current buffer with the other clients.
 
 ##### Client 1
 1. `:InstantStartSingle 127.0.0.1 8080`
@@ -84,8 +85,7 @@ When done the connection can be stopped with `:InstantStop`
 #### Session sharing
 
 For a more advanced sharing setup. It shares all opened buffers (including hidden, not special) with
-the other user. Newly created buffers are automatically synced. There are still some issues
-with renaming but should be fixed soon.
+the other user. Newly created buffers are automatically synced.
 
 [![Untitled-Project.gif](https://i.postimg.cc/ydM961f3/Untitled-Project.gif)](https://postimg.cc/gXKrNWbG)
 
@@ -95,55 +95,15 @@ with renaming but should be fixed soon.
 ##### Client 2
 1. `:InstantJoinSession 127.0.0.1 8080`
 
-Now all the buffers are synced.
-
 Like with single buffer share, stop the connection with `:InstantStop`
 
 **Note**: 
 
-* The current connection status can be print with `:InstantStatus`
+* The current connection status can be printed with `:InstantStatus`
 * A user can be followed through its text edits with `:InstantFollow [username]`
 * To stop the follow, call `:InstantStopFollow`
+* For convenience, there are `InstantOpenAll` and `InstantSaveAll` which will open or save all files in the current directory
 
-#### Share current directory
-
-To provide a more similar experience to programming project sharing which is done
-for example to do remote pair programming, a session share can be initiated. As a strategic choice,
-it was decided that the plugin doesn't directly write to the filesystem implicitly.
-
-As such, the session share can be to share the whole project directory. For larger
-projects, it can be problematic and a more advanced solution (more granular control) will be required.
-
-[![Untitled-Project.gif](https://i.postimg.cc/cLXwWr14/Untitled-Project.gif)](https://postimg.cc/3k0dCrDP)
-
-##### Client 1
-
-Navigate to the project directory:
-
-```
-cd project-dir
-```
-
-1. `:InstantStartSession 127.0.0.1 8080`
-2. `:InstantOpenAll` - instant.nvim will open **all** files in the current directory as buffers
-
-##### Client 2
-
-Create a share directory and navigate to it:
-
-```
-mkdir share-dir
-cd share-dir
-```
-
-1. `:InstantJoinSession 127.0.0.1 8080`
-2. `:InstantSaveAll` - instant.nvim will save the files (and also create missing directories).
-
-**Note**:
-
-* Use `:InstantSaveAll!` to overwrite files
-* This is just an example workflow and it can be adapted for your needs of course.
-* Use `qall` or `qall!` to close all buffers at once
 
 ### Further Links
 
