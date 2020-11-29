@@ -1,19 +1,7 @@
 instant.nvim
 ============
 
-**instant.nvim** is a **collaborative** editing plugin for **Neovim** written in **Lua** with no dependencies.
-
-The plugin is still highly **unstable** and probably not suitable for normal usage.
-
-**The transfer protocol is not optimized for large files transfer!**
-
-* [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart)
-* [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
-* [API](https://github.com/jbyuki/instant.nvim/wiki/API)
-* [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
-* [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
-* [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
-* [Technical Overview](https://github.com/jbyuki/instant.nvim/wiki/Technical-Overview)
+instant.nvim is a **collaborative editing** plugin for Neovim.
 
 [![Untitled-Project.gif](https://i.postimg.cc/wxDFX40G/Untitled-Project.gif)](https://postimg.cc/fkTxZC4c)
 
@@ -28,7 +16,7 @@ Features
 
 * Virtual cursors with username of other clients
 
-* Follow/Spectate a user while he edits
+* Spectate a user while he edits
 
 * Builtin localhost server
 
@@ -49,7 +37,7 @@ Plug 'jbyuki/instant.nvim'
 Configurations
 --------------
 
-* Set your username in your `init.vim`. This **must be** set to start or join a server.
+* Set your username in your `init.vim`
 
 ```
 let g:instant_username = "USERNAME"
@@ -60,29 +48,40 @@ See [here](https://github.com/jbyuki/instant.nvim/wiki/Customization) for more c
 Usage
 -----
 
-### Start server
+### Server (Neovim or node.js)
 
-A server in localhost (127.0.0.1) can be started easily using the builtin server.
+Start the server in localhost
 
 1. `:InstantStartServer`
 
 For a more advanced (remote server) overview see [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
 
-### Buffer sharing
+**Note**: The server will stop automatically when closing. To stop the server explicitely use `:InstantStopServer`.
 
-For a similar experience to Google Docs. Simply share the current buffer.
+### Client (Neovim)
 
-#### Client 1
+instant.nvim can be connected in two modes:
+
+* [Buffer sharing](#buffer-sharing)
+
+* [Session sharing](#session-sharing)
+
+
+#### Buffer sharing
+
+The will share the current buffer with the other clients.
+
+##### Client 1
 1. `:InstantStartSingle 127.0.0.1 8080`
 2. A `Connected!` notification should appear
 
-#### Client 2
+##### Client 2
 1. `:InstantJoinSingle 127.0.0.1 8080`
 2. Now the two current buffers are synced
 
 When done the connection can be stopped with `:InstantStop`
 
-### Session sharing
+#### Session sharing
 
 For a more advanced sharing setup. It shares all opened buffers (including hidden, not special) with
 the other user. Newly created buffers are automatically synced. There are still some issues
@@ -90,10 +89,10 @@ with renaming but should be fixed soon.
 
 [![Untitled-Project.gif](https://i.postimg.cc/ydM961f3/Untitled-Project.gif)](https://postimg.cc/gXKrNWbG)
 
-#### Client 1
+##### Client 1
 1. `:InstantStartSession 127.0.0.1 8080`
 
-#### Client 2
+##### Client 2
 1. `:InstantJoinSession 127.0.0.1 8080`
 
 Now all the buffers are synced.
@@ -106,7 +105,7 @@ Like with single buffer share, stop the connection with `:InstantStop`
 * A user can be followed through its text edits with `:InstantFollow [username]`
 * To stop the follow, call `:InstantStopFollow`
 
-### Share current directory
+#### Share current directory
 
 To provide a more similar experience to programming project sharing which is done
 for example to do remote pair programming, a session share can be initiated. As a strategic choice,
@@ -117,7 +116,7 @@ projects, it can be problematic and a more advanced solution (more granular cont
 
 [![Untitled-Project.gif](https://i.postimg.cc/cLXwWr14/Untitled-Project.gif)](https://postimg.cc/3k0dCrDP)
 
-#### Client 1
+##### Client 1
 
 Navigate to the project directory:
 
@@ -128,7 +127,7 @@ cd project-dir
 1. `:InstantStartSession 127.0.0.1 8080`
 2. `:InstantOpenAll` - instant.nvim will open **all** files in the current directory as buffers
 
-#### Client 2
+##### Client 2
 
 Create a share directory and navigate to it:
 
@@ -145,3 +144,17 @@ cd share-dir
 * Use `:InstantSaveAll!` to overwrite files
 * This is just an example workflow and it can be adapted for your needs of course.
 * Use `qall` or `qall!` to close all buffers at once
+
+### Further Links
+
+* [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart)
+* [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
+* [API](https://github.com/jbyuki/instant.nvim/wiki/API)
+* [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
+* [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
+* [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
+* [Technical Overview](https://github.com/jbyuki/instant.nvim/wiki/Technical-Overview)
+
+### Others
+
+* If you encounter any problem, please don't hesitate to open an [Issue](https://github.com/jbyuki/instant.nvim/issues)
