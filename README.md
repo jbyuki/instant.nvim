@@ -1,7 +1,15 @@
+
 instant.nvim
 ============
 
-> instant.nvim is a **collaborative editing** plugin for Neovim.
+**instant.nvim** is a **collaborative editing** plugin for **Neovim** written in **Lua** with no dependencies.
+
+* [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
+* [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
+* [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
+* [API](https://github.com/jbyuki/instant.nvim/wiki/API)
+* [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
+* [Technical Overview](https://github.com/jbyuki/instant.nvim/wiki/Technical-Overview)
 
 [![Untitled-Project.gif](https://i.postimg.cc/wxDFX40G/Untitled-Project.gif)](https://postimg.cc/fkTxZC4c)
 
@@ -10,15 +18,13 @@ Features
 
 * Powerful collaborative editing algorithm
 
-* Single buffer sharing
-
-* Multiple buffer sharing (Session sharing)
+* Single or multiple buffer sharing
 
 * Virtual cursors with username of other clients
 
 * Spectate a user while he edits
 
-* Builtin localhost server
+* Built-in localhost server
 
 Requirements
 ------------
@@ -37,7 +43,7 @@ Plug 'jbyuki/instant.nvim'
 Configurations
 --------------
 
-* Set your username in your `init.vim`
+* Set your username in `init.vim`:
 
 ```
 let g:instant_username = "USERNAME"
@@ -48,72 +54,46 @@ See [here](https://github.com/jbyuki/instant.nvim/wiki/Customization) for more c
 Usage
 -----
 
+The collaborative editing plugin works with a server which must communicate with the clients to exchange the text modifications. In order to work, a server must be running which is accessible by all clients.
+
 ### Server (Neovim or node.js)
 
-Start the server in localhost
+For a localhost or LAN network, you can simple use the built-in server included in the plugin.
 
-1. `:InstantStartServer`
-2. When the message `Server is listening on port 8080...` appears, the server is ready
+* Start it with `:InstantStartServer`
+* When done stop it with `:InstantStopServer`
 
 For a more advanced (remote server) overview see [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
 
-**Note**: The server will stop automatically when closing. To stop the server explicitely use `:InstantStopServer`.
-
 ### Client (Neovim)
 
-Depending on your usage, buffer can be shared in two modes:
+To start the client, the first to connect must initiates the share must with a special commands in the form of `InstantStart...`. Subsequent joining clients, use a different command `InstantJoin...`. Having distinct commands to start and join a server ensures that files are not overwritten by accident on connection.
 
-* [Single buffer sharing](#buffer-sharing)
+There are essentially two modes of sharing at moment.
 
-* [Multiple buffer sharing](#session-sharing)
+* **Single buffer sharing**: This will only share the current buffer. 
+* **Session sharing**: This will share all opened (and newly opened) buffers with the other clients. This can be thought of directory sharing without implicit writing on the file system.
 
+For single buffer sharing use:
+* `:InstantStartSingle [host] [port]`
+* `:InstantJoinSingle [host] [port]`
+* `:InstantStop`
 
-#### Buffer sharing
+For session sharing:
 
-The will only share the current buffer with the other clients.
+* `:InstantStartSession [host] [port]`
+* `:InstantJoinSession [host] [port]`
+* `:InstantStop`
 
-##### Client 1
-1. `:InstantStartSingle 127.0.0.1 8080`
-2. A `Connected!` notification should appear
+Additional useful share commands are:
 
-##### Client 2
-1. `:InstantJoinSingle 127.0.0.1 8080`
-2. Now the two current buffers are synced
+* `:InstantStatus` : Display the current connected clients as well as their locations
+* `:InstantFollow [user]` : Follow a user while he edits
+* `:InstantStopFollow`
+* `:InstantOpenAll` : Open all files in buffers in the current directory. Useful to share the whole directory in session sharing
+* `:InstantSaveAll` : Save all opened buffers automatically. This will also create missing subdirectories.
 
-When done the connection can be stopped with `:InstantStop`
-
-#### Session sharing
-
-For a more advanced sharing setup. It shares all opened buffers (including hidden, not special) with
-the other user. Newly created buffers are automatically synced.
-
-[![Untitled-Project.gif](https://i.postimg.cc/ydM961f3/Untitled-Project.gif)](https://postimg.cc/gXKrNWbG)
-
-##### Client 1
-1. `:InstantStartSession 127.0.0.1 8080`
-
-##### Client 2
-1. `:InstantJoinSession 127.0.0.1 8080`
-
-Like with single buffer share, stop the connection with `:InstantStop`
-
-**Note**: 
-
-* The current connection status can be printed with `:InstantStatus`
-* A user can be followed through its text edits with `:InstantFollow [username]`
-* To stop the follow, call `:InstantStopFollow`
-* For convenience, there are `InstantOpenAll` and `InstantSaveAll` which will open or save all files in the current directory
-
-
-### Further Links
-
-* [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
-* [API](https://github.com/jbyuki/instant.nvim/wiki/API)
-* [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
-* [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
-* [Commands](https://github.com/jbyuki/instant.nvim/wiki/Commands)
-* [Technical Overview](https://github.com/jbyuki/instant.nvim/wiki/Technical-Overview)
-
-### Others
+### Help
 
 * If you encounter any problem, please don't hesitate to open an [Issue](https://github.com/jbyuki/instant.nvim/issues)
+* All contributions are welcome
