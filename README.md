@@ -147,7 +147,6 @@ cd share-dir
 
 ### Further Links
 
-* [Quickstart](https://github.com/jbyuki/instant.nvim/wiki/Quickstart)
 * [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
 * [API](https://github.com/jbyuki/instant.nvim/wiki/API)
 * [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
