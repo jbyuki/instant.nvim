@@ -53,7 +53,7 @@ See [here](https://github.com/jbyuki/instant.nvim/wiki/Customization) for more c
 Usage
 -----
 
-The collaborative editing plugin works with a server which must communicate with the clients to exchange the text modifications. In order to work, a server must be running which is accessible by all clients.
+The collaborative editing plugin works with a server which connects together the clients. Thus, a server must be running which must be reachable by all clients.
 
 ### Server (Neovim or node.js)
 
@@ -66,17 +66,17 @@ For a more advanced (remote server) overview see [Deploy a server](https://githu
 
 ### Client (Neovim)
 
-To start the client, the first user to connect to the server must initiates the share with a special commands in the form of `InstantStart...`. Subsequent joining clients, use a different command `InstantJoin...`. Having distinct commands to start and join a server ensures that files are not overwritten by accident on connection.
+To start the client, the first user to connect to the server must initiates the share with a special commands with has the form `InstantStart...`. Subsequent joining clients, use a different command `InstantJoin...`. Having distinct commands to start and join a server ensures that files are not overwritten by accident on connection.
 
-There are essentially two modes of sharing at moment.
+There are essentially two modes of sharing at the moment.
 
 * **Single buffer sharing**: This will only share the current buffer. 
 * **Session sharing**: This will share all opened (and newly opened) buffers with the other clients. This can be thought of directory sharing without implicit writing on the file system.
 
 For single buffer sharing use:
-* `:InstantStartSingle [host] [port]`
+* `:InstantStartSingle [host] [port]` : Host is the URL or IP address. Port is 80 by default.
 * `:InstantJoinSingle [host] [port]`
-* `:InstantStop`
+* `:InstantStop` : This will stop the client
 
 For session sharing:
 
@@ -89,7 +89,7 @@ Additional useful sharing commands are:
 * `:InstantStatus` : Display the current connected clients as well as their locations
 * `:InstantFollow [user]`
 * `:InstantStopFollow`
-* `:InstantOpenAll` : Open all files in buffers in the current directory. Useful to share the whole directory in session sharing
+* `:InstantOpenAll` : Open all files in buffers in the current directory. Useful to share the whole directory in session sharing.
 * `:InstantSaveAll` : Save all opened buffers automatically. This will also create missing subdirectories.
 
 ### Help
