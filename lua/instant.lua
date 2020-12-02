@@ -1,3 +1,4 @@
+-- Generated from instant.lua.tl using ntangle.nvim
 local websocket_client = require("instant.websocket_client")
 
 local DetachFromBuffer
@@ -18,7 +19,7 @@ local utf8split
 
 local isPIDEqual
 
-local isLower
+local isLowerOrEqual
 
 local MsgPackToString
 
@@ -27,6 +28,8 @@ local getConfig
 local SendBinary
 
 local genPIDSeq
+
+local P
 
 local ws_client
 
@@ -75,6 +78,13 @@ local id2author = {}
 
 local api_attach = {}
 local api_attach_id = 1
+
+local disable_undo = false
+
+local undostack = {}
+local undosp = {}
+
+local undoslice = {}
 
 local MSG_TYPE = {
 TEXT = 1,
@@ -146,6 +156,10 @@ local function afterPID(x, y)
 end
 
 function SendOp(buf, op)
+	if not disable_undo then
+		table.insert(undoslice[buf], op)
+	end
+	
 	local rem = loc2rem[buf]
 	
 	local obj = {
@@ -162,12 +176,12 @@ function SendOp(buf, op)
 	
 end
 
-local function findCharPositionBefore(opid, ipid)
+local function findCharPositionBefore(opid)
 	local y1, y2 = 1, #pids
 	while true do
 		local ym = math.floor((y2 + y1)/2)
 		if ym == y1 then break end
-		if isLower(pids[ym][1], opid) then
+		if isLowerOrEqual(pids[ym][1], opid) then
 			y1 = ym
 		else
 			y2 = ym
@@ -177,7 +191,7 @@ local function findCharPositionBefore(opid, ipid)
 	local px, py = 1, 1
 	for y=y1,#pids do
 		for x,pid in ipairs(pids[y]) do
-			if not isLower(pid, opid) and not isLower(pid, ipid) then 
+			if not isLowerOrEqual(pid, opid) then
 				return px, py
 			end
 			px, py = x, y
@@ -213,7 +227,7 @@ local function findCharPositionExact(opid)
 	while true do
 		local ym = math.floor((y2 + y1)/2)
 		if ym == y1 then break end
-		if isLower(pids[ym][1], opid) then
+		if isLowerOrEqual(pids[ym][1], opid) then
 			y1 = ym
 		else
 			y2 = ym
@@ -226,7 +240,7 @@ local function findCharPositionExact(opid)
 			return x, y
 		end
 	
-		if not isLower(pid, opid) then
+		if not isLowerOrEqual(pid, opid) then
 			return nil
 		end
 	end
@@ -234,7 +248,7 @@ local function findCharPositionExact(opid)
 	
 end
 
-function isLower(a, b)
+function isLowerOrEqual(a, b)
 	for i, ai in ipairs(a) do
 		if i > #b then return false end
 		local bi = b[i]
@@ -268,7 +282,7 @@ local function Refresh()
 end
 
 local function findPIDBefore(opid)
-	local x, y = findCharPositionBefore(opid, opid)
+	local x, y = findCharPositionBefore(opid)
 	if x == 1 then
 		return pids[y-1][#pids[y-1]]
 	elseif x then
@@ -354,11 +368,6 @@ function instantOpenOrCreateBuffer(buf)
 			local rem = loc2rem[buf]
 			
 			local pidslist = {}
-			if not allpids[buf] then
-				table.insert(events, "buf " .. buf)
-				table.insert(events, "allpids " .. vim.inspect(allpids))
-			end
-			
 			for _,lpid in ipairs(allpids[buf]) do
 				for _,pid in ipairs(lpid) do
 					table.insert(pidslist, pid[1][1])
@@ -382,6 +391,11 @@ function instantOpenOrCreateBuffer(buf)
 			detach[buf] = nil
 			
 			ignores[buf] = {}
+			
+			undostack[buf] = {}
+			undosp[buf] = 0
+			
+			undoslice[buf] = {}
 			
 			if not attached[buf] then
 				local attach_success = vim.api.nvim_buf_attach(buf, false, {
@@ -478,7 +492,6 @@ function instantOpenOrCreateBuffer(buf)
 						end
 						
 						
-						-- @display_xor_ranges
 						local endx = del_range.ex
 						for y=del_range.ey, del_range.sy,-1 do
 							local startx=-1
@@ -502,16 +515,18 @@ function instantOpenOrCreateBuffer(buf)
 										end
 										table.remove(pids, y+2)
 										
-										SendOp(buf, { OP_DEL, del_pid })
+										SendOp(buf, { OP_DEL, del_pid, "\n" })
 										
 									end
 								else
+									local c = utf8char(prev[y+1], x)
+									
 									prev[y+1] = utf8remove(prev[y+1], x)
 									
 									local del_pid = pids[y+2][x+2]
 									table.remove(pids[y+2], x+2)
 									
-									SendOp(buf, { OP_DEL, del_pid })
+									SendOp(buf, { OP_DEL, del_pid, c })
 									
 								end
 							end
@@ -553,7 +568,7 @@ function instantOpenOrCreateBuffer(buf)
 									table.insert(r, 1, new_pid)
 									table.insert(pids, y+2, r)
 									
-									SendOp(buf, { OP_INS, "\n", before_pid, new_pid })
+									SendOp(buf, { OP_INS, "\n", new_pid })
 									
 								else
 									local c = utf8char(cur_lines[y-firstline+1], x)
@@ -565,7 +580,7 @@ function instantOpenOrCreateBuffer(buf)
 									
 									table.insert(pids[y+2], x+2, new_pid)
 									
-									SendOp(buf, { OP_INS, c, before_pid, new_pid })
+									SendOp(buf, { OP_INS, c, new_pid })
 									
 								end
 							end
@@ -575,6 +590,15 @@ function instantOpenOrCreateBuffer(buf)
 						allprev[buf] = prev
 						allpids[buf] = pids
 						
+						if #undoslice[buf] > 0 then
+							while undosp[buf] < #undostack[buf] do
+								table.remove(undostack[buf]) -- remove last element
+							end
+							table.insert(undostack[buf], undoslice[buf])
+							undosp[buf] = undosp[buf] + 1
+							undoslice[buf] = {}
+						end
+						
 			
 					end,
 					on_detach = function(_, buf)
@@ -582,6 +606,11 @@ function instantOpenOrCreateBuffer(buf)
 						attached[buf] = nil
 					end
 				})
+			
+				vim.api.nvim_buf_set_keymap(buf, 'n', 'u', '<cmd>lua require("instant").undo(' .. buf .. ')<CR>', {noremap = true})
+				
+				vim.api.nvim_buf_set_keymap(buf, 'n', '<C-r>', '<cmd>lua require("instant").redo(' .. buf .. ')<CR>', {noremap = true})
+				
 			
 				if attach_success then
 					table.insert(events, "has_attached[" .. buf .. "] = true")
@@ -638,6 +667,10 @@ function genPIDSeq(p, q, s, i, N)
 	return G
 end
 
+function P(x)
+	table.insert(events, x)
+end
+
 
 local function StartClient(first, appuri, port)
 	local v, username = pcall(function() return vim.api.nvim_get_var("instant_username") end)
@@ -674,9 +707,6 @@ local function StartClient(first, appuri, port)
 			-- table.insert(events, "sent " .. encoded)
 			
 			
-			table.insert(events, "connected!")
-			table.insert(events, vim.inspect(api_attach))
-			table.insert(events, "api attach id " .. api_attach_id)
 			for _, o in pairs(api_attach) do
 				if o.on_connect then
 					o.on_connect()
@@ -686,27 +716,17 @@ local function StartClient(first, appuri, port)
 			print("Connected!")
 		end,
 		on_text = function(wsdata)
-			table.insert(events, "wsdata " .. wsdata)
 			local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
 			
 			if decoded then
 				if decoded[1] == MSG_TYPE.TEXT then
 					local _, op, other_rem, other_agent = unpack(decoded)
+					local lastPID
 					local opline = 0
 					local opcol = 0
-					local lastPID
 					
 					-- table.insert(events, "receive op " .. vim.inspect(op))
 					-- @display_states
-					local buf
-					if sessionshare then
-						local ag, bufid = unpack(other_rem)
-						buf = rem2loc[ag][bufid]
-						
-					else
-						buf = singlebuf
-					end
-					
 					local ag, bufid = unpack(other_rem)
 					buf = rem2loc[ag][bufid]
 					
@@ -717,9 +737,9 @@ local function StartClient(first, appuri, port)
 					ignores[buf][tick] = true
 					
 					if op[1] == OP_INS then
-						lastPID = op[4]
+						lastPID = op[3]
 						
-						local x, y = findCharPositionBefore(op[3], op[4])
+						local x, y = findCharPositionBefore(op[3])
 						
 						if op[2] == "\n" then
 							opline = y-1
@@ -731,9 +751,9 @@ local function StartClient(first, appuri, port)
 						if op[2] == "\n" then 
 							local py, py1 = splitArray(pids[y], x+1)
 							pids[y] = py
-							table.insert(py1, 1, op[4])
+							table.insert(py1, 1, op[3])
 							table.insert(pids, y+1, py1)
-						else table.insert(pids[y], x+1, op[4] ) end
+						else table.insert(pids[y], x+1, op[3] ) end
 						
 						if op[2] == "\n" then 
 							if y-2 >= 0 then
@@ -823,7 +843,7 @@ local function StartClient(first, appuri, port)
 					
 					local aut = id2author[other_agent]
 					
-					if lastPID then
+					if lastPID and other_agent ~= agent then
 						local x, y = findCharPositionExact(lastPID)
 						
 						if old_namespace[aut] then
@@ -909,11 +929,6 @@ local function StartClient(first, appuri, port)
 						end
 						
 						local pidslist = {}
-						if not allpids[buf] then
-							table.insert(events, "buf " .. buf)
-							table.insert(events, "allpids " .. vim.inspect(allpids))
-						end
-						
 						for _,lpid in ipairs(allpids[buf]) do
 							for _,pid in ipairs(lpid) do
 								table.insert(pidslist, pid[1][1])
@@ -956,11 +971,6 @@ local function StartClient(first, appuri, port)
 							end
 							
 							local pidslist = {}
-							if not allpids[buf] then
-								table.insert(events, "buf " .. buf)
-								table.insert(events, "allpids " .. vim.inspect(allpids))
-							end
-							
 							for _,lpid in ipairs(allpids[buf]) do
 								for _,pid in ipairs(lpid) do
 									table.insert(pidslist, pid[1][1])
@@ -1001,6 +1011,11 @@ local function StartClient(first, appuri, port)
 							detach[buf] = nil
 							
 							ignores[buf] = {}
+							
+							undostack[buf] = {}
+							undosp[buf] = 0
+							
+							undoslice[buf] = {}
 							
 							if not attached[buf] then
 								local attach_success = vim.api.nvim_buf_attach(buf, false, {
@@ -1097,7 +1112,6 @@ local function StartClient(first, appuri, port)
 										end
 										
 										
-										-- @display_xor_ranges
 										local endx = del_range.ex
 										for y=del_range.ey, del_range.sy,-1 do
 											local startx=-1
@@ -1121,16 +1135,18 @@ local function StartClient(first, appuri, port)
 														end
 														table.remove(pids, y+2)
 														
-														SendOp(buf, { OP_DEL, del_pid })
+														SendOp(buf, { OP_DEL, del_pid, "\n" })
 														
 													end
 												else
+													local c = utf8char(prev[y+1], x)
+													
 													prev[y+1] = utf8remove(prev[y+1], x)
 													
 													local del_pid = pids[y+2][x+2]
 													table.remove(pids[y+2], x+2)
 													
-													SendOp(buf, { OP_DEL, del_pid })
+													SendOp(buf, { OP_DEL, del_pid, c })
 													
 												end
 											end
@@ -1172,7 +1188,7 @@ local function StartClient(first, appuri, port)
 													table.insert(r, 1, new_pid)
 													table.insert(pids, y+2, r)
 													
-													SendOp(buf, { OP_INS, "\n", before_pid, new_pid })
+													SendOp(buf, { OP_INS, "\n", new_pid })
 													
 												else
 													local c = utf8char(cur_lines[y-firstline+1], x)
@@ -1184,7 +1200,7 @@ local function StartClient(first, appuri, port)
 													
 													table.insert(pids[y+2], x+2, new_pid)
 													
-													SendOp(buf, { OP_INS, c, before_pid, new_pid })
+													SendOp(buf, { OP_INS, c, new_pid })
 													
 												end
 											end
@@ -1194,6 +1210,15 @@ local function StartClient(first, appuri, port)
 										allprev[buf] = prev
 										allpids[buf] = pids
 										
+										if #undoslice[buf] > 0 then
+											while undosp[buf] < #undostack[buf] do
+												table.remove(undostack[buf]) -- remove last element
+											end
+											table.insert(undostack[buf], undoslice[buf])
+											undosp[buf] = undosp[buf] + 1
+											undoslice[buf] = {}
+										end
+										
 							
 									end,
 									on_detach = function(_, buf)
@@ -1201,6 +1226,11 @@ local function StartClient(first, appuri, port)
 										attached[buf] = nil
 									end
 								})
+							
+								vim.api.nvim_buf_set_keymap(buf, 'n', 'u', '<cmd>lua require("instant").undo(' .. buf .. ')<CR>', {noremap = true})
+								
+								vim.api.nvim_buf_set_keymap(buf, 'n', '<C-r>', '<cmd>lua require("instant").redo(' .. buf .. ')<CR>', {noremap = true})
+								
 							
 								if attach_success then
 									table.insert(events, "has_attached[" .. buf .. "] = true")
@@ -1329,6 +1359,11 @@ local function StartClient(first, appuri, port)
 								
 								ignores[buf] = {}
 								
+								undostack[buf] = {}
+								undosp[buf] = 0
+								
+								undoslice[buf] = {}
+								
 								if not attached[buf] then
 									local attach_success = vim.api.nvim_buf_attach(buf, false, {
 										on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
@@ -1424,7 +1459,6 @@ local function StartClient(first, appuri, port)
 											end
 											
 											
-											-- @display_xor_ranges
 											local endx = del_range.ex
 											for y=del_range.ey, del_range.sy,-1 do
 												local startx=-1
@@ -1448,16 +1482,18 @@ local function StartClient(first, appuri, port)
 															end
 															table.remove(pids, y+2)
 															
-															SendOp(buf, { OP_DEL, del_pid })
+															SendOp(buf, { OP_DEL, del_pid, "\n" })
 															
 														end
 													else
+														local c = utf8char(prev[y+1], x)
+														
 														prev[y+1] = utf8remove(prev[y+1], x)
 														
 														local del_pid = pids[y+2][x+2]
 														table.remove(pids[y+2], x+2)
 														
-														SendOp(buf, { OP_DEL, del_pid })
+														SendOp(buf, { OP_DEL, del_pid, c })
 														
 													end
 												end
@@ -1499,7 +1535,7 @@ local function StartClient(first, appuri, port)
 														table.insert(r, 1, new_pid)
 														table.insert(pids, y+2, r)
 														
-														SendOp(buf, { OP_INS, "\n", before_pid, new_pid })
+														SendOp(buf, { OP_INS, "\n", new_pid })
 														
 													else
 														local c = utf8char(cur_lines[y-firstline+1], x)
@@ -1511,7 +1547,7 @@ local function StartClient(first, appuri, port)
 														
 														table.insert(pids[y+2], x+2, new_pid)
 														
-														SendOp(buf, { OP_INS, c, before_pid, new_pid })
+														SendOp(buf, { OP_INS, c, new_pid })
 														
 													end
 												end
@@ -1521,6 +1557,15 @@ local function StartClient(first, appuri, port)
 											allprev[buf] = prev
 											allpids[buf] = pids
 											
+											if #undoslice[buf] > 0 then
+												while undosp[buf] < #undostack[buf] do
+													table.remove(undostack[buf]) -- remove last element
+												end
+												table.insert(undostack[buf], undoslice[buf])
+												undosp[buf] = undosp[buf] + 1
+												undoslice[buf] = {}
+											end
+											
 								
 										end,
 										on_detach = function(_, buf)
@@ -1528,6 +1573,11 @@ local function StartClient(first, appuri, port)
 											attached[buf] = nil
 										end
 									})
+								
+									vim.api.nvim_buf_set_keymap(buf, 'n', 'u', '<cmd>lua require("instant").undo(' .. buf .. ')<CR>', {noremap = true})
+									
+									vim.api.nvim_buf_set_keymap(buf, 'n', '<C-r>', '<cmd>lua require("instant").redo(' .. buf .. ')<CR>', {noremap = true})
+									
 								
 									if attach_success then
 										table.insert(events, "has_attached[" .. buf .. "] = true")
@@ -1605,6 +1655,11 @@ local function StartClient(first, appuri, port)
 							detach[buf] = nil
 							
 							ignores[buf] = {}
+							
+							undostack[buf] = {}
+							undosp[buf] = 0
+							
+							undoslice[buf] = {}
 							
 							if not attached[buf] then
 								local attach_success = vim.api.nvim_buf_attach(buf, false, {
@@ -1701,7 +1756,6 @@ local function StartClient(first, appuri, port)
 										end
 										
 										
-										-- @display_xor_ranges
 										local endx = del_range.ex
 										for y=del_range.ey, del_range.sy,-1 do
 											local startx=-1
@@ -1725,16 +1779,18 @@ local function StartClient(first, appuri, port)
 														end
 														table.remove(pids, y+2)
 														
-														SendOp(buf, { OP_DEL, del_pid })
+														SendOp(buf, { OP_DEL, del_pid, "\n" })
 														
 													end
 												else
+													local c = utf8char(prev[y+1], x)
+													
 													prev[y+1] = utf8remove(prev[y+1], x)
 													
 													local del_pid = pids[y+2][x+2]
 													table.remove(pids[y+2], x+2)
 													
-													SendOp(buf, { OP_DEL, del_pid })
+													SendOp(buf, { OP_DEL, del_pid, c })
 													
 												end
 											end
@@ -1776,7 +1832,7 @@ local function StartClient(first, appuri, port)
 													table.insert(r, 1, new_pid)
 													table.insert(pids, y+2, r)
 													
-													SendOp(buf, { OP_INS, "\n", before_pid, new_pid })
+													SendOp(buf, { OP_INS, "\n", new_pid })
 													
 												else
 													local c = utf8char(cur_lines[y-firstline+1], x)
@@ -1788,7 +1844,7 @@ local function StartClient(first, appuri, port)
 													
 													table.insert(pids[y+2], x+2, new_pid)
 													
-													SendOp(buf, { OP_INS, c, before_pid, new_pid })
+													SendOp(buf, { OP_INS, c, new_pid })
 													
 												end
 											end
@@ -1798,6 +1854,15 @@ local function StartClient(first, appuri, port)
 										allprev[buf] = prev
 										allpids[buf] = pids
 										
+										if #undoslice[buf] > 0 then
+											while undosp[buf] < #undostack[buf] do
+												table.remove(undostack[buf]) -- remove last element
+											end
+											table.insert(undostack[buf], undoslice[buf])
+											undosp[buf] = undosp[buf] + 1
+											undoslice[buf] = {}
+										end
+										
 							
 									end,
 									on_detach = function(_, buf)
@@ -1805,6 +1870,11 @@ local function StartClient(first, appuri, port)
 										attached[buf] = nil
 									end
 								})
+							
+								vim.api.nvim_buf_set_keymap(buf, 'n', 'u', '<cmd>lua require("instant").undo(' .. buf .. ')<CR>', {noremap = true})
+								
+								vim.api.nvim_buf_set_keymap(buf, 'n', '<C-r>', '<cmd>lua require("instant").redo(' .. buf .. ')<CR>', {noremap = true})
+								
 							
 								if attach_success then
 									table.insert(events, "has_attached[" .. buf .. "] = true")
@@ -1933,6 +2003,11 @@ local function StartClient(first, appuri, port)
 								
 								ignores[buf] = {}
 								
+								undostack[buf] = {}
+								undosp[buf] = 0
+								
+								undoslice[buf] = {}
+								
 								if not attached[buf] then
 									local attach_success = vim.api.nvim_buf_attach(buf, false, {
 										on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
@@ -2028,7 +2103,6 @@ local function StartClient(first, appuri, port)
 											end
 											
 											
-											-- @display_xor_ranges
 											local endx = del_range.ex
 											for y=del_range.ey, del_range.sy,-1 do
 												local startx=-1
@@ -2052,16 +2126,18 @@ local function StartClient(first, appuri, port)
 															end
 															table.remove(pids, y+2)
 															
-															SendOp(buf, { OP_DEL, del_pid })
+															SendOp(buf, { OP_DEL, del_pid, "\n" })
 															
 														end
 													else
+														local c = utf8char(prev[y+1], x)
+														
 														prev[y+1] = utf8remove(prev[y+1], x)
 														
 														local del_pid = pids[y+2][x+2]
 														table.remove(pids[y+2], x+2)
 														
-														SendOp(buf, { OP_DEL, del_pid })
+														SendOp(buf, { OP_DEL, del_pid, c })
 														
 													end
 												end
@@ -2103,7 +2179,7 @@ local function StartClient(first, appuri, port)
 														table.insert(r, 1, new_pid)
 														table.insert(pids, y+2, r)
 														
-														SendOp(buf, { OP_INS, "\n", before_pid, new_pid })
+														SendOp(buf, { OP_INS, "\n", new_pid })
 														
 													else
 														local c = utf8char(cur_lines[y-firstline+1], x)
@@ -2115,7 +2191,7 @@ local function StartClient(first, appuri, port)
 														
 														table.insert(pids[y+2], x+2, new_pid)
 														
-														SendOp(buf, { OP_INS, c, before_pid, new_pid })
+														SendOp(buf, { OP_INS, c, new_pid })
 														
 													end
 												end
@@ -2125,6 +2201,15 @@ local function StartClient(first, appuri, port)
 											allprev[buf] = prev
 											allpids[buf] = pids
 											
+											if #undoslice[buf] > 0 then
+												while undosp[buf] < #undostack[buf] do
+													table.remove(undostack[buf]) -- remove last element
+												end
+												table.insert(undostack[buf], undoslice[buf])
+												undosp[buf] = undosp[buf] + 1
+												undoslice[buf] = {}
+											end
+											
 								
 										end,
 										on_detach = function(_, buf)
@@ -2132,6 +2217,11 @@ local function StartClient(first, appuri, port)
 											attached[buf] = nil
 										end
 									})
+								
+									vim.api.nvim_buf_set_keymap(buf, 'n', 'u', '<cmd>lua require("instant").undo(' .. buf .. ')<CR>', {noremap = true})
+									
+									vim.api.nvim_buf_set_keymap(buf, 'n', '<C-r>', '<cmd>lua require("instant").redo(' .. buf .. ')<CR>', {noremap = true})
+									
 								
 									if attach_success then
 										table.insert(events, "has_attached[" .. buf .. "] = true")
@@ -2509,12 +2599,460 @@ function OpenBuffers()
 end
 
 
+local function undo(buf)
+	if undosp[buf] == 0 then
+		print("Already at oldest change")
+		return
+	end
+	local ops = undostack[buf][undosp[buf]]
+	
+	undosp[buf] = undosp[buf] - 1
+	
+
+	disable_undo = true
+	local other_rem, other_agent = loc2rem[buf], agent
+	local lastPID
+	for _, op in ipairs(ops) do
+		if op[1] == OP_INS then
+			op = { OP_DEL, op[3], op[2] }
+			
+		elseif op[1] == OP_DEL then
+			op = { OP_INS, op[3], op[2] }
+			
+		end
+		
+		local opline = 0
+		local opcol = 0
+		
+		-- table.insert(events, "receive op " .. vim.inspect(op))
+		-- @display_states
+		local ag, bufid = unpack(other_rem)
+		buf = rem2loc[ag][bufid]
+		
+		prev = allprev[buf]
+		pids = allpids[buf]
+		
+		local tick = vim.api.nvim_buf_get_changedtick(buf)+1
+		ignores[buf][tick] = true
+		
+		if op[1] == OP_INS then
+			lastPID = op[3]
+			
+			local x, y = findCharPositionBefore(op[3])
+			
+			if op[2] == "\n" then
+				opline = y-1
+			else
+				opline = y-2
+			end
+			opcol = x
+			
+			if op[2] == "\n" then 
+				local py, py1 = splitArray(pids[y], x+1)
+				pids[y] = py
+				table.insert(py1, 1, op[3])
+				table.insert(pids, y+1, py1)
+			else table.insert(pids[y], x+1, op[3] ) end
+			
+			if op[2] == "\n" then 
+				if y-2 >= 0 then
+					local curline = vim.api.nvim_buf_get_lines(buf, y-2, y-1, true)[1]
+					local l, r = utf8split(curline, x-1)
+					vim.api.nvim_buf_set_lines(buf, y-2, y-1, true, { l, r })
+				else
+					vim.api.nvim_buf_set_lines(buf, 0, 0, true, { "" })
+				end
+			else 
+				local curline = vim.api.nvim_buf_get_lines(buf, y-2, y-1, true)[1]
+				curline = utf8insert(curline, x-1, op[2])
+				vim.api.nvim_buf_set_lines(buf, y-2, y-1, true, { curline })
+			end
+			
+			if op[2] == "\n" then 
+				if y-1 >= 1 then
+					local l, r = utf8split(prev[y-1], x-1)
+					prev[y-1] = l
+					table.insert(prev, y, r)
+				else
+					table.insert(prev, y, "")
+				end
+			else 
+				prev[y-1] = utf8insert(prev[y-1], x-1, op[2])
+			end
+			
+			
+		elseif op[1] == OP_DEL then
+			lastPID = findPIDBefore(op[2])
+			
+			local sx, sy = findCharPositionExact(op[2])
+			
+			if sx then
+				if sx == 1 then
+					opline = sy-1
+				else
+					opline = sy-2
+				end
+				opcol = sx-2
+				
+				if sx == 1 then
+					if sy-3 >= 0 then
+						local prevline = vim.api.nvim_buf_get_lines(buf, sy-3, sy-2, true)[1]
+						local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
+						vim.api.nvim_buf_set_lines(buf, sy-3, sy-1, true, { prevline .. curline })
+					else
+						vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, {})
+					end
+				else
+					if sy > 1 then
+						local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
+						curline = utf8remove(curline, sx-2)
+						vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, { curline })
+					end
+				end
+				
+				if sx == 1 then
+					if sy-2 >= 1 then
+						prev[sy-2] = prev[sy-2] .. string.sub(prev[sy-1], 1)
+					end
+					table.remove(prev, sy-1)
+				else
+					if sy > 1 then
+						local curline = prev[sy-1]
+						curline = utf8remove(curline, sx-2)
+						prev[sy-1] = curline
+					end
+				end
+				
+				if sx == 1 then
+					for i,pid in ipairs(pids[sy]) do
+						if i > 1 then
+							table.insert(pids[sy-1], pid)
+						end
+					end
+					table.remove(pids, sy)
+				else
+					table.remove(pids[sy], sx)
+				end
+				
+			end
+			
+		end
+		allprev[buf] = prev
+		allpids[buf] = pids
+		
+		local aut = id2author[other_agent]
+		
+		if lastPID and other_agent ~= agent then
+			local x, y = findCharPositionExact(lastPID)
+			
+			if old_namespace[aut] then
+				if attached[old_namespace[aut].buf] then
+					vim.api.nvim_buf_clear_namespace(
+						old_namespace[aut].buf, old_namespace[aut].id,
+						0, -1)
+				end
+				old_namespace[aut] = nil
+			end
+			
+			if cursors[aut] then
+				if attached[cursors[aut].buf] then
+					vim.api.nvim_buf_clear_namespace(
+						cursors[aut].buf, cursors[aut].id,
+						0, -1)
+				end
+				cursors[aut] = nil
+			end
+			
+			if x then
+				if x == 1 then x = 2 end
+				old_namespace[aut] = {
+					id = vim.api.nvim_buf_set_virtual_text(
+						buf, 0, 
+						math.max(y-2, 0), 
+						{{ aut, vtextGroup }}, 
+						{}),
+					buf = buf
+				}
+				
+				if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
+					local bx = vim.str_byteindex(prev[y-1], x-2)
+					cursors[aut] = {
+						id = vim.api.nvim_buf_add_highlight(buf,
+							0, cursorGroup, y-2, bx, bx+1),
+						buf = buf,
+						line = y-2,
+					}
+					if vim.api.nvim_buf_set_extmark then
+						cursors[aut].ext_id = 
+							vim.api.nvim_buf_set_extmark(
+								buf, cursors[aut].id, y-2, bx, {})
+					end
+					
+				end
+				
+			end
+			if follow and follow_aut == aut then
+				local curbuf = vim.api.nvim_get_current_buf()
+				if curbuf ~= buf then
+					vim.api.nvim_set_current_buf(buf)
+				end
+				
+				vim.api.nvim_command("normal " .. (y-1) .. "gg")
+				
+			end
+			
+			
+			for _, o in pairs(api_attach) do
+				if o.on_change then
+					o.on_change(aut, buf, y-2)
+				end
+			end
+			
+		end
+		-- @check_if_pid_match_with_prev
+		
+		SendOp(buf, op)
+		
+	end
+	disable_undo = false
+	if lastPID then
+		local x, y = findCharPositionExact(lastPID)
+		
+		if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
+			local bx = vim.str_byteindex(prev[y-1], x-2)
+			vim.api.nvim_call_function("cursor", { y-1, bx+1 })
+		end
+	end
+end
+
+local function redo(buf)
+	if undosp[buf] == #undostack[buf] then
+		print("Already at newest change")
+		return
+	end
+	
+	undosp[buf] = undosp[buf]+1
+	
+	if undosp[buf] == 0 then
+		print("Already at oldest change")
+		return
+	end
+	local ops = undostack[buf][undosp[buf]]
+	
+	local other_rem, other_agent = loc2rem[buf], agent
+	disable_undo = true
+	local lastPID
+	for _, op in ipairs(ops) do
+		local opline = 0
+		local opcol = 0
+		
+		-- table.insert(events, "receive op " .. vim.inspect(op))
+		-- @display_states
+		local ag, bufid = unpack(other_rem)
+		buf = rem2loc[ag][bufid]
+		
+		prev = allprev[buf]
+		pids = allpids[buf]
+		
+		local tick = vim.api.nvim_buf_get_changedtick(buf)+1
+		ignores[buf][tick] = true
+		
+		if op[1] == OP_INS then
+			lastPID = op[3]
+			
+			local x, y = findCharPositionBefore(op[3])
+			
+			if op[2] == "\n" then
+				opline = y-1
+			else
+				opline = y-2
+			end
+			opcol = x
+			
+			if op[2] == "\n" then 
+				local py, py1 = splitArray(pids[y], x+1)
+				pids[y] = py
+				table.insert(py1, 1, op[3])
+				table.insert(pids, y+1, py1)
+			else table.insert(pids[y], x+1, op[3] ) end
+			
+			if op[2] == "\n" then 
+				if y-2 >= 0 then
+					local curline = vim.api.nvim_buf_get_lines(buf, y-2, y-1, true)[1]
+					local l, r = utf8split(curline, x-1)
+					vim.api.nvim_buf_set_lines(buf, y-2, y-1, true, { l, r })
+				else
+					vim.api.nvim_buf_set_lines(buf, 0, 0, true, { "" })
+				end
+			else 
+				local curline = vim.api.nvim_buf_get_lines(buf, y-2, y-1, true)[1]
+				curline = utf8insert(curline, x-1, op[2])
+				vim.api.nvim_buf_set_lines(buf, y-2, y-1, true, { curline })
+			end
+			
+			if op[2] == "\n" then 
+				if y-1 >= 1 then
+					local l, r = utf8split(prev[y-1], x-1)
+					prev[y-1] = l
+					table.insert(prev, y, r)
+				else
+					table.insert(prev, y, "")
+				end
+			else 
+				prev[y-1] = utf8insert(prev[y-1], x-1, op[2])
+			end
+			
+			
+		elseif op[1] == OP_DEL then
+			lastPID = findPIDBefore(op[2])
+			
+			local sx, sy = findCharPositionExact(op[2])
+			
+			if sx then
+				if sx == 1 then
+					opline = sy-1
+				else
+					opline = sy-2
+				end
+				opcol = sx-2
+				
+				if sx == 1 then
+					if sy-3 >= 0 then
+						local prevline = vim.api.nvim_buf_get_lines(buf, sy-3, sy-2, true)[1]
+						local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
+						vim.api.nvim_buf_set_lines(buf, sy-3, sy-1, true, { prevline .. curline })
+					else
+						vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, {})
+					end
+				else
+					if sy > 1 then
+						local curline = vim.api.nvim_buf_get_lines(buf, sy-2, sy-1, true)[1]
+						curline = utf8remove(curline, sx-2)
+						vim.api.nvim_buf_set_lines(buf, sy-2, sy-1, true, { curline })
+					end
+				end
+				
+				if sx == 1 then
+					if sy-2 >= 1 then
+						prev[sy-2] = prev[sy-2] .. string.sub(prev[sy-1], 1)
+					end
+					table.remove(prev, sy-1)
+				else
+					if sy > 1 then
+						local curline = prev[sy-1]
+						curline = utf8remove(curline, sx-2)
+						prev[sy-1] = curline
+					end
+				end
+				
+				if sx == 1 then
+					for i,pid in ipairs(pids[sy]) do
+						if i > 1 then
+							table.insert(pids[sy-1], pid)
+						end
+					end
+					table.remove(pids, sy)
+				else
+					table.remove(pids[sy], sx)
+				end
+				
+			end
+			
+		end
+		allprev[buf] = prev
+		allpids[buf] = pids
+		
+		local aut = id2author[other_agent]
+		
+		if lastPID and other_agent ~= agent then
+			local x, y = findCharPositionExact(lastPID)
+			
+			if old_namespace[aut] then
+				if attached[old_namespace[aut].buf] then
+					vim.api.nvim_buf_clear_namespace(
+						old_namespace[aut].buf, old_namespace[aut].id,
+						0, -1)
+				end
+				old_namespace[aut] = nil
+			end
+			
+			if cursors[aut] then
+				if attached[cursors[aut].buf] then
+					vim.api.nvim_buf_clear_namespace(
+						cursors[aut].buf, cursors[aut].id,
+						0, -1)
+				end
+				cursors[aut] = nil
+			end
+			
+			if x then
+				if x == 1 then x = 2 end
+				old_namespace[aut] = {
+					id = vim.api.nvim_buf_set_virtual_text(
+						buf, 0, 
+						math.max(y-2, 0), 
+						{{ aut, vtextGroup }}, 
+						{}),
+					buf = buf
+				}
+				
+				if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
+					local bx = vim.str_byteindex(prev[y-1], x-2)
+					cursors[aut] = {
+						id = vim.api.nvim_buf_add_highlight(buf,
+							0, cursorGroup, y-2, bx, bx+1),
+						buf = buf,
+						line = y-2,
+					}
+					if vim.api.nvim_buf_set_extmark then
+						cursors[aut].ext_id = 
+							vim.api.nvim_buf_set_extmark(
+								buf, cursors[aut].id, y-2, bx, {})
+					end
+					
+				end
+				
+			end
+			if follow and follow_aut == aut then
+				local curbuf = vim.api.nvim_get_current_buf()
+				if curbuf ~= buf then
+					vim.api.nvim_set_current_buf(buf)
+				end
+				
+				vim.api.nvim_command("normal " .. (y-1) .. "gg")
+				
+			end
+			
+			
+			for _, o in pairs(api_attach) do
+				if o.on_change then
+					o.on_change(aut, buf, y-2)
+				end
+			end
+			
+		end
+		-- @check_if_pid_match_with_prev
+		
+		SendOp(buf, op)
+		
+	end
+	disable_undo = false
+	if lastPID then
+		local x, y = findCharPositionExact(lastPID)
+		
+		if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
+			local bx = vim.str_byteindex(prev[y-1], x-2)
+			vim.api.nvim_call_function("cursor", { y-1, bx+1 })
+		end
+	end
+end
+
+
 local function attach(callbacks)
 	local o = {}
 	for name, fn in pairs(callbacks) do
 		if name == "on_connect" then
 			o.on_connect = callbacks.on_connect
-			table.insert(events, "con " .. vim.inspect(o))
 		
 		elseif name == "on_disconnect" then
 			o.on_disconnect = callbacks.on_disconnect
@@ -2604,5 +3142,10 @@ get_connected_list = get_connected_list,
 send_data = send_data,
 
 get_connected_buf_list = get_connected_buf_list,
+
+undo = undo,
+
+redo = redo,
+
 }
 

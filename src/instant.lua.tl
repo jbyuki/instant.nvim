@@ -26,6 +26,8 @@ local MSG_TYPE = {
 @special_save_function
 @special_open_function
 
+@undo_redo_functions
+
 @api_functions
 
 return {
@@ -50,7 +52,6 @@ local function StartClient(first, appuri, port)
 			print("Connected!")
 		end,
 		on_text = function(wsdata)
-			table.insert(events, "wsdata " .. wsdata)
 			@interpret_received_text
 		end,
 		on_disconnect = function()
@@ -79,11 +80,11 @@ if not attached[buf] then
 			@get_context_for_current_buffer
 			@get_both_ranges
 			@get_xor_range
-			-- @display_xor_ranges
 			@if_there_is_text_to_delete_delete_it
 			@if_there_is_text_to_insert_insert_it
 			@set_context_for_current_buffer
 			@stop_profiler
+			@push_on_undo_stack
 
 		end,
 		on_detach = function(_, buf)
@@ -91,6 +92,8 @@ if not attached[buf] then
 			attached[buf] = nil
 		end
 	})
+
+	@register_undo_redo_commands
 
 	if attach_success then
 		table.insert(events, "has_attached[" .. buf .. "] = true")
@@ -232,6 +235,7 @@ for y=del_range.ey, del_range.sy,-1 do
 				@send_delete_operation_for_newline
 			end
 		else
+			@get_character_to_delete
 			@delete_character_in_del_range
 			@delete_pid_of_char
 			@send_delete_operation_for_character
@@ -245,6 +249,9 @@ local startx=-1
 if y == del_range.sy then
 	startx = del_range.sx
 end
+
+@get_character_to_delete+=
+local c = utf8char(prev[y+1], x)
 
 @delete_character_in_del_range+=
 prev[y+1] = utf8remove(prev[y+1], x)
@@ -272,10 +279,10 @@ table.remove(pids, y+2)
 local OP_DEL = 1
 
 @send_delete_operation_for_newline+=
-SendOp(buf, { OP_DEL, del_pid })
+SendOp(buf, { OP_DEL, del_pid, "\n" })
 
 @send_delete_operation_for_character+=
-SendOp(buf, { OP_DEL, del_pid })
+SendOp(buf, { OP_DEL, del_pid, c })
 
 @if_there_is_text_to_insert_insert_it+=
 local startx = add_range.sx
@@ -318,7 +325,7 @@ table.insert(pids[y+2], x+2, new_pid)
 local OP_INS = 2
 
 @send_insert_operation_for_character+=
-SendOp(buf, { OP_INS, c, before_pid, new_pid })
+SendOp(buf, { OP_INS, c, new_pid })
 
 @insert_newline_by_splitting_text+=
 if cur_lines[y-firstline] then
@@ -347,7 +354,7 @@ table.insert(r, 1, new_pid)
 table.insert(pids, y+2, r)
 
 @send_insert_operation_for_newline+=
-SendOp(buf, { OP_INS, "\n", before_pid, new_pid })
+SendOp(buf, { OP_INS, "\n", new_pid })
 
 @declare_functions+=
 local utf8len, utf8char
@@ -432,6 +439,7 @@ local SendOp
 
 @functions+=
 function SendOp(buf, op)
+	@save_operation_in_undo_stack
 	@convert_local_to_remote_buffer
 	@encode_operation_in_json_object
 	@send_encoded
@@ -453,54 +461,6 @@ local obj = {
 
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 
-@if_text_was_replaced_add_and_remove_text+=
-else
-	@get_xor_range_replaced
-	if toreplace then
-		@replace_in_prev
-	end
-end
-
-@insert_newline_character+=
-local before_pid, new_pid
-if py > 0 then
-	before_pid = pids[py+1][px+1]
-
-	local after_pid = afterPID(px+1, py+1)
-	new_pid = genPID(before_pid, after_pid, agent, 1)
-	local l, r = splitArray(pids[py+1], px+2)
-	pids[py+1] = l
-	table.insert(r, 1, new_pid)
-	table.insert(pids, py+2, r)
-else
-	before_pid = pids[py+1][px+1]
-	local after_pid = afterPID(px+1, py+1)
-	new_pid = genPID(before_pid, after_pid, agent, 1)
-	table.insert(pids, py+2, { new_pid })
-end
-
-SendOp(buf, { OP_INS, "\n", before_pid, new_pid })
-
-@insert_normal_character+=
-local before_pid = pids[py+1][px+1]
-local after_pid = afterPID(px+1, py+1)
-local new_pid = genPID(before_pid, after_pid, agent, 1)
-table.insert(pids[py+1], px+2, new_pid)
-SendOp(buf, { OP_INS, c, before_pid, new_pid })
-
-@delete_newline_character+=
-SendOp(buf, { OP_DEL, pids[py+2][1] })
-for i,pid in ipairs(pids[py+2]) do
-	if i > 1 then
-		table.insert(pids[py+1], pid)
-	end
-end
-table.remove(pids, py+2)
-
-@delete_regular_character+=
-SendOp(buf, { OP_DEL, pids[py+2][px+2] })
-table.remove(pids[py+2], px+2)
-
 @interpret_received_text+=
 @decode_json
 if decoded then
@@ -517,7 +477,9 @@ end
 
 @if_text_do_actions+=
 if decoded[1] == MSG_TYPE.TEXT then
-	@play_operations
+	local _, op, other_rem, other_agent = unpack(decoded)
+	local lastPID
+	@play_operation
 end
 
 @decode_json+=
@@ -539,15 +501,12 @@ if ignores[buf][changedtick] then
 	return
 end
 
-@play_operations+=
-local _, op, other_rem, other_agent = unpack(decoded)
+@play_operation+=
 local opline = 0
 local opcol = 0
-local lastPID
 
 -- table.insert(events, "receive op " .. vim.inspect(op))
 -- @display_states
-@get_buffer_number_to_apply_modifications
 @get_local_buf_from_remote
 @get_context_for_current_buffer
 @get_changedtick_and_add_to_ignore
@@ -560,7 +519,7 @@ elseif op[1] == OP_DEL then
 end
 @set_context_for_current_buffer
 @get_author_from_other_agent_id
-if lastPID then
+if lastPID and other_agent ~= agent then
 	@find_pid_of_cursor
 	@update_cursor_highlight
 	@notify_change_callbacks
@@ -591,12 +550,12 @@ opcol = sx-2
 @insert_character_in_prev
 
 @functions+=
-local function findCharPositionBefore(opid, ipid)
+local function findCharPositionBefore(opid)
 	@compute_line_with_sorted_binary_search
 	local px, py = 1, 1
 	for y=y1,#pids do
 		for x,pid in ipairs(pids[y]) do
-			if not isLower(pid, opid) and not isLower(pid, ipid) then 
+			if not isLowerOrEqual(pid, opid) then
 				return px, py
 			end
 			px, py = x, y
@@ -605,7 +564,7 @@ local function findCharPositionBefore(opid, ipid)
 end
 
 @find_pid_of_element_just_before+=
-local x, y = findCharPositionBefore(op[3], op[4])
+local x, y = findCharPositionBefore(op[3])
 
 @declare_functions+=
 local splitArray
@@ -624,9 +583,9 @@ end
 if op[2] == "\n" then 
 	local py, py1 = splitArray(pids[y], x+1)
 	pids[y] = py
-	table.insert(py1, 1, op[4])
+	table.insert(py1, 1, op[3])
 	table.insert(pids, y+1, py1)
-else table.insert(pids[y], x+1, op[4] ) end
+else table.insert(pids[y], x+1, op[3] ) end
 
 @declare_functions+=
 local utf8split
@@ -685,7 +644,7 @@ local y1, y2 = 1, #pids
 while true do
 	local ym = math.floor((y2 + y1)/2)
 	if ym == y1 then break end
-	if isLower(pids[ym][1], opid) then
+	if isLowerOrEqual(pids[ym][1], opid) then
 		y1 = ym
 	else
 		y2 = ym
@@ -699,7 +658,7 @@ for x,pid in ipairs(pids[y]) do
 		return x, y
 	end
 
-	if not isLower(pid, opid) then
+	if not isLowerOrEqual(pid, opid) then
 		return nil
 	end
 end
@@ -765,10 +724,10 @@ else
 end
 
 @declare_functions+=
-local isLower
+local isLowerOrEqual
 
 @functions+=
-function isLower(a, b)
+function isLowerOrEqual(a, b)
 	for i, ai in ipairs(a) do
 		if i > #b then return false end
 		local bi = b[i]
@@ -1028,11 +987,6 @@ INITIAL = 6,
 
 @encode_initial_content_single+=
 local pidslist = {}
-if not allpids[buf] then
-	table.insert(events, "buf " .. buf)
-	table.insert(events, "allpids " .. vim.inspect(allpids))
-end
-
 for _,lpid in ipairs(allpids[buf]) do
 	for _,pid in ipairs(lpid) do
 		table.insert(pidslist, pid[1][1])
@@ -1153,11 +1107,11 @@ table.insert(pids[i+1], newpid)
 table.insert(pids, i+1, { newpid })
 
 @save_last_inserted_pid+=
-lastPID = op[4]
+lastPID = op[3]
 
 @functions+=
 local function findPIDBefore(opid)
-	local x, y = findCharPositionBefore(opid, opid)
+	local x, y = findCharPositionBefore(opid)
 	if x == 1 then
 		return pids[y-1][#pids[y-1]]
 	elseif x then
@@ -1309,14 +1263,6 @@ for _, buf in ipairs(bufs) do
 	@init_prev_of_buffer_content
 	@set_context_for_current_buffer
 	@set_buf_table_for_opened_buffers
-end
-
-@get_buffer_number_to_apply_modifications+=
-local buf
-if sessionshare then
-	@get_local_buf_from_remote
-else
-	buf = singlebuf
 end
 
 @message_types+=
@@ -1701,12 +1647,8 @@ detach = detach,
 @add_api_attach+=
 if name == "on_connect" then
 	o.on_connect = callbacks.on_connect
-	table.insert(events, "con " .. vim.inspect(o))
 
 @call_connect_callbacks+=
-table.insert(events, "connected!")
-table.insert(events, vim.inspect(api_attach))
-table.insert(events, "api attach id " .. api_attach_id)
 for _, o in pairs(api_attach) do
 	if o.on_connect then
 		o.on_connect()
@@ -1814,3 +1756,130 @@ end
 
 @export_symbols+=
 get_connected_buf_list = get_connected_buf_list,
+
+@register_undo_redo_commands+=
+vim.api.nvim_buf_set_keymap(buf, 'n', 'u', '<cmd>lua require("instant").undo(' .. buf .. ')<CR>', {noremap = true})
+
+@export_symbols+=
+undo = undo,
+
+@declare_functions+=
+local P
+
+@functions+=
+function P(x)
+	table.insert(events, x)
+end
+
+@script_variables+=
+local disable_undo = false
+
+@undo_redo_functions+=
+local function undo(buf)
+	@get_operations_on_top_of_undo_stack
+	@move_undo_stack_pointer_down
+
+	disable_undo = true
+	local other_rem, other_agent = loc2rem[buf], agent
+	local lastPID
+	for _, op in ipairs(ops) do
+		@compute_inverse_operation
+		@play_operation
+		@send_operation
+	end
+	disable_undo = false
+	@move_cursor_to_modification
+end
+
+@script_variables+=
+local undostack = {}
+local undosp = {}
+
+@init_buffer_attach+=
+undostack[buf] = {}
+undosp[buf] = 0
+
+@save_operation_in_undo_stack+=
+if not disable_undo then
+	table.insert(undoslice[buf], op)
+end
+
+@get_operations_on_top_of_undo_stack+=
+if undosp[buf] == 0 then
+	print("Already at oldest change")
+	return
+end
+local ops = undostack[buf][undosp[buf]]
+
+@move_undo_stack_pointer_down+=
+undosp[buf] = undosp[buf] - 1
+
+@compute_inverse_operation+=
+if op[1] == OP_INS then
+	@invert_insert_operation
+elseif op[1] == OP_DEL then
+	@invert_delete_operation
+end
+
+@invert_insert_operation+=
+op = { OP_DEL, op[3], op[2] }
+
+@invert_delete_operation+=
+op = { OP_INS, op[3], op[2] }
+
+@register_undo_redo_commands+=
+vim.api.nvim_buf_set_keymap(buf, 'n', '<C-r>', '<cmd>lua require("instant").redo(' .. buf .. ')<CR>', {noremap = true})
+
+@export_symbols+=
+redo = redo,
+
+@undo_redo_functions+=
+local function redo(buf)
+	@move_undo_stack_pointer_up
+	@get_operations_on_top_of_undo_stack
+	local other_rem, other_agent = loc2rem[buf], agent
+	disable_undo = true
+	local lastPID
+	for _, op in ipairs(ops) do
+		@play_operation
+		@send_operation
+	end
+	disable_undo = false
+	@move_cursor_to_modification
+end
+
+@move_undo_stack_pointer_up+=
+if undosp[buf] == #undostack[buf] then
+	print("Already at newest change")
+	return
+end
+
+undosp[buf] = undosp[buf]+1
+
+@send_operation+=
+SendOp(buf, op)
+
+@script_variables+=
+local undoslice = {}
+
+@init_buffer_attach+=
+undoslice[buf] = {}
+
+@push_on_undo_stack+=
+if #undoslice[buf] > 0 then
+	while undosp[buf] < #undostack[buf] do
+		table.remove(undostack[buf]) -- remove last element
+	end
+	table.insert(undostack[buf], undoslice[buf])
+	undosp[buf] = undosp[buf] + 1
+	undoslice[buf] = {}
+end
+
+@move_cursor_to_modification+=
+if lastPID then
+	@find_pid_of_cursor
+	if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
+		local bx = vim.str_byteindex(prev[y-1], x-2)
+		vim.api.nvim_call_function("cursor", { y-1, bx+1 })
+	end
+end

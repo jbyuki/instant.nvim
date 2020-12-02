@@ -25,6 +25,8 @@ Features
 
 * Built-in localhost server
 
+* Separated undo/redo for each user
+
 Requirements
 ------------
 

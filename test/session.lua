@@ -1,7 +1,8 @@
+-- Generated from test_session.lua.tl using ntangle.nvim
 local client1, client2
 local nodejs = false
-local client1pipe = [[\\.\\pipe\nvim-6760-0]]
-local client2pipe = [[\\.\\pipe\nvim-14476-0]]
+local client1pipe = [[\\.\\pipe\nvim-27428-0]]
+local client2pipe = [[\\.\\pipe\nvim-23096-0]]
 
 local num_connected = 0
 
