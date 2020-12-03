@@ -1883,3 +1883,7 @@ if lastPID then
 		vim.api.nvim_call_function("cursor", { y-1, bx+1 })
 	end
 end
+
+@script_variables+=
+local events = {}
+

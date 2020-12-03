@@ -86,6 +86,8 @@ local undosp = {}
 
 local undoslice = {}
 
+local events = {}
+
 local MSG_TYPE = {
 TEXT = 1,
 
@@ -2823,6 +2825,7 @@ local function undo(buf)
 			vim.api.nvim_call_function("cursor", { y-1, bx+1 })
 		end
 	end
+	
 end
 
 local function redo(buf)
@@ -3045,6 +3048,7 @@ local function redo(buf)
 			vim.api.nvim_call_function("cursor", { y-1, bx+1 })
 		end
 	end
+	
 end
 
 
