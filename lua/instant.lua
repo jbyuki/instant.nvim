@@ -87,6 +87,8 @@ local undosp = {}
 local undoslice = {}
 
 local events = {}
+local hl_group = {}
+local client_hl_group = {}
 
 local MSG_TYPE = {
 TEXT = 1,
@@ -683,11 +685,24 @@ local function StartClient(first, appuri, port)
 	
 	detach = {}
 	
-	vtextGroup = getConfig("instant_name_hl_group", "CursorLineNr")
+	vtextGroup = {
+		getConfig("instant_name_hl_group_user1", "CursorLineNr"),
+		getConfig("instant_name_hl_group_user2", "CursorLineNr"),
+		getConfig("instant_name_hl_group_user3", "CursorLineNr"),
+		getConfig("instant_name_hl_group_user4", "CursorLineNr"),
+		getConfig("instant_name_hl_group_default", "CursorLineNr")
+	}
 	
 	old_namespace = {}
 	
-	cursorGroup = getConfig("instant_cursor_hl_group", "Cursor")
+	cursorGroup = {
+		getConfig("instant_cursor_hl_group_user1", "Cursor"),
+		getConfig("instant_cursor_hl_group_user2", "Cursor"),
+		getConfig("instant_cursor_hl_group_user3", "Cursor"),
+		getConfig("instant_cursor_hl_group_user4", "Cursor"),
+		getConfig("instant_cursor_hl_group_default", "Cursor")
+	}
+	
 	cursors = {}
 	
 	loc2rem = {}
@@ -872,7 +887,7 @@ local function StartClient(first, appuri, port)
 								id = vim.api.nvim_buf_set_virtual_text(
 									buf, 0, 
 									math.max(y-2, 0), 
-									{{ aut, vtextGroup }}, 
+									{{ aut, vtextGroup[client_hl_group[other_agent]] }}, 
 									{}),
 								buf = buf
 							}
@@ -881,7 +896,7 @@ local function StartClient(first, appuri, port)
 								local bx = vim.str_byteindex(prev[y-1], x-2)
 								cursors[aut] = {
 									id = vim.api.nvim_buf_add_highlight(buf,
-										0, cursorGroup, y-2, bx, bx+1),
+										0, cursorGroup[client_hl_group[other_agent]], y-2, bx, bx+1),
 									buf = buf,
 									line = y-2,
 								}
@@ -2334,6 +2349,17 @@ local function StartClient(first, appuri, port)
 					local _, new_id, new_aut = unpack(decoded)
 					author2id[new_aut] = new_id
 					id2author[new_id] = new_aut
+					local user_hl_group = 5
+					for i=1,4 do
+						if not hl_group[i] then
+							hl_group[i] = true
+							user_hl_group = i
+							break
+						end
+					end
+					
+					client_hl_group[new_id] = user_hl_group 
+					
 					for _, o in pairs(api_attach) do
 						if o.on_clientconnected then
 							o.on_clientconnected(new_aut)
@@ -2348,6 +2374,10 @@ local function StartClient(first, appuri, port)
 					if aut then
 						author2id[aut] = nil
 						id2author[remove_id] = nil
+						if client_hl_group[remove_id] ~= 5 then -- 5 means default hl group (there are four predefined)
+							hl_group[client_hl_group[remove_id]] = nil
+						end
+						client_hl_group[remove_id] = nil
 						for _, o in pairs(api_attach) do
 							if o.on_clientdisconnected then
 								o.on_clientdisconnected(aut)
@@ -2771,7 +2801,7 @@ local function undo(buf)
 					id = vim.api.nvim_buf_set_virtual_text(
 						buf, 0, 
 						math.max(y-2, 0), 
-						{{ aut, vtextGroup }}, 
+						{{ aut, vtextGroup[client_hl_group[other_agent]] }}, 
 						{}),
 					buf = buf
 				}
@@ -2780,7 +2810,7 @@ local function undo(buf)
 					local bx = vim.str_byteindex(prev[y-1], x-2)
 					cursors[aut] = {
 						id = vim.api.nvim_buf_add_highlight(buf,
-							0, cursorGroup, y-2, bx, bx+1),
+							0, cursorGroup[client_hl_group[other_agent]], y-2, bx, bx+1),
 						buf = buf,
 						line = y-2,
 					}
@@ -2994,7 +3024,7 @@ local function redo(buf)
 					id = vim.api.nvim_buf_set_virtual_text(
 						buf, 0, 
 						math.max(y-2, 0), 
-						{{ aut, vtextGroup }}, 
+						{{ aut, vtextGroup[client_hl_group[other_agent]] }}, 
 						{}),
 					buf = buf
 				}
@@ -3003,7 +3033,7 @@ local function redo(buf)
 					local bx = vim.str_byteindex(prev[y-1], x-2)
 					cursors[aut] = {
 						id = vim.api.nvim_buf_add_highlight(buf,
-							0, cursorGroup, y-2, bx, bx+1),
+							0, cursorGroup[client_hl_group[other_agent]], y-2, bx, bx+1),
 						buf = buf,
 						line = y-2,
 					}
