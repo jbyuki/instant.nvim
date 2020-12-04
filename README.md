@@ -27,6 +27,8 @@ Features
 
 * Separated undo/redo for each user
 
+* Different color for each user
+
 Requirements
 ------------
 
