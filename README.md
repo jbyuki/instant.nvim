@@ -3,6 +3,8 @@ instant.nvim
 
 **instant.nvim** is a **collaborative editing** plugin for **Neovim** written in **Lua** with no dependencies.
 
+> A minimalist plugin for collaborative editing
+
 * [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
 * [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
 * [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
@@ -78,14 +80,14 @@ There are essentially two modes of sharing at the moment.
 * **Session sharing**: This will share all opened (and newly opened) buffers with the other clients. This can be thought of directory sharing without implicit writing on the file system.
 
 For single buffer sharing use:
-* `:InstantStartSingle [host] [port]` : Host is the URL or IP address. Port is 80 by default.
-* `:InstantJoinSingle [host] [port]`
+* `:InstantStartSingle [host] [port]` : Host is the URL or IP address. Port is 80 by default. Use this command if you're the first client to connect.
+* `:InstantJoinSingle [host] [port]` : Use this command if another client already initiated a single share.
 * `:InstantStop` : This will stop the client
 
 For session sharing:
 
-* `:InstantStartSession [host] [port]`
-* `:InstantJoinSession [host] [port]`
+* `:InstantStartSession [host] [port]` : If you're the first client to connect.
+* `:InstantJoinSession [host] [port]` : Use this command if another client already initiated a session share
 * `:InstantStop`
 
 Additional useful sharing commands are:
