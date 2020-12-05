@@ -21,8 +21,6 @@ local isPIDEqual
 
 local isLowerOrEqual
 
-local MsgPackToString
-
 local getConfig
 
 local SendBinary
@@ -108,10 +106,12 @@ DISCONNECT = 8,
 DATA = 9,
 
 }
-local OP_DEL = 1
+local OP_TYPE = {
+DEL = 1,
 
-local OP_INS = 2
+INS = 2,
 
+}
 
 function utf8len(str)
 	return vim.str_utfindex(str)
@@ -263,26 +263,6 @@ function isLowerOrEqual(a, b)
 		end
 	end
 	return true
-end
-
-function MsgPackToString(el)
-	if el then
-		local val = el["_VAL"]
-		if val then
-			return val[1]
-		end
-	end
-end
-
-local function Refresh()
-	local obj = {
-		MSG_TYPE.REQUEST,
-	}
-	local encoded = vim.api.nvim_call_function("json_encode", {  obj  })
-	ws_client:send_text(encoded)
-	-- table.insert(events, "sent " .. encoded)
-	
-	
 end
 
 local function findPIDBefore(opid)
@@ -519,7 +499,7 @@ function instantOpenOrCreateBuffer(buf)
 										end
 										table.remove(pids, y+2)
 										
-										SendOp(buf, { OP_DEL, del_pid, "\n" })
+										SendOp(buf, { OP_TYPE.DEL, del_pid, "\n" })
 										
 									end
 								else
@@ -530,7 +510,7 @@ function instantOpenOrCreateBuffer(buf)
 									local del_pid = pids[y+2][x+2]
 									table.remove(pids[y+2], x+2)
 									
-									SendOp(buf, { OP_DEL, del_pid, c })
+									SendOp(buf, { OP_TYPE.DEL, del_pid, c })
 									
 								end
 							end
@@ -572,7 +552,7 @@ function instantOpenOrCreateBuffer(buf)
 									table.insert(r, 1, new_pid)
 									table.insert(pids, y+2, r)
 									
-									SendOp(buf, { OP_INS, "\n", new_pid })
+									SendOp(buf, { OP_TYPE.INS, "\n", new_pid })
 									
 								else
 									local c = utf8char(cur_lines[y-firstline+1], x)
@@ -584,7 +564,7 @@ function instantOpenOrCreateBuffer(buf)
 									
 									table.insert(pids[y+2], x+2, new_pid)
 									
-									SendOp(buf, { OP_INS, c, new_pid })
+									SendOp(buf, { OP_TYPE.INS, c, new_pid })
 									
 								end
 							end
@@ -753,7 +733,7 @@ local function StartClient(first, appuri, port)
 					local tick = vim.api.nvim_buf_get_changedtick(buf)+1
 					ignores[buf][tick] = true
 					
-					if op[1] == OP_INS then
+					if op[1] == OP_TYPE.INS then
 						lastPID = op[3]
 						
 						local x, y = findCharPositionBefore(op[3])
@@ -799,7 +779,7 @@ local function StartClient(first, appuri, port)
 						end
 						
 						
-					elseif op[1] == OP_DEL then
+					elseif op[1] == OP_TYPE.DEL then
 						lastPID = findPIDBefore(op[2])
 						
 						local sx, sy = findCharPositionExact(op[2])
@@ -1152,7 +1132,7 @@ local function StartClient(first, appuri, port)
 														end
 														table.remove(pids, y+2)
 														
-														SendOp(buf, { OP_DEL, del_pid, "\n" })
+														SendOp(buf, { OP_TYPE.DEL, del_pid, "\n" })
 														
 													end
 												else
@@ -1163,7 +1143,7 @@ local function StartClient(first, appuri, port)
 													local del_pid = pids[y+2][x+2]
 													table.remove(pids[y+2], x+2)
 													
-													SendOp(buf, { OP_DEL, del_pid, c })
+													SendOp(buf, { OP_TYPE.DEL, del_pid, c })
 													
 												end
 											end
@@ -1205,7 +1185,7 @@ local function StartClient(first, appuri, port)
 													table.insert(r, 1, new_pid)
 													table.insert(pids, y+2, r)
 													
-													SendOp(buf, { OP_INS, "\n", new_pid })
+													SendOp(buf, { OP_TYPE.INS, "\n", new_pid })
 													
 												else
 													local c = utf8char(cur_lines[y-firstline+1], x)
@@ -1217,7 +1197,7 @@ local function StartClient(first, appuri, port)
 													
 													table.insert(pids[y+2], x+2, new_pid)
 													
-													SendOp(buf, { OP_INS, c, new_pid })
+													SendOp(buf, { OP_TYPE.INS, c, new_pid })
 													
 												end
 											end
@@ -1499,7 +1479,7 @@ local function StartClient(first, appuri, port)
 															end
 															table.remove(pids, y+2)
 															
-															SendOp(buf, { OP_DEL, del_pid, "\n" })
+															SendOp(buf, { OP_TYPE.DEL, del_pid, "\n" })
 															
 														end
 													else
@@ -1510,7 +1490,7 @@ local function StartClient(first, appuri, port)
 														local del_pid = pids[y+2][x+2]
 														table.remove(pids[y+2], x+2)
 														
-														SendOp(buf, { OP_DEL, del_pid, c })
+														SendOp(buf, { OP_TYPE.DEL, del_pid, c })
 														
 													end
 												end
@@ -1552,7 +1532,7 @@ local function StartClient(first, appuri, port)
 														table.insert(r, 1, new_pid)
 														table.insert(pids, y+2, r)
 														
-														SendOp(buf, { OP_INS, "\n", new_pid })
+														SendOp(buf, { OP_TYPE.INS, "\n", new_pid })
 														
 													else
 														local c = utf8char(cur_lines[y-firstline+1], x)
@@ -1564,7 +1544,7 @@ local function StartClient(first, appuri, port)
 														
 														table.insert(pids[y+2], x+2, new_pid)
 														
-														SendOp(buf, { OP_INS, c, new_pid })
+														SendOp(buf, { OP_TYPE.INS, c, new_pid })
 														
 													end
 												end
@@ -1796,7 +1776,7 @@ local function StartClient(first, appuri, port)
 														end
 														table.remove(pids, y+2)
 														
-														SendOp(buf, { OP_DEL, del_pid, "\n" })
+														SendOp(buf, { OP_TYPE.DEL, del_pid, "\n" })
 														
 													end
 												else
@@ -1807,7 +1787,7 @@ local function StartClient(first, appuri, port)
 													local del_pid = pids[y+2][x+2]
 													table.remove(pids[y+2], x+2)
 													
-													SendOp(buf, { OP_DEL, del_pid, c })
+													SendOp(buf, { OP_TYPE.DEL, del_pid, c })
 													
 												end
 											end
@@ -1849,7 +1829,7 @@ local function StartClient(first, appuri, port)
 													table.insert(r, 1, new_pid)
 													table.insert(pids, y+2, r)
 													
-													SendOp(buf, { OP_INS, "\n", new_pid })
+													SendOp(buf, { OP_TYPE.INS, "\n", new_pid })
 													
 												else
 													local c = utf8char(cur_lines[y-firstline+1], x)
@@ -1861,7 +1841,7 @@ local function StartClient(first, appuri, port)
 													
 													table.insert(pids[y+2], x+2, new_pid)
 													
-													SendOp(buf, { OP_INS, c, new_pid })
+													SendOp(buf, { OP_TYPE.INS, c, new_pid })
 													
 												end
 											end
@@ -2143,7 +2123,7 @@ local function StartClient(first, appuri, port)
 															end
 															table.remove(pids, y+2)
 															
-															SendOp(buf, { OP_DEL, del_pid, "\n" })
+															SendOp(buf, { OP_TYPE.DEL, del_pid, "\n" })
 															
 														end
 													else
@@ -2154,7 +2134,7 @@ local function StartClient(first, appuri, port)
 														local del_pid = pids[y+2][x+2]
 														table.remove(pids[y+2], x+2)
 														
-														SendOp(buf, { OP_DEL, del_pid, c })
+														SendOp(buf, { OP_TYPE.DEL, del_pid, c })
 														
 													end
 												end
@@ -2196,7 +2176,7 @@ local function StartClient(first, appuri, port)
 														table.insert(r, 1, new_pid)
 														table.insert(pids, y+2, r)
 														
-														SendOp(buf, { OP_INS, "\n", new_pid })
+														SendOp(buf, { OP_TYPE.INS, "\n", new_pid })
 														
 													else
 														local c = utf8char(cur_lines[y-firstline+1], x)
@@ -2208,7 +2188,7 @@ local function StartClient(first, appuri, port)
 														
 														table.insert(pids[y+2], x+2, new_pid)
 														
-														SendOp(buf, { OP_INS, c, new_pid })
+														SendOp(buf, { OP_TYPE.INS, c, new_pid })
 														
 													end
 												end
@@ -2269,7 +2249,6 @@ local function StartClient(first, appuri, port)
 							
 						end
 					elseif is_first and not first then
-						table.insert(events, "ERROR: Tried to join an empty server")
 						print("ERROR: Tried to join an empty server")
 						for bufhandle,_ in pairs(allprev) do
 							if vim.api.nvim_buf_is_loaded(bufhandle) then
@@ -2306,7 +2285,6 @@ local function StartClient(first, appuri, port)
 						
 						
 					elseif not is_first and first then
-						table.insert(events, "ERROR: Tried to start a server which is already busy")
 						print("ERROR: Tried to start a server which is already busy")
 						for bufhandle,_ in pairs(allprev) do
 							if vim.api.nvim_buf_is_loaded(bufhandle) then
@@ -2645,11 +2623,11 @@ local function undo(buf)
 	local other_rem, other_agent = loc2rem[buf], agent
 	local lastPID
 	for _, op in ipairs(ops) do
-		if op[1] == OP_INS then
-			op = { OP_DEL, op[3], op[2] }
+		if op[1] == OP_TYPE.INS then
+			op = { OP_TYPE.DEL, op[3], op[2] }
 			
-		elseif op[1] == OP_DEL then
-			op = { OP_INS, op[3], op[2] }
+		elseif op[1] == OP_TYPE.DEL then
+			op = { OP_TYPE.INS, op[3], op[2] }
 			
 		end
 		
@@ -2667,7 +2645,7 @@ local function undo(buf)
 		local tick = vim.api.nvim_buf_get_changedtick(buf)+1
 		ignores[buf][tick] = true
 		
-		if op[1] == OP_INS then
+		if op[1] == OP_TYPE.INS then
 			lastPID = op[3]
 			
 			local x, y = findCharPositionBefore(op[3])
@@ -2713,7 +2691,7 @@ local function undo(buf)
 			end
 			
 			
-		elseif op[1] == OP_DEL then
+		elseif op[1] == OP_TYPE.DEL then
 			lastPID = findPIDBefore(op[2])
 			
 			local sx, sy = findCharPositionExact(op[2])
@@ -2890,7 +2868,7 @@ local function redo(buf)
 		local tick = vim.api.nvim_buf_get_changedtick(buf)+1
 		ignores[buf][tick] = true
 		
-		if op[1] == OP_INS then
+		if op[1] == OP_TYPE.INS then
 			lastPID = op[3]
 			
 			local x, y = findCharPositionBefore(op[3])
@@ -2936,7 +2914,7 @@ local function redo(buf)
 			end
 			
 			
-		elseif op[1] == OP_DEL then
+		elseif op[1] == OP_TYPE.DEL then
 			lastPID = findPIDBefore(op[2])
 			
 			local sx, sy = findCharPositionExact(op[2])
@@ -3152,8 +3130,6 @@ return {
 Start = Start,
 Join = Join,
 Stop = Stop,
-
-Refresh = Refresh,
 
 Status = Status,
 

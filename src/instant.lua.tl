@@ -5,13 +5,13 @@
 local MSG_TYPE = {
 @message_types
 }
+local OP_TYPE = {
 @operation_types
-@init_typeset
+}
 
 @functions
 
 @start_client
-@start_server
 
 @detach_from_buffer
 
@@ -19,7 +19,6 @@ local MSG_TYPE = {
 @stop_function
 
 @start_session_function
-@stop_session_function
 
 @status_function
 @follow_function
@@ -73,7 +72,6 @@ local attached = {}
 if not attached[buf] then
 	local attach_success = vim.api.nvim_buf_attach(buf, false, {
 		on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
-			@start_profiler
 			@return_true_if_detach
 			@if_ignore_tick_return
 
@@ -83,7 +81,6 @@ if not attached[buf] then
 			@if_there_is_text_to_delete_delete_it
 			@if_there_is_text_to_insert_insert_it
 			@set_context_for_current_buffer
-			@stop_profiler
 			@push_on_undo_stack
 
 		end,
@@ -276,13 +273,13 @@ end
 table.remove(pids, y+2)
 
 @operation_types+=
-local OP_DEL = 1
+DEL = 1,
 
 @send_delete_operation_for_newline+=
-SendOp(buf, { OP_DEL, del_pid, "\n" })
+SendOp(buf, { OP_TYPE.DEL, del_pid, "\n" })
 
 @send_delete_operation_for_character+=
-SendOp(buf, { OP_DEL, del_pid, c })
+SendOp(buf, { OP_TYPE.DEL, del_pid, c })
 
 @if_there_is_text_to_insert_insert_it+=
 local startx = add_range.sx
@@ -322,10 +319,10 @@ local new_pid = genPID(before_pid, after_pid, agent, 1)
 table.insert(pids[y+2], x+2, new_pid)
 
 @operation_types+=
-local OP_INS = 2
+INS = 2,
 
 @send_insert_operation_for_character+=
-SendOp(buf, { OP_INS, c, new_pid })
+SendOp(buf, { OP_TYPE.INS, c, new_pid })
 
 @insert_newline_by_splitting_text+=
 if cur_lines[y-firstline] then
@@ -354,7 +351,7 @@ table.insert(r, 1, new_pid)
 table.insert(pids, y+2, r)
 
 @send_insert_operation_for_newline+=
-SendOp(buf, { OP_INS, "\n", new_pid })
+SendOp(buf, { OP_TYPE.INS, "\n", new_pid })
 
 @declare_functions+=
 local utf8len, utf8char
@@ -510,10 +507,10 @@ local opcol = 0
 @get_local_buf_from_remote
 @get_context_for_current_buffer
 @get_changedtick_and_add_to_ignore
-if op[1] == OP_INS then
+if op[1] == OP_TYPE.INS then
 	@save_last_inserted_pid
 	@apply_insert_operation
-elseif op[1] == OP_DEL then
+elseif op[1] == OP_TYPE.DEL then
 	@save_last_deleted_pid
 	@apply_delete_operation
 end
@@ -825,19 +822,6 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 ws_client:send_text(encoded)
 -- table.insert(events, "sent " .. encoded)
 
-@declare_functions+=
-local MsgPackToString
-
-@functions+=
-function MsgPackToString(el)
-	if el then
-		local val = el["_VAL"]
-		if val then
-			return val[1]
-		end
-	end
-end
-
 @if_initial_and_not_initialized_set_buffer_lines+=
 if decoded[1] == MSG_TYPE.INITIAL then
 	local _, bufname, bufid, pidslist, content = unpack(decoded)
@@ -922,11 +906,9 @@ if decoded[1] == MSG_TYPE.AVAILABLE then
 			@register_autocommands_for_buffer_open_and_create
 		end
 	elseif is_first and not first then
-		table.insert(events, "ERROR: Tried to join an empty server")
 		print("ERROR: Tried to join an empty server")
 		@stop
 	elseif not is_first and first then
-		table.insert(events, "ERROR: Tried to start a server which is already busy")
 		print("ERROR: Tried to start a server which is already busy")
 		@stop
 	end
@@ -944,19 +926,10 @@ local encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 
 @check_for_connection_errors+=
 if err then
-	table.insert(events, "connection err " .. vim.inspect(err))
 	@stop
 	error("There was an error during connection: " .. err)
 	return
 end
-
-@functions+=
-local function Refresh()
-	@send_request_for_initial_content
-end
-
-@export_symbols+=
-Refresh = Refresh,
 
 @check_if_has_username+=
 local v, username = pcall(function() return vim.api.nvim_get_var("instant_username") end)
@@ -967,7 +940,6 @@ end
 
 @check_for_connection_errors_when_connected+=
 if err then
-	table.insert(events, "connection err " .. vim.inspect(err))
 	@stop
 	error("There was an error during connection: " .. err)
 	return
@@ -1830,17 +1802,17 @@ local ops = undostack[buf][undosp[buf]]
 undosp[buf] = undosp[buf] - 1
 
 @compute_inverse_operation+=
-if op[1] == OP_INS then
+if op[1] == OP_TYPE.INS then
 	@invert_insert_operation
-elseif op[1] == OP_DEL then
+elseif op[1] == OP_TYPE.DEL then
 	@invert_delete_operation
 end
 
 @invert_insert_operation+=
-op = { OP_DEL, op[3], op[2] }
+op = { OP_TYPE.DEL, op[3], op[2] }
 
 @invert_delete_operation+=
-op = { OP_INS, op[3], op[2] }
+op = { OP_TYPE.INS, op[3], op[2] }
 
 @register_undo_redo_commands+=
 vim.api.nvim_buf_set_keymap(buf, 'n', '<C-r>', '<cmd>lua require("instant").redo(' .. buf .. ')<CR>', {noremap = true})
