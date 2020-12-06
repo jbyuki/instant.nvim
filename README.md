@@ -100,6 +100,11 @@ Additional useful sharing commands are:
 * `:InstantOpenAll` : Open all files in buffers in the current directory. Useful to share the whole directory in session sharing.
 * `:InstantSaveAll` : Save all opened buffers automatically. This will also create missing subdirectories.
 
+### Tips and Tricks
+
+* If there is an issue, you can resync by stopping and reconnecting.
+* In session sharing, view all the available buffers with `:ls`.
+
 ### Help
 
 * If you encounter any problem, please don't hesitate to open an [Issue](https://github.com/jbyuki/instant.nvim/issues)
