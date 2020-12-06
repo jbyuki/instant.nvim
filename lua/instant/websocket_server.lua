@@ -296,7 +296,6 @@ local function WebSocketServer(opt)
 		end
 	
 		if server then
-			server:shutdown()
 			server:close()
 			server = nil
 		end

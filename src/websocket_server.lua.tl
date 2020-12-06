@@ -337,7 +337,6 @@ function ws:close()
 	end
 
 	if server then
-		server:shutdown()
 		server:close()
 		server = nil
 	end
