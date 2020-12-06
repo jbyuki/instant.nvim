@@ -85,7 +85,6 @@ if not attached[buf] then
 
 		end,
 		on_detach = function(_, buf)
-			table.insert(events, "detached " .. buf)
 			attached[buf] = nil
 		end
 	})
@@ -93,7 +92,6 @@ if not attached[buf] then
 	@register_undo_redo_commands
 
 	if attach_success then
-		table.insert(events, "has_attached[" .. buf .. "] = true")
 		attached[buf] = true
 	end
 else
@@ -109,7 +107,6 @@ detach = {}
 
 @return_true_if_detach+=
 if detach[buf] then
-	table.insert(events, "Detached from buffer " .. buf)
 	detach[buf] = nil
 	return true
 end
@@ -122,7 +119,6 @@ local DetachFromBuffer
 
 @detach_from_buffer+=
 function DetachFromBuffer(bufnr)
-	table.insert(events, "Detaching from buffer... " .. bufnr)
 	detach[bufnr] = true
 end
 
@@ -282,6 +278,8 @@ SendOp(buf, { OP_TYPE.DEL, del_pid, "\n" })
 SendOp(buf, { OP_TYPE.DEL, del_pid, c })
 
 @if_there_is_text_to_insert_insert_it+=
+@get_length_of_text_to_insert
+@generate_pids_seq_to_insert
 local startx = add_range.sx
 for y=add_range.sy, add_range.ey do
 	@get_current_line_length_to_insert
@@ -299,6 +297,44 @@ for y=add_range.sy, add_range.ey do
 	startx = -1
 end
 
+@generate_pids_seq_to_insert+=
+local before_pid, after_pid
+if add_range.sx == -1 then
+	@get_before_after_PID_newline
+else
+	@get_before_after_PID_normal_char
+end
+
+local newpidindex = 1
+local newpids = genPIDSeq(before_pid, after_pid, agent, 1, len_insert)
+
+@get_before_after_PID_newline+=
+local pidx
+local x, y = add_range.sx, add_range.sy
+if cur_lines[y-firstline] then
+	pidx = utf8len(cur_lines[y-firstline])+1
+else
+	pidx = #pids[y+1]
+end
+before_pid = pids[y+1][pidx]
+after_pid = afterPID(pidx, y+1)
+
+@get_before_after_PID_normal_char+=
+local x, y = add_range.sx, add_range.sy
+before_pid = pids[y+2][x+1]
+after_pid = afterPID(x+1, y+2)
+
+@get_length_of_text_to_insert+=
+local len_insert = 0
+local startx = add_range.sx
+for y=add_range.sy, add_range.ey do
+	@get_current_line_length_to_insert
+	for x=startx,endx do
+		len_insert = len_insert + 1 
+	end
+	startx = -1
+end
+
 @get_current_line_length_to_insert+=
 local endx
 if y == add_range.ey then
@@ -312,9 +348,8 @@ local c = utf8char(cur_lines[y-firstline+1], x)
 prev[y+1] = utf8insert(prev[y+1], x, c)
 
 @insert_pid_of_char+=
-local before_pid = pids[y+2][x+1]
-local after_pid = afterPID(x+1, y+2)
-local new_pid = genPID(before_pid, after_pid, agent, 1)
+local new_pid = newpids[newpidindex]
+newpidindex = newpidindex + 1
 
 table.insert(pids[y+2], x+2, new_pid)
 
@@ -341,9 +376,8 @@ else
 	pidx = #pids[y+1]
 end
 
-local before_pid = pids[y+1][pidx]
-local after_pid = afterPID(pidx, y+1)
-local new_pid = genPID(before_pid, after_pid, agent, 1)
+local new_pid = newpids[newpidindex]
+newpidindex = newpidindex + 1
 
 local l, r = splitArray(pids[y+1], pidx+1)
 pids[y+1] = l
@@ -469,7 +503,7 @@ if decoded then
 	@if_disconnect_remove_client_id_and_username
 	@if_data_send_to_callbacks
 else
-	table.insert(events, "Could not decode json " .. wsdata)
+	error("Could not decode json " .. wsdata)
 end
 
 @if_text_do_actions+=
@@ -502,8 +536,6 @@ end
 local opline = 0
 local opcol = 0
 
--- table.insert(events, "receive op " .. vim.inspect(op))
--- @display_states
 @get_local_buf_from_remote
 @get_context_for_current_buffer
 @get_changedtick_and_add_to_ignore
@@ -820,7 +852,6 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 
 @send_encoded+=
 ws_client:send_text(encoded)
--- table.insert(events, "sent " .. encoded)
 
 @if_initial_and_not_initialized_set_buffer_lines+=
 if decoded[1] == MSG_TYPE.INITIAL then
@@ -1750,14 +1781,6 @@ vim.api.nvim_buf_set_keymap(buf, 'n', 'u', '<cmd>lua require("instant").undo(' .
 @export_symbols+=
 undo = undo,
 
-@declare_functions+=
-local P
-
-@functions+=
-function P(x)
-	table.insert(events, x)
-end
-
 @script_variables+=
 local disable_undo = false
 
@@ -1872,7 +1895,6 @@ if lastPID then
 end
 
 @script_variables+=
-local events = {}
 local hl_group = {}
 local client_hl_group = {}
 

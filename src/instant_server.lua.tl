@@ -51,7 +51,7 @@ conn:attach {
 				@if_available_send_response_back
 				@if_data_send_to_other_clients
 				else 
-					table.insert(events, "Unknown message " .. vim.inspect(decoded))
+					error("Unknown message " .. vim.inspect(decoded))
 				end
 			end
 		end)

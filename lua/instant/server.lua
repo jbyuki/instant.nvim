@@ -104,7 +104,7 @@ local function StartServer(host, port)
 								end
 							
 							else 
-								table.insert(events, "Unknown message " .. vim.inspect(decoded))
+								error("Unknown message " .. vim.inspect(decoded))
 							end
 						end
 					end)

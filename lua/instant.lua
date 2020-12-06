@@ -27,8 +27,6 @@ local SendBinary
 
 local genPIDSeq
 
-local P
-
 local ws_client
 
 local attached = {}
@@ -84,7 +82,6 @@ local undosp = {}
 
 local undoslice = {}
 
-local events = {}
 local hl_group = {}
 local client_hl_group = {}
 
@@ -176,7 +173,6 @@ function SendOp(buf, op)
 	local encoded = vim.api.nvim_call_function("json_encode", { obj })
 	
 	ws_client:send_text(encoded)
-	-- table.insert(events, "sent " .. encoded)
 	
 end
 
@@ -369,7 +365,6 @@ function instantOpenOrCreateBuffer(buf)
 			encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 			
 			ws_client:send_text(encoded)
-			-- table.insert(events, "sent " .. encoded)
 			
 
 			detach[buf] = nil
@@ -385,7 +380,6 @@ function instantOpenOrCreateBuffer(buf)
 				local attach_success = vim.api.nvim_buf_attach(buf, false, {
 					on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
 						if detach[buf] then
-							table.insert(events, "Detached from buffer " .. buf)
 							detach[buf] = nil
 							return true
 						end
@@ -517,6 +511,44 @@ function instantOpenOrCreateBuffer(buf)
 							endx = utf8len(prev[y] or "")-1
 						end
 						
+						local len_insert = 0
+						local startx = add_range.sx
+						for y=add_range.sy, add_range.ey do
+							local endx
+							if y == add_range.ey then
+								endx = add_range.ex
+							else
+								endx = utf8len(cur_lines[y-firstline+1])-1
+							end
+							
+							for x=startx,endx do
+								len_insert = len_insert + 1 
+							end
+							startx = -1
+						end
+						
+						local before_pid, after_pid
+						if add_range.sx == -1 then
+							local pidx
+							local x, y = add_range.sx, add_range.sy
+							if cur_lines[y-firstline] then
+								pidx = utf8len(cur_lines[y-firstline])+1
+							else
+								pidx = #pids[y+1]
+							end
+							before_pid = pids[y+1][pidx]
+							after_pid = afterPID(pidx, y+1)
+							
+						else
+							local x, y = add_range.sx, add_range.sy
+							before_pid = pids[y+2][x+1]
+							after_pid = afterPID(x+1, y+2)
+							
+						end
+						
+						local newpidindex = 1
+						local newpids = genPIDSeq(before_pid, after_pid, agent, 1, len_insert)
+						
 						local startx = add_range.sx
 						for y=add_range.sy, add_range.ey do
 							local endx
@@ -543,9 +575,8 @@ function instantOpenOrCreateBuffer(buf)
 										pidx = #pids[y+1]
 									end
 									
-									local before_pid = pids[y+1][pidx]
-									local after_pid = afterPID(pidx, y+1)
-									local new_pid = genPID(before_pid, after_pid, agent, 1)
+									local new_pid = newpids[newpidindex]
+									newpidindex = newpidindex + 1
 									
 									local l, r = splitArray(pids[y+1], pidx+1)
 									pids[y+1] = l
@@ -558,9 +589,8 @@ function instantOpenOrCreateBuffer(buf)
 									local c = utf8char(cur_lines[y-firstline+1], x)
 									prev[y+1] = utf8insert(prev[y+1], x, c)
 									
-									local before_pid = pids[y+2][x+1]
-									local after_pid = afterPID(x+1, y+2)
-									local new_pid = genPID(before_pid, after_pid, agent, 1)
+									local new_pid = newpids[newpidindex]
+									newpidindex = newpidindex + 1
 									
 									table.insert(pids[y+2], x+2, new_pid)
 									
@@ -586,7 +616,6 @@ function instantOpenOrCreateBuffer(buf)
 			
 					end,
 					on_detach = function(_, buf)
-						table.insert(events, "detached " .. buf)
 						attached[buf] = nil
 					end
 				})
@@ -597,7 +626,6 @@ function instantOpenOrCreateBuffer(buf)
 				
 			
 				if attach_success then
-					table.insert(events, "has_attached[" .. buf .. "] = true")
 					attached[buf] = true
 				end
 			else
@@ -651,10 +679,6 @@ function genPIDSeq(p, q, s, i, N)
 	return G
 end
 
-function P(x)
-	table.insert(events, x)
-end
-
 
 local function StartClient(first, appuri, port)
 	local v, username = pcall(function() return vim.api.nvim_get_var("instant_username") end)
@@ -701,7 +725,6 @@ local function StartClient(first, appuri, port)
 			}
 			local encoded = vim.api.nvim_call_function("json_encode", { obj })
 			ws_client:send_text(encoded)
-			-- table.insert(events, "sent " .. encoded)
 			
 			
 			for _, o in pairs(api_attach) do
@@ -722,8 +745,6 @@ local function StartClient(first, appuri, port)
 					local opline = 0
 					local opcol = 0
 					
-					-- table.insert(events, "receive op " .. vim.inspect(op))
-					-- @display_states
 					local ag, bufid = unpack(other_rem)
 					buf = rem2loc[ag][bufid]
 					
@@ -943,7 +964,6 @@ local function StartClient(first, appuri, port)
 						encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 						
 						ws_client:send_text(encoded)
-						-- table.insert(events, "sent " .. encoded)
 						
 					else
 						local allbufs = vim.api.nvim_list_bufs()
@@ -985,7 +1005,6 @@ local function StartClient(first, appuri, port)
 							encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 							
 							ws_client:send_text(encoded)
-							-- table.insert(events, "sent " .. encoded)
 							
 						end
 					end
@@ -1018,7 +1037,6 @@ local function StartClient(first, appuri, port)
 								local attach_success = vim.api.nvim_buf_attach(buf, false, {
 									on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
 										if detach[buf] then
-											table.insert(events, "Detached from buffer " .. buf)
 											detach[buf] = nil
 											return true
 										end
@@ -1150,6 +1168,44 @@ local function StartClient(first, appuri, port)
 											endx = utf8len(prev[y] or "")-1
 										end
 										
+										local len_insert = 0
+										local startx = add_range.sx
+										for y=add_range.sy, add_range.ey do
+											local endx
+											if y == add_range.ey then
+												endx = add_range.ex
+											else
+												endx = utf8len(cur_lines[y-firstline+1])-1
+											end
+											
+											for x=startx,endx do
+												len_insert = len_insert + 1 
+											end
+											startx = -1
+										end
+										
+										local before_pid, after_pid
+										if add_range.sx == -1 then
+											local pidx
+											local x, y = add_range.sx, add_range.sy
+											if cur_lines[y-firstline] then
+												pidx = utf8len(cur_lines[y-firstline])+1
+											else
+												pidx = #pids[y+1]
+											end
+											before_pid = pids[y+1][pidx]
+											after_pid = afterPID(pidx, y+1)
+											
+										else
+											local x, y = add_range.sx, add_range.sy
+											before_pid = pids[y+2][x+1]
+											after_pid = afterPID(x+1, y+2)
+											
+										end
+										
+										local newpidindex = 1
+										local newpids = genPIDSeq(before_pid, after_pid, agent, 1, len_insert)
+										
 										local startx = add_range.sx
 										for y=add_range.sy, add_range.ey do
 											local endx
@@ -1176,9 +1232,8 @@ local function StartClient(first, appuri, port)
 														pidx = #pids[y+1]
 													end
 													
-													local before_pid = pids[y+1][pidx]
-													local after_pid = afterPID(pidx, y+1)
-													local new_pid = genPID(before_pid, after_pid, agent, 1)
+													local new_pid = newpids[newpidindex]
+													newpidindex = newpidindex + 1
 													
 													local l, r = splitArray(pids[y+1], pidx+1)
 													pids[y+1] = l
@@ -1191,9 +1246,8 @@ local function StartClient(first, appuri, port)
 													local c = utf8char(cur_lines[y-firstline+1], x)
 													prev[y+1] = utf8insert(prev[y+1], x, c)
 													
-													local before_pid = pids[y+2][x+1]
-													local after_pid = afterPID(x+1, y+2)
-													local new_pid = genPID(before_pid, after_pid, agent, 1)
+													local new_pid = newpids[newpidindex]
+													newpidindex = newpidindex + 1
 													
 													table.insert(pids[y+2], x+2, new_pid)
 													
@@ -1219,7 +1273,6 @@ local function StartClient(first, appuri, port)
 							
 									end,
 									on_detach = function(_, buf)
-										table.insert(events, "detached " .. buf)
 										attached[buf] = nil
 									end
 								})
@@ -1230,7 +1283,6 @@ local function StartClient(first, appuri, port)
 								
 							
 								if attach_success then
-									table.insert(events, "has_attached[" .. buf .. "] = true")
 									attached[buf] = true
 								end
 							else
@@ -1365,7 +1417,6 @@ local function StartClient(first, appuri, port)
 									local attach_success = vim.api.nvim_buf_attach(buf, false, {
 										on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
 											if detach[buf] then
-												table.insert(events, "Detached from buffer " .. buf)
 												detach[buf] = nil
 												return true
 											end
@@ -1497,6 +1548,44 @@ local function StartClient(first, appuri, port)
 												endx = utf8len(prev[y] or "")-1
 											end
 											
+											local len_insert = 0
+											local startx = add_range.sx
+											for y=add_range.sy, add_range.ey do
+												local endx
+												if y == add_range.ey then
+													endx = add_range.ex
+												else
+													endx = utf8len(cur_lines[y-firstline+1])-1
+												end
+												
+												for x=startx,endx do
+													len_insert = len_insert + 1 
+												end
+												startx = -1
+											end
+											
+											local before_pid, after_pid
+											if add_range.sx == -1 then
+												local pidx
+												local x, y = add_range.sx, add_range.sy
+												if cur_lines[y-firstline] then
+													pidx = utf8len(cur_lines[y-firstline])+1
+												else
+													pidx = #pids[y+1]
+												end
+												before_pid = pids[y+1][pidx]
+												after_pid = afterPID(pidx, y+1)
+												
+											else
+												local x, y = add_range.sx, add_range.sy
+												before_pid = pids[y+2][x+1]
+												after_pid = afterPID(x+1, y+2)
+												
+											end
+											
+											local newpidindex = 1
+											local newpids = genPIDSeq(before_pid, after_pid, agent, 1, len_insert)
+											
 											local startx = add_range.sx
 											for y=add_range.sy, add_range.ey do
 												local endx
@@ -1523,9 +1612,8 @@ local function StartClient(first, appuri, port)
 															pidx = #pids[y+1]
 														end
 														
-														local before_pid = pids[y+1][pidx]
-														local after_pid = afterPID(pidx, y+1)
-														local new_pid = genPID(before_pid, after_pid, agent, 1)
+														local new_pid = newpids[newpidindex]
+														newpidindex = newpidindex + 1
 														
 														local l, r = splitArray(pids[y+1], pidx+1)
 														pids[y+1] = l
@@ -1538,9 +1626,8 @@ local function StartClient(first, appuri, port)
 														local c = utf8char(cur_lines[y-firstline+1], x)
 														prev[y+1] = utf8insert(prev[y+1], x, c)
 														
-														local before_pid = pids[y+2][x+1]
-														local after_pid = afterPID(x+1, y+2)
-														local new_pid = genPID(before_pid, after_pid, agent, 1)
+														local new_pid = newpids[newpidindex]
+														newpidindex = newpidindex + 1
 														
 														table.insert(pids[y+2], x+2, new_pid)
 														
@@ -1566,7 +1653,6 @@ local function StartClient(first, appuri, port)
 								
 										end,
 										on_detach = function(_, buf)
-											table.insert(events, "detached " .. buf)
 											attached[buf] = nil
 										end
 									})
@@ -1577,7 +1663,6 @@ local function StartClient(first, appuri, port)
 									
 								
 									if attach_success then
-										table.insert(events, "has_attached[" .. buf .. "] = true")
 										attached[buf] = true
 									end
 								else
@@ -1662,7 +1747,6 @@ local function StartClient(first, appuri, port)
 								local attach_success = vim.api.nvim_buf_attach(buf, false, {
 									on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
 										if detach[buf] then
-											table.insert(events, "Detached from buffer " .. buf)
 											detach[buf] = nil
 											return true
 										end
@@ -1794,6 +1878,44 @@ local function StartClient(first, appuri, port)
 											endx = utf8len(prev[y] or "")-1
 										end
 										
+										local len_insert = 0
+										local startx = add_range.sx
+										for y=add_range.sy, add_range.ey do
+											local endx
+											if y == add_range.ey then
+												endx = add_range.ex
+											else
+												endx = utf8len(cur_lines[y-firstline+1])-1
+											end
+											
+											for x=startx,endx do
+												len_insert = len_insert + 1 
+											end
+											startx = -1
+										end
+										
+										local before_pid, after_pid
+										if add_range.sx == -1 then
+											local pidx
+											local x, y = add_range.sx, add_range.sy
+											if cur_lines[y-firstline] then
+												pidx = utf8len(cur_lines[y-firstline])+1
+											else
+												pidx = #pids[y+1]
+											end
+											before_pid = pids[y+1][pidx]
+											after_pid = afterPID(pidx, y+1)
+											
+										else
+											local x, y = add_range.sx, add_range.sy
+											before_pid = pids[y+2][x+1]
+											after_pid = afterPID(x+1, y+2)
+											
+										end
+										
+										local newpidindex = 1
+										local newpids = genPIDSeq(before_pid, after_pid, agent, 1, len_insert)
+										
 										local startx = add_range.sx
 										for y=add_range.sy, add_range.ey do
 											local endx
@@ -1820,9 +1942,8 @@ local function StartClient(first, appuri, port)
 														pidx = #pids[y+1]
 													end
 													
-													local before_pid = pids[y+1][pidx]
-													local after_pid = afterPID(pidx, y+1)
-													local new_pid = genPID(before_pid, after_pid, agent, 1)
+													local new_pid = newpids[newpidindex]
+													newpidindex = newpidindex + 1
 													
 													local l, r = splitArray(pids[y+1], pidx+1)
 													pids[y+1] = l
@@ -1835,9 +1956,8 @@ local function StartClient(first, appuri, port)
 													local c = utf8char(cur_lines[y-firstline+1], x)
 													prev[y+1] = utf8insert(prev[y+1], x, c)
 													
-													local before_pid = pids[y+2][x+1]
-													local after_pid = afterPID(x+1, y+2)
-													local new_pid = genPID(before_pid, after_pid, agent, 1)
+													local new_pid = newpids[newpidindex]
+													newpidindex = newpidindex + 1
 													
 													table.insert(pids[y+2], x+2, new_pid)
 													
@@ -1863,7 +1983,6 @@ local function StartClient(first, appuri, port)
 							
 									end,
 									on_detach = function(_, buf)
-										table.insert(events, "detached " .. buf)
 										attached[buf] = nil
 									end
 								})
@@ -1874,7 +1993,6 @@ local function StartClient(first, appuri, port)
 								
 							
 								if attach_success then
-									table.insert(events, "has_attached[" .. buf .. "] = true")
 									attached[buf] = true
 								end
 							else
@@ -2009,7 +2127,6 @@ local function StartClient(first, appuri, port)
 									local attach_success = vim.api.nvim_buf_attach(buf, false, {
 										on_lines = function(_, buf, changedtick, firstline, lastline, new_lastline, bytecount)
 											if detach[buf] then
-												table.insert(events, "Detached from buffer " .. buf)
 												detach[buf] = nil
 												return true
 											end
@@ -2141,6 +2258,44 @@ local function StartClient(first, appuri, port)
 												endx = utf8len(prev[y] or "")-1
 											end
 											
+											local len_insert = 0
+											local startx = add_range.sx
+											for y=add_range.sy, add_range.ey do
+												local endx
+												if y == add_range.ey then
+													endx = add_range.ex
+												else
+													endx = utf8len(cur_lines[y-firstline+1])-1
+												end
+												
+												for x=startx,endx do
+													len_insert = len_insert + 1 
+												end
+												startx = -1
+											end
+											
+											local before_pid, after_pid
+											if add_range.sx == -1 then
+												local pidx
+												local x, y = add_range.sx, add_range.sy
+												if cur_lines[y-firstline] then
+													pidx = utf8len(cur_lines[y-firstline])+1
+												else
+													pidx = #pids[y+1]
+												end
+												before_pid = pids[y+1][pidx]
+												after_pid = afterPID(pidx, y+1)
+												
+											else
+												local x, y = add_range.sx, add_range.sy
+												before_pid = pids[y+2][x+1]
+												after_pid = afterPID(x+1, y+2)
+												
+											end
+											
+											local newpidindex = 1
+											local newpids = genPIDSeq(before_pid, after_pid, agent, 1, len_insert)
+											
 											local startx = add_range.sx
 											for y=add_range.sy, add_range.ey do
 												local endx
@@ -2167,9 +2322,8 @@ local function StartClient(first, appuri, port)
 															pidx = #pids[y+1]
 														end
 														
-														local before_pid = pids[y+1][pidx]
-														local after_pid = afterPID(pidx, y+1)
-														local new_pid = genPID(before_pid, after_pid, agent, 1)
+														local new_pid = newpids[newpidindex]
+														newpidindex = newpidindex + 1
 														
 														local l, r = splitArray(pids[y+1], pidx+1)
 														pids[y+1] = l
@@ -2182,9 +2336,8 @@ local function StartClient(first, appuri, port)
 														local c = utf8char(cur_lines[y-firstline+1], x)
 														prev[y+1] = utf8insert(prev[y+1], x, c)
 														
-														local before_pid = pids[y+2][x+1]
-														local after_pid = afterPID(x+1, y+2)
-														local new_pid = genPID(before_pid, after_pid, agent, 1)
+														local new_pid = newpids[newpidindex]
+														newpidindex = newpidindex + 1
 														
 														table.insert(pids[y+2], x+2, new_pid)
 														
@@ -2210,7 +2363,6 @@ local function StartClient(first, appuri, port)
 								
 										end,
 										on_detach = function(_, buf)
-											table.insert(events, "detached " .. buf)
 											attached[buf] = nil
 										end
 									})
@@ -2221,7 +2373,6 @@ local function StartClient(first, appuri, port)
 									
 								
 									if attach_success then
-										table.insert(events, "has_attached[" .. buf .. "] = true")
 										attached[buf] = true
 									end
 								else
@@ -2236,7 +2387,6 @@ local function StartClient(first, appuri, port)
 							}
 							local encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 							ws_client:send_text(encoded)
-							-- table.insert(events, "sent " .. encoded)
 							
 							
 							vim.api.nvim_command("augroup instantSession")
@@ -2376,7 +2526,7 @@ local function StartClient(first, appuri, port)
 				end
 				
 			else
-				table.insert(events, "Could not decode json " .. wsdata)
+				error("Could not decode json " .. wsdata)
 			end
 			
 		end,
@@ -2428,7 +2578,6 @@ end
 
 
 function DetachFromBuffer(bufnr)
-	table.insert(events, "Detaching from buffer... " .. bufnr)
 	detach[bufnr] = true
 end
 
@@ -2634,8 +2783,6 @@ local function undo(buf)
 		local opline = 0
 		local opcol = 0
 		
-		-- table.insert(events, "receive op " .. vim.inspect(op))
-		-- @display_states
 		local ag, bufid = unpack(other_rem)
 		buf = rem2loc[ag][bufid]
 		
@@ -2857,8 +3004,6 @@ local function redo(buf)
 		local opline = 0
 		local opcol = 0
 		
-		-- table.insert(events, "receive op " .. vim.inspect(op))
-		-- @display_states
 		local ag, bufid = unpack(other_rem)
 		buf = rem2loc[ag][bufid]
 		
@@ -3113,7 +3258,6 @@ local function send_data(data)
 
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 	ws_client:send_text(encoded)
-	-- table.insert(events, "sent " .. encoded)
 	
 end
 
