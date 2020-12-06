@@ -38,6 +38,7 @@ function ws:connect(callbacks)
 	local ret, err = client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
 		@save_on_disconnect_callback
 		@check_for_connection_errors
+		@client_wsdata_reader_coroutine
 		client:read_start(vim.schedule_wrap(function(err, chunk)
 			@check_for_connection_errors_when_connected
 			if chunk then
@@ -117,10 +118,7 @@ function nocase (s)
 end
 
 @internal_variables+=
-local frames = {}
-local fragmented = ""
-local remaining = 0
-local first_chunk
+local chunk_buffer = ""
 local upgraded = false
 local http_chunk = ""
 
@@ -138,22 +136,8 @@ if not upgraded then
 		http_chunk = ""
 	end
 else
-	local fin
-	-- if multiple tcp packets are 
-	-- sent at once
-	while string.len(chunk) > 0 do
-		-- if tcp packets are sent
-		-- fragmented
-		if remaining == 0 then
-			first_chunk = chunk
-		end
-		@read_opcode
-		@do_opcode
-		else 
-			chunk = ""
-			remaining = 0
-		end
-	end
+	chunk_buffer = chunk_buffer .. chunk
+	coroutine.resume(wsread_co)
 end
 
 @handshake_finished+=
@@ -161,17 +145,70 @@ if callbacks.on_connect then
 	callbacks.on_connect()
 end
 
-@internal_variables+=
-local wsdata = ""
-local opcode
-
-@read_opcode+=
-local b1 = string.byte(string.sub(first_chunk,1,1))
-local b2 = string.byte(string.sub(first_chunk,2,2))
-if string.len(wsdata) == 0 then
-	opcode = bit.band(b1, 0xF)
+@client_wsdata_reader_coroutine+=
+local function getdata(amount)
+	while string.len(chunk_buffer) < amount do
+		coroutine.yield()
+	end
+	local retrieved = string.sub(chunk_buffer, 1, amount)
+	chunk_buffer = string.sub(chunk_buffer, amount+1)
+	return retrieved
 end
+
+local wsread_co = coroutine.create(function()
+	while true do
+		local wsdata = ""
+		local fin
+
+		@read_header_two_bytes_first
+		@read_payload_length
+		@read_payload
+		
+		wsdata = data
+
+		while fin == 0 do
+			@read_header_two_bytes_fragmented
+			@read_payload_length
+			@read_payload
+
+			wsdata = wsdata .. data
+		end
+
+		@do_opcode
+	end
+end)
+
+@read_header_two_bytes_first+=
+local rec = getdata(2) 
+local b1 = string.byte(string.sub(rec,1,1))
+local b2 = string.byte(string.sub(rec,2,2))
+local opcode = bit.band(b1, 0xF)
 fin = bit.rshift(b1, 7)
+
+@read_header_two_bytes_fragmented+=
+local rec = getdata(2) 
+local b1 = string.byte(string.sub(rec,1,1))
+local b2 = string.byte(string.sub(rec,2,2))
+fin = bit.rshift(b1, 7)
+
+@read_payload_length+=
+local paylen = bit.band(b2, 0x7F)
+if paylen == 126 then -- 16 bits length
+	local rec = getdata(2)
+	local b3 = string.byte(string.sub(rec,1,1))
+	local b4 = string.byte(string.sub(rec,2,2))
+	paylen = bit.lshift(b3, 8) + b4
+elseif paylen == 127 then
+	paylen = 0
+	local rec = getdata(8)
+	for i=1,8 do -- 64 bits length
+		paylen = bit.lshift(paylen, 8) 
+		paylen = paylen + string.byte(string.sub(rec,i,i))
+	end
+end
+
+@read_payload+=
+local data = getdata(paylen)
 
 @internal_variables+=
 local on_disconnect
@@ -208,46 +245,8 @@ end
 
 @do_opcode+=
 if opcode == 0x1 then -- TEXT
-	@read_payload_length
-	if remaining == 0 then
-		@read_payload
-		chunk = string.sub(chunk, 2+paylenlen+1+paylen)
-		fragmented = text
-		remaining = paylen - string.len(text)
-	else
-		local rest = math.min(remaining, string.len(chunk))
-		fragmented = fragmented .. string.sub(chunk, 1, rest)
-		remaining = remaining - rest
-		chunk = string.sub(chunk, rest+1)
-	end
-
-	if remaining == 0 then
-		wsdata = wsdata .. fragmented
-		if fin ~= 0 then
-			@interpret_received_text
-			wsdata = ""
-		end
-	end
-
-@read_payload_length+=
-local paylen = bit.band(b2, 0x7F)
-local paylenlen = 0
-if paylen == 126 then -- 16 bits length
-	local b3 = string.byte(string.sub(first_chunk,3,3))
-	local b4 = string.byte(string.sub(first_chunk,4,4))
-	paylen = bit.lshift(b3, 8) + b4
-	paylenlen = 2
-elseif paylen == 127 then
-	paylen = 0
-	for i=0,7 do -- 64 bits length
-		paylen = bit.lshift(paylen, 8) 
-		paylen = paylen + string.byte(string.sub(first_chunk,i+3,i+3))
-	end
-	paylenlen = 8
+	@interpret_received_text
 end
-
-@read_payload+=
-local text = string.sub(chunk, 2+paylenlen+1, 2+paylenlen+1+(paylen-1))
 
 @interpret_received_text+=
 if callbacks.on_text then
@@ -255,10 +254,10 @@ if callbacks.on_text then
 end
 
 @do_opcode+=
-elseif opcode == 0x9 then -- PING
+if opcode == 0x9 then -- PING
 	@read_payload_length
 	@send_pong
-	chunk = ""
+end
 
 @send_pong+=
 @generate_mask

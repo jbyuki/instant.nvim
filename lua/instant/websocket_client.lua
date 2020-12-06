@@ -1,3 +1,4 @@
+-- Generated from websocket_client.lua.tl using ntangle.nvim
 local base64 = require("instant.base64")
 
 local bit = require("bit")
@@ -70,15 +71,9 @@ local function WebSocketClient(opt)
 	local websocketkey
 	local handshake_sent = false
 	
-	local frames = {}
-	local fragmented = ""
-	local remaining = 0
-	local first_chunk
+	local chunk_buffer = ""
 	local upgraded = false
 	local http_chunk = ""
-	
-	local wsdata = ""
-	local opcode
 	
 	local on_disconnect
 	
@@ -97,6 +92,117 @@ local function WebSocketClient(opt)
 				error("There was an error during connection: " .. err)
 				return
 			end
+			
+			local function getdata(amount)
+				while string.len(chunk_buffer) < amount do
+					coroutine.yield()
+				end
+				local retrieved = string.sub(chunk_buffer, 1, amount)
+				chunk_buffer = string.sub(chunk_buffer, amount+1)
+				return retrieved
+			end
+			
+			local wsread_co = coroutine.create(function()
+				while true do
+					local wsdata = ""
+					local fin
+			
+					local rec = getdata(2) 
+					local b1 = string.byte(string.sub(rec,1,1))
+					local b2 = string.byte(string.sub(rec,2,2))
+					local opcode = bit.band(b1, 0xF)
+					fin = bit.rshift(b1, 7)
+					
+					local paylen = bit.band(b2, 0x7F)
+					if paylen == 126 then -- 16 bits length
+						local rec = getdata(2)
+						local b3 = string.byte(string.sub(rec,1,1))
+						local b4 = string.byte(string.sub(rec,2,2))
+						paylen = bit.lshift(b3, 8) + b4
+					elseif paylen == 127 then
+						paylen = 0
+						local rec = getdata(8)
+						for i=1,8 do -- 64 bits length
+							paylen = bit.lshift(paylen, 8) 
+							paylen = paylen + string.byte(string.sub(rec,i,i))
+						end
+					end
+					
+					local data = getdata(paylen)
+					
+					
+					wsdata = data
+			
+					while fin == 0 do
+						local rec = getdata(2) 
+						local b1 = string.byte(string.sub(rec,1,1))
+						local b2 = string.byte(string.sub(rec,2,2))
+						fin = bit.rshift(b1, 7)
+						
+						local paylen = bit.band(b2, 0x7F)
+						if paylen == 126 then -- 16 bits length
+							local rec = getdata(2)
+							local b3 = string.byte(string.sub(rec,1,1))
+							local b4 = string.byte(string.sub(rec,2,2))
+							paylen = bit.lshift(b3, 8) + b4
+						elseif paylen == 127 then
+							paylen = 0
+							local rec = getdata(8)
+							for i=1,8 do -- 64 bits length
+								paylen = bit.lshift(paylen, 8) 
+								paylen = paylen + string.byte(string.sub(rec,i,i))
+							end
+						end
+						
+						local data = getdata(paylen)
+						
+			
+						wsdata = wsdata .. data
+					end
+			
+					if opcode == 0x1 then -- TEXT
+						if callbacks.on_text then
+							callbacks.on_text(wsdata)
+						end
+						
+					end
+					
+					if opcode == 0x9 then -- PING
+						local paylen = bit.band(b2, 0x7F)
+						if paylen == 126 then -- 16 bits length
+							local rec = getdata(2)
+							local b3 = string.byte(string.sub(rec,1,1))
+							local b4 = string.byte(string.sub(rec,2,2))
+							paylen = bit.lshift(b3, 8) + b4
+						elseif paylen == 127 then
+							paylen = 0
+							local rec = getdata(8)
+							for i=1,8 do -- 64 bits length
+								paylen = bit.lshift(paylen, 8) 
+								paylen = paylen + string.byte(string.sub(rec,i,i))
+							end
+						end
+						
+						local mask = {}
+						for i=1,4 do
+							table.insert(mask, math.random(0, 255))
+						end
+						
+						local frame = {
+							0x8A, 0x80,
+						}
+						for i=1,4 do 
+							table.insert(frame, mask[i])
+						end
+						local s = convert_bytes_to_string(frame)
+						
+						client:write(s)
+						
+						
+					end
+					
+				end
+			end)
 			
 			client:read_start(vim.schedule_wrap(function(err, chunk)
 				if err then
@@ -125,103 +231,8 @@ local function WebSocketClient(opt)
 							http_chunk = ""
 						end
 					else
-						local fin
-						-- if multiple tcp packets are 
-						-- sent at once
-						while string.len(chunk) > 0 do
-							-- if tcp packets are sent
-							-- fragmented
-							if remaining == 0 then
-								first_chunk = chunk
-							end
-							local b1 = string.byte(string.sub(first_chunk,1,1))
-							local b2 = string.byte(string.sub(first_chunk,2,2))
-							if string.len(wsdata) == 0 then
-								opcode = bit.band(b1, 0xF)
-							end
-							fin = bit.rshift(b1, 7)
-							
-							if opcode == 0x1 then -- TEXT
-								local paylen = bit.band(b2, 0x7F)
-								local paylenlen = 0
-								if paylen == 126 then -- 16 bits length
-									local b3 = string.byte(string.sub(first_chunk,3,3))
-									local b4 = string.byte(string.sub(first_chunk,4,4))
-									paylen = bit.lshift(b3, 8) + b4
-									paylenlen = 2
-								elseif paylen == 127 then
-									paylen = 0
-									for i=0,7 do -- 64 bits length
-										paylen = bit.lshift(paylen, 8) 
-										paylen = paylen + string.byte(string.sub(first_chunk,i+3,i+3))
-									end
-									paylenlen = 8
-								end
-								
-								if remaining == 0 then
-									local text = string.sub(chunk, 2+paylenlen+1, 2+paylenlen+1+(paylen-1))
-									
-									chunk = string.sub(chunk, 2+paylenlen+1+paylen)
-									fragmented = text
-									remaining = paylen - string.len(text)
-								else
-									local rest = math.min(remaining, string.len(chunk))
-									fragmented = fragmented .. string.sub(chunk, 1, rest)
-									remaining = remaining - rest
-									chunk = string.sub(chunk, rest+1)
-								end
-							
-								if remaining == 0 then
-									wsdata = wsdata .. fragmented
-									if fin ~= 0 then
-										if callbacks.on_text then
-											callbacks.on_text(wsdata)
-										end
-										
-										wsdata = ""
-									end
-								end
-							
-							elseif opcode == 0x9 then -- PING
-								local paylen = bit.band(b2, 0x7F)
-								local paylenlen = 0
-								if paylen == 126 then -- 16 bits length
-									local b3 = string.byte(string.sub(first_chunk,3,3))
-									local b4 = string.byte(string.sub(first_chunk,4,4))
-									paylen = bit.lshift(b3, 8) + b4
-									paylenlen = 2
-								elseif paylen == 127 then
-									paylen = 0
-									for i=0,7 do -- 64 bits length
-										paylen = bit.lshift(paylen, 8) 
-										paylen = paylen + string.byte(string.sub(first_chunk,i+3,i+3))
-									end
-									paylenlen = 8
-								end
-								
-								local mask = {}
-								for i=1,4 do
-									table.insert(mask, math.random(0, 255))
-								end
-								
-								local frame = {
-									0x8A, 0x80,
-								}
-								for i=1,4 do 
-									table.insert(frame, mask[i])
-								end
-								local s = convert_bytes_to_string(frame)
-								
-								client:write(s)
-								
-								
-								chunk = ""
-							
-							else 
-								chunk = ""
-								remaining = 0
-							end
-						end
+						chunk_buffer = chunk_buffer .. chunk
+						coroutine.resume(wsread_co)
 					end
 					
 				end

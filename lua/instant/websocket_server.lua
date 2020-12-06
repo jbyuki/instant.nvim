@@ -1,3 +1,4 @@
+-- Generated from websocket_server.lua.tl using ntangle.nvim
 local base64 = require("instant.base64")
 local sha1 = require("instant.sha1")
 
@@ -105,13 +106,113 @@ local function WebSocketServer(opt)
 			local conn
 			local upgraded = false
 			local http_data = ""
+			local chunk_buffer = ""
 			
-			local remaining = 0
-			local first_chunk
+			local function getdata(amount)
+				while string.len(chunk_buffer) < amount do
+					coroutine.yield()
+				end
+				local retrieved = string.sub(chunk_buffer, 1, amount)
+				chunk_buffer = string.sub(chunk_buffer, amount+1)
+				return retrieved
+			end
 			
-			local opcode
-			local wsdata = ""
-			local fragmented = ""
+			local wsread_co = coroutine.create(function()
+				while true do
+					local wsdata = ""
+					local fin
+			
+					local rec = getdata(2) 
+					local b1 = string.byte(string.sub(rec,1,1))
+					local b2 = string.byte(string.sub(rec,2,2))
+					local opcode = bit.band(b1, 0xF)
+					fin = bit.rshift(b1, 7)
+					
+					local paylen = bit.band(b2, 0x7F)
+					if paylen == 126 then -- 16 bits length
+						local rec = getdata(2)
+						local b3 = string.byte(string.sub(rec,1,1))
+						local b4 = string.byte(string.sub(rec,2,2))
+						paylen = bit.lshift(b3, 8) + b4
+					elseif paylen == 127 then
+						paylen = 0
+						local rec = getdata(8)
+						for i=1,8 do -- 64 bits length
+							paylen = bit.lshift(paylen, 8) 
+							paylen = paylen + string.byte(string.sub(rec,i,i))
+						end
+					end
+					
+					local mask = {}
+					local rec = getdata(4)
+					for i=1,4 do
+						table.insert(mask, string.byte(string.sub(rec, i, i)))
+					end
+					
+					local data = getdata(paylen)
+					
+					local unmasked = unmask_text(data, mask)
+					data = convert_bytes_to_string(unmasked)
+					
+			
+					wsdata = data
+			
+					while fin == 0 do
+						local rec = getdata(2) 
+						local b1 = string.byte(string.sub(rec,1,1))
+						local b2 = string.byte(string.sub(rec,2,2))
+						fin = bit.rshift(b1, 7)
+						
+						local paylen = bit.band(b2, 0x7F)
+						if paylen == 126 then -- 16 bits length
+							local rec = getdata(2)
+							local b3 = string.byte(string.sub(rec,1,1))
+							local b4 = string.byte(string.sub(rec,2,2))
+							paylen = bit.lshift(b3, 8) + b4
+						elseif paylen == 127 then
+							paylen = 0
+							local rec = getdata(8)
+							for i=1,8 do -- 64 bits length
+								paylen = bit.lshift(paylen, 8) 
+								paylen = paylen + string.byte(string.sub(rec,i,i))
+							end
+						end
+						
+						local mask = {}
+						local rec = getdata(4)
+						for i=1,4 do
+							table.insert(mask, string.byte(string.sub(rec, i, i)))
+						end
+						
+						local data = getdata(paylen)
+						
+						local unmasked = unmask_text(data, mask)
+						data = convert_bytes_to_string(unmasked)
+						
+			
+						wsdata = wsdata .. data
+					end
+			
+					if opcode == 0x1 then -- TEXT
+						if conn and conn.callbacks.on_text then
+							conn.callbacks.on_text(wsdata)
+						end
+						
+					end
+					
+					if opcode == 0x8 then -- CLOSE
+						if conn and conn.callbacks.on_disconnect then
+							conn.callbacks.on_disconnect()
+						end
+						
+						conns[conn.id] = nil
+						
+						
+						conn.sock:close()
+						break
+					end
+				end
+			end)
 			
 			if callbacks.on_connect then
 				conn = setmetatable(
@@ -156,82 +257,10 @@ local function WebSocketServer(opt)
 							http_data = ""
 						end
 					else
-						local fin
-						while string.len(chunk) > 0 do
-							if remaining == 0 then
-								first_chunk = chunk
-							end
-							local b1 = string.byte(string.sub(first_chunk,1,1))
-							local b2 = string.byte(string.sub(first_chunk,2,2))
-							if string.len(wsdata) == 0 then
-								opcode = bit.band(b1, 0xF)
-							end
-							fin = bit.rshift(b1, 7)
-							
-							if opcode == 0x1 then -- TEXT
-								local paylen = bit.band(b2, 0x7F)
-								local paylenlen = 0
-								if paylen == 126 then -- 16 bits length
-									local b3 = string.byte(string.sub(first_chunk,3,3))
-									local b4 = string.byte(string.sub(first_chunk,4,4))
-									paylen = bit.lshift(b3, 8) + b4
-									paylenlen = 2
-								elseif paylen == 127 then
-									paylen = 0
-									for i=0,7 do -- 64 bits length
-										paylen = bit.lshift(paylen, 8) 
-										paylen = paylen + string.byte(string.sub(first_chunk,i+3,i+3))
-									end
-									paylenlen = 8
-								end
-								
-								local mask = {}
-								for i=2+paylenlen+1, 2+paylenlen+4 do
-									table.insert(mask, string.byte(string.sub(first_chunk, i, i)))
-								end
-								
-								if remaining == 0 then
-									local text = string.sub(chunk, 2+paylenlen+1+4, 2+paylenlen+1+4+(paylen-1))
-									
-									local unmasked = unmask_text(text, mask)
-									text = convert_bytes_to_string(unmasked)
-									
-									chunk = string.sub(chunk, 2+paylenlen+1+paylen+4)
-									fragmented = text
-									remaining = paylen - string.len(text)
-								else
-									local rest = math.min(remaining, string.len(chunk))
-									fragmented = fragmented .. string.sub(chunk, 1, rest)
-									remaining = remaining - rest
-									chunk = string.sub(chunk, rest+1)
-								end
-							
-								if remaining == 0 then
-									wsdata = wsdata .. fragmented
-									if fin ~= 0 then
-										if conn and conn.callbacks.on_text then
-											conn.callbacks.on_text(wsdata)
-										end
-										
-										wsdata = ""
-									end
-								end
-							
-							if opcode == 0x8 then -- CLOSE
-								if conn and conn.callbacks.on_disconnect then
-									conn.callbacks.on_disconnect()
-								end
-								
-								conns[conn.id] = nil
-								
-								conn.sock:close()
-							end
-							else 
-								chunk = ""
-								remaining = 0
-							end
-						end
+						chunk_buffer = chunk_buffer .. chunk
+						coroutine.resume(wsread_co)
 					end
+					
 					
 				else
 					if conn and conn.callbacks.on_disconnect then
@@ -239,6 +268,7 @@ local function WebSocketServer(opt)
 					end
 					
 					conns[conn.id] = nil
+					
 					
 					sock:shutdown()
 					sock:close()
@@ -259,6 +289,7 @@ local function WebSocketServer(opt)
 			end
 			
 			conns[conn.id] = nil
+			
 			
 			conn.sock:shutdown()
 			conn.sock:close()

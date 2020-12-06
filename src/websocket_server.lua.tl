@@ -40,6 +40,7 @@ function ws:listen(callbacks)
 		server:accept(sock)
 		local conn
 		@client_internal_variables
+		@client_reader_coroutine
 		@call_callbacks_connected
 		@register_socket_read_callback
 	end)
@@ -64,9 +65,7 @@ end)
 @client_internal_variables+=
 local upgraded = false
 local http_data = ""
-
-local remaining = 0
-local first_chunk
+local chunk_buffer = ""
 
 @read_message_tcp+=
 if not upgraded then
@@ -76,19 +75,10 @@ if not upgraded then
 		http_data = ""
 	end
 else
-	local fin
-	while string.len(chunk) > 0 do
-		if remaining == 0 then
-			first_chunk = chunk
-		end
-		@read_opcode
-		@do_opcode
-		else 
-			chunk = ""
-			remaining = 0
-		end
-	end
+	chunk_buffer = chunk_buffer .. chunk
+	coroutine.resume(wsread_co)
 end
+
 
 @read_http_data+=
 local has_upgrade = false
@@ -149,81 +139,80 @@ function conn_proto:attach(callbacks)
 	self.callbacks = callbacks
 end
 
-@client_internal_variables+=
-local opcode
-local wsdata = ""
-local fragmented = ""
-
-@read_opcode+=
-local b1 = string.byte(string.sub(first_chunk,1,1))
-local b2 = string.byte(string.sub(first_chunk,2,2))
-if string.len(wsdata) == 0 then
-	opcode = bit.band(b1, 0xF)
+@client_reader_coroutine+=
+local function getdata(amount)
+	while string.len(chunk_buffer) < amount do
+		coroutine.yield()
+	end
+	local retrieved = string.sub(chunk_buffer, 1, amount)
+	chunk_buffer = string.sub(chunk_buffer, amount+1)
+	return retrieved
 end
-fin = bit.rshift(b1, 7)
 
-@do_opcode+=
-if opcode == 0x1 then -- TEXT
-	@read_payload_length
-	@read_mask
-	if remaining == 0 then
+local wsread_co = coroutine.create(function()
+	while true do
+		local wsdata = ""
+		local fin
+
+		@read_header_two_bytes_first
+		@read_payload_length
+		@read_mask
 		@read_payload
 		@unmask_data
-		chunk = string.sub(chunk, 2+paylenlen+1+paylen+4)
-		fragmented = text
-		remaining = paylen - string.len(text)
-	else
-		local rest = math.min(remaining, string.len(chunk))
-		fragmented = fragmented .. string.sub(chunk, 1, rest)
-		remaining = remaining - rest
-		chunk = string.sub(chunk, rest+1)
-	end
 
-	if remaining == 0 then
-		wsdata = wsdata .. fragmented
-		if fin ~= 0 then
-			@interpret_received_text
-			wsdata = ""
+		wsdata = data
+
+		while fin == 0 do
+			@read_header_two_bytes_fragmented
+			@read_payload_length
+			@read_mask
+			@read_payload
+			@unmask_data
+
+			wsdata = wsdata .. data
 		end
+
+		@do_opcode
 	end
+end)
+
+@read_header_two_bytes_first+=
+local rec = getdata(2) 
+local b1 = string.byte(string.sub(rec,1,1))
+local b2 = string.byte(string.sub(rec,2,2))
+local opcode = bit.band(b1, 0xF)
+fin = bit.rshift(b1, 7)
+
+@read_header_two_bytes_fragmented+=
+local rec = getdata(2) 
+local b1 = string.byte(string.sub(rec,1,1))
+local b2 = string.byte(string.sub(rec,2,2))
+fin = bit.rshift(b1, 7)
 
 @read_payload_length+=
 local paylen = bit.band(b2, 0x7F)
-local paylenlen = 0
 if paylen == 126 then -- 16 bits length
-	local b3 = string.byte(string.sub(first_chunk,3,3))
-	local b4 = string.byte(string.sub(first_chunk,4,4))
+	local rec = getdata(2)
+	local b3 = string.byte(string.sub(rec,1,1))
+	local b4 = string.byte(string.sub(rec,2,2))
 	paylen = bit.lshift(b3, 8) + b4
-	paylenlen = 2
 elseif paylen == 127 then
 	paylen = 0
-	for i=0,7 do -- 64 bits length
+	local rec = getdata(8)
+	for i=1,8 do -- 64 bits length
 		paylen = bit.lshift(paylen, 8) 
-		paylen = paylen + string.byte(string.sub(first_chunk,i+3,i+3))
+		paylen = paylen + string.byte(string.sub(rec,i,i))
 	end
-	paylenlen = 8
 end
 
 @read_payload+=
-local text = string.sub(chunk, 2+paylenlen+1+4, 2+paylenlen+1+4+(paylen-1))
-
-@interpret_received_text+=
-if conn and conn.callbacks.on_text then
-	conn.callbacks.on_text(wsdata)
-end
-
-@close_client_callbacks+=
-if conn and conn.callbacks.on_disconnect then
-	conn.callbacks.on_disconnect()
-end
-
-@remove_client+=
-conns[conn.id] = nil
+local data = getdata(paylen)
 
 @read_mask+=
 local mask = {}
-for i=2+paylenlen+1, 2+paylenlen+4 do
-	table.insert(mask, string.byte(string.sub(first_chunk, i, i)))
+local rec = getdata(4)
+for i=1,4 do
+	table.insert(mask, string.byte(string.sub(rec, i, i)))
 end
 
 @declare_functions+=
@@ -253,8 +242,27 @@ function convert_bytes_to_string(tab)
 end
 
 @unmask_data+=
-local unmasked = unmask_text(text, mask)
-text = convert_bytes_to_string(unmasked)
+local unmasked = unmask_text(data, mask)
+data = convert_bytes_to_string(unmasked)
+
+@do_opcode+=
+if opcode == 0x1 then -- TEXT
+	@interpret_received_text
+end
+
+@interpret_received_text+=
+if conn and conn.callbacks.on_text then
+	conn.callbacks.on_text(wsdata)
+end
+
+@close_client_callbacks+=
+if conn and conn.callbacks.on_disconnect then
+	conn.callbacks.on_disconnect()
+end
+
+@remove_client+=
+conns[conn.id] = nil
+
 
 @script_variables+=
 local max_before_frag = 8192
@@ -340,4 +348,5 @@ if opcode == 0x8 then -- CLOSE
 	@close_client_callbacks
 	@remove_client
 	conn.sock:close()
+	break
 end
