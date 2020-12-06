@@ -19,6 +19,8 @@ Features
 
 * Powerful collaborative editing algorithm
 
+* UTF-8 Support
+
 * Single or multiple buffer sharing
 
 * Virtual cursors with username of other clients
