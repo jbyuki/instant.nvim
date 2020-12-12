@@ -769,9 +769,6 @@ function isLowerOrEqual(a, b)
 	return true
 end
 
-@set_port_as_80_if_not_provided+=
-port = port or 80
-
 @script_variables+=
 local singlebuf
 
@@ -955,35 +952,15 @@ local obj = {
 local encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 @send_encoded
 
-@check_for_connection_errors+=
-if err then
-	@stop
-	error("There was an error during connection: " .. err)
-	return
-end
-
 @check_if_has_username+=
 local v, username = pcall(function() return vim.api.nvim_get_var("instant_username") end)
 if not v then
 	error("Please specify a username in g:instant_username")
 end
 
-
-@check_for_connection_errors_when_connected+=
-if err then
-	@stop
-	error("There was an error during connection: " .. err)
-	return
-end
-
 @attach_to_current_buffer+=
 @init_buffer_attach
 @register_buf_change_callback
-
-@get_all_lines_in_current_buffer+=
-local lines = vim.api.nvim_buf_get_lines(
-	singlebuf,
-	0, -1, true)
 
 @message_types+=
 INITIAL = 6,
@@ -1234,10 +1211,6 @@ cursors = {}
 prev = allprev[buf]
 pids = allpids[buf]
 
-@init_context_for_current_buffer+=
-allprev[buf] = {}
-allpids[buf] = {}
-
 @set_context_for_current_buffer+=
 allprev[buf] = prev
 allpids[buf] = pids
@@ -1435,32 +1408,6 @@ else
 	line= c.y
 end
 
-@declare_functions+=
-local SendBinary
-
-@functions+=
-function SendBinary(str)
-	@generate_mask
-	@mask_text
-	@create_base_frame_binary
-	@convert_frame_to_string
-	@send_frame
-end
-
-@create_base_frame_binary+=
-local frame = {
-	0x82, 0x80
-}
-
-@write_payload_length
-
-for i=1,4 do
-	table.insert(frame, mask[i])
-end
-
-for i=sent+1,sent+1+(send-1) do
-	table.insert(frame, masked[i])
-end
 
 @get_author_from_other_agent_id+=
 local aut = id2author[other_agent]

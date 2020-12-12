@@ -23,8 +23,6 @@ local isLowerOrEqual
 
 local getConfig
 
-local SendBinary
-
 local genPIDSeq
 
 local ws_client
@@ -638,22 +636,6 @@ function instantOpenOrCreateBuffer(buf)
 	end
 end
 
-function SendBinary(str)
-	local frame = {
-		0x82, 0x80
-	}
-	
-	
-	for i=1,4 do
-		table.insert(frame, mask[i])
-	end
-	
-	for i=sent+1,sent+1+(send-1) do
-		table.insert(frame, masked[i])
-	end
-	
-end
-
 function genPIDSeq(p, q, s, i, N)
 	local a = (p[i] and p[i][1]) or 0
 	local b = (q[i] and q[i][1]) or MAXINT
@@ -685,7 +667,6 @@ local function StartClient(first, appuri, port)
 	if not v then
 		error("Please specify a username in g:instant_username")
 	end
-	
 	
 	detach = {}
 	
@@ -2666,6 +2647,7 @@ local function Status()
 				else
 					line= c.y
 				end
+				
 				
 				table.insert(positions , {aut, bufname, line+1})
 			else
