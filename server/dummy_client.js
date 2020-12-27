@@ -59,7 +59,7 @@ function findCharPositionBefore(opid)
 function isLowerOrEqual(a, b)
 {
 	for(let i=0; i<a.length; ++i) {
-		if(i > b.length) return false;
+		if(i >= b.length) return false;
 		let ai = a[i];
 		let bi = b[i];
 		if(ai[0] < bi[0]) return true;
@@ -182,6 +182,7 @@ client.on('connect', (ws) => {
 			const decoded = JSON.parse(msg.utf8Data);
 			
 			if(decoded !== undefined) {
+				console.log(decoded);
 				if(decoded[0] == MSG_AVAILABLE) {
 					if(decoded[3] != session_share) {
 						console.error("Server already initialised with a different SHARE_TYPE")

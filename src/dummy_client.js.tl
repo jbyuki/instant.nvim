@@ -28,6 +28,7 @@ client.on('connect', (ws) => {
 		if(msg.type == "utf8") {
 			@decode_message
 			if(decoded !== undefined) {
+				console.log(decoded);
 				@if_available_message_send_request_message
 				@if_initial_message_initialize_textual_data
 				@if_text_message_apply_changes
@@ -307,7 +308,7 @@ while(true) {
 function isLowerOrEqual(a, b)
 {
 	for(let i=0; i<a.length; ++i) {
-		if(i > b.length) return false;
+		if(i >= b.length) return false;
 		let ai = a[i];
 		let bi = b[i];
 		if(ai[0] < bi[0]) return true;
