@@ -31,7 +31,7 @@ local attached = {}
 
 local detach = {}
 
-local allprev = {}
+allprev = {}
 local prev = { "" }
 
 -- pos = [(num, site)]

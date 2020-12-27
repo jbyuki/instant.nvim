@@ -133,7 +133,7 @@ local add_range = {
 }
 
 @script_variables+=
-local allprev = {}
+allprev = {}
 local prev = { "" }
 
 @get_both_ranges+=
