@@ -63,9 +63,6 @@ function from8to32(b1, b2, b3, b4)
 		+ bit.lshift(b3, 8) + bit.lshift(b4, 0)
 end
 
-@script_variables+=
-events = {}
-
 @split_M_into_W+=
 for j=0,15 do
 	W[j] = from8to32(

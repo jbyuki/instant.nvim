@@ -1,3 +1,4 @@
+-- Generated from sha1.lua.tl using ntangle.nvim
 local bit = require("bit")
 
 function from8to32(b1, b2, b3, b4)

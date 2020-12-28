@@ -183,6 +183,7 @@ local rec = getdata(2)
 local b1 = string.byte(string.sub(rec,1,1))
 local b2 = string.byte(string.sub(rec,2,2))
 local opcode = bit.band(b1, 0xF)
+local copy_opcode = opcode
 fin = bit.rshift(b1, 7)
 
 @read_header_two_bytes_fragmented+=

@@ -34,16 +34,12 @@ stderr = vim.loop.new_pipe(false)
 stdout:read_start(function(err, data)
 	assert(not err, err)
 	if data then
-		table.insert(events, data)
 		@read_stdout_server
 	end
 end)
 
 stderr:read_start(function(err, data)
 	assert(not err, err)
-	if data then
-		table.insert(events, data)
-	end
 end)
 
 
@@ -73,9 +69,6 @@ vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartSingle 127.0.0.1 8080", fal
 
 @script_variables+=
 local num_connected = 0
-
-@script_variables+=
-events = {}
 
 @read_stdout_server+=
 if vim.startswith(data, "Peer connected") then

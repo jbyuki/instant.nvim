@@ -1,10 +1,9 @@
+-- Generated from test_api.lua.tl using ntangle.nvim
 local client1, client2
 local client1pipe = [[\\.\\pipe\nvim-12392-0]]
 local client2pipe = [[\\.\\pipe\nvim-28204-0]]
 
 local num_connected = 0
-
-events = {}
 
 local outputbuf
 local outputwin
@@ -79,7 +78,6 @@ handle, pid = vim.loop.spawn("node",
 stdout:read_start(function(err, data)
 	assert(not err, err)
 	if data then
-		table.insert(events, data)
 		if vim.startswith(data, "Server is listening") then
 			vim.schedule(function()
 				vim.fn.rpcrequest(client1, 'nvim_exec', "new", false)
@@ -189,9 +187,6 @@ end)
 
 stderr:read_start(function(err, data)
 	assert(not err, err)
-	if data then
-		table.insert(events, data)
-	end
 end)
 
 

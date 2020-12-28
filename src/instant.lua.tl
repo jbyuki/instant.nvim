@@ -850,6 +850,7 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded+=
 ws_client:send_text(encoded)
 
+
 @if_initial_and_not_initialized_set_buffer_lines+=
 if decoded[1] == MSG_TYPE.INITIAL then
 	local _, bufname, bufid, pidslist, content = unpack(decoded)

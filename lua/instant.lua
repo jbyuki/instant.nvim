@@ -172,6 +172,7 @@ function SendOp(buf, op)
 	
 	ws_client:send_text(encoded)
 	
+	
 end
 
 local function findCharPositionBefore(opid)
@@ -363,6 +364,7 @@ function instantOpenOrCreateBuffer(buf)
 			encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 			
 			ws_client:send_text(encoded)
+			
 			
 
 			detach[buf] = nil
@@ -708,6 +710,7 @@ local function StartClient(first, appuri, port)
 			ws_client:send_text(encoded)
 			
 			
+			
 			for _, o in pairs(api_attach) do
 				if o.on_connect then
 					o.on_connect()
@@ -946,6 +949,7 @@ local function StartClient(first, appuri, port)
 						
 						ws_client:send_text(encoded)
 						
+						
 					else
 						local allbufs = vim.api.nvim_list_bufs()
 						local bufs = {}
@@ -986,6 +990,7 @@ local function StartClient(first, appuri, port)
 							encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 							
 							ws_client:send_text(encoded)
+							
 							
 						end
 					end
@@ -2370,6 +2375,7 @@ local function StartClient(first, appuri, port)
 							ws_client:send_text(encoded)
 							
 							
+							
 							vim.api.nvim_command("augroup instantSession")
 							vim.api.nvim_command("autocmd!")
 							-- this is kind of messy
@@ -3240,6 +3246,7 @@ local function send_data(data)
 
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 	ws_client:send_text(encoded)
+	
 	
 end
 

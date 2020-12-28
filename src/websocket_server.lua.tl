@@ -290,7 +290,6 @@ local opcode
 if sent == 0 then opcode = 1
 else opcode = 0 end
 
-
 local frame = {
 	fin+opcode, 0x80
 }
@@ -316,7 +315,8 @@ end
 
 @create_str_to_send+=
 local control = convert_bytes_to_string(frame)
-local tosend = control .. str
+local tosend = control .. string.sub(str, 1, send)
+str = string.sub(str, send+1)
 
 @send_frame+=
 conns[self.id].sock:write(tosend)

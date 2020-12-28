@@ -111,6 +111,7 @@ local function WebSocketClient(opt)
 					local b1 = string.byte(string.sub(rec,1,1))
 					local b2 = string.byte(string.sub(rec,2,2))
 					local opcode = bit.band(b1, 0xF)
+					local copy_opcode = opcode
 					fin = bit.rshift(b1, 7)
 					
 					local paylen = bit.band(b2, 0x7F)
