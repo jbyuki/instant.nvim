@@ -3,8 +3,6 @@ instant.nvim
 
 **instant.nvim** is a **collaborative editing** plugin for **Neovim** written in **Lua** with no dependencies.
 
-> A minimalist plugin for collaborative editing
-
 * [Design document](https://github.com/jbyuki/instant.nvim/wiki/Design-Document)
 * [Protocol](https://github.com/jbyuki/instant.nvim/wiki/Protocol)
 * [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
@@ -31,7 +29,7 @@ Features
 
 * Separated undo/redo for each user
 
-* Different color for each user
+* Persistent data on server
 
 Requirements
 ------------
