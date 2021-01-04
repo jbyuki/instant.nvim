@@ -86,7 +86,7 @@ local websocketkey
 for line in vim.gsplit(http_data, "\r\n") do
 	if string.match(line, "Upgrade: websocket") then
 		has_upgrade = true
-	elseif string.match(line, "Sec%-WebSocket%-Key") then
+	elseif string.match(line, nocase("Sec%-WebSocket%-Key")) then
 		@read_websocket_key
 	end
 end
@@ -115,14 +115,35 @@ if callbacks.on_connect then
 	callbacks.on_connect(conn)
 end
 
+@declare_functions+0
+
+@functions+=
+function nocase (s)
+	s = string.gsub(s, "%a", function (c)
+		if string.match(c, "[a-zA-Z]") then
+			return string.format("[%s%s]", 
+				string.lower(c),
+				string.upper(c))
+		else
+			return c
+		end
+	end)
+	return s
+end
+
 @read_websocket_key+=
-websocketkey = string.match(line, "Sec%-WebSocket%-Key: ([=/+%w]+)")
+websocketkey = string.match(line, nocase("Sec%-WebSocket%-Key") .. ": ([=/+%w]+)")
 
 @requires+=
 local base64 = require("instant.base64")
 local sha1 = require("instant.sha1")
 
+@variables+=
+events = {}
+
 @compute_key_sha1+=
+table.insert(events, "websocketkey " .. vim.inspect(websocketkey))
+table.insert(events, "http_data " .. vim.inspect(http_data))
 local decoded = base64.decode(websocketkey)
 local hashed = base64.encode(sha1(decoded))
 

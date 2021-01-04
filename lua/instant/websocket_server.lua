@@ -12,6 +12,19 @@ local unmask_text
 
 local convert_bytes_to_string
 
+function nocase (s)
+	s = string.gsub(s, "%a", function (c)
+		if string.match(c, "[a-zA-Z]") then
+			return string.format("[%s%s]", 
+				string.lower(c),
+				string.upper(c))
+		else
+			return c
+		end
+	end)
+	return s
+end
+
 function unmask_text(str, mask)
 	local unmasked = {}
 	for i=0,#str-1 do
@@ -224,6 +237,7 @@ local function WebSocketServer(opt)
 				callbacks.on_connect(conn)
 			end
 			
+			
 			sock:read_start(function(err, chunk)
 				if chunk then
 					if not upgraded then
@@ -234,13 +248,15 @@ local function WebSocketServer(opt)
 							for line in vim.gsplit(http_data, "\r\n") do
 								if string.match(line, "Upgrade: websocket") then
 									has_upgrade = true
-								elseif string.match(line, "Sec%-WebSocket%-Key") then
-									websocketkey = string.match(line, "Sec%-WebSocket%-Key: ([=/+%w]+)")
+								elseif string.match(line, nocase("Sec%-WebSocket%-Key")) then
+									websocketkey = string.match(line, nocase("Sec%-WebSocket%-Key") .. ": ([=/+%w]+)")
 									
 								end
 							end
 							
 							if has_upgrade then
+								table.insert(events, "websocketkey " .. vim.inspect(websocketkey))
+								table.insert(events, "http_data " .. vim.inspect(http_data))
 								local decoded = base64.decode(websocketkey)
 								local hashed = base64.encode(sha1(decoded))
 								
