@@ -1,4 +1,5 @@
 -- Generated from websocket_server.lua.tl using ntangle.nvim
+local events = {}
 local base64 = require("instant.base64")
 local sha1 = require("instant.sha1")
 
