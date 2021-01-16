@@ -255,8 +255,6 @@ local function WebSocketServer(opt)
 							end
 							
 							if has_upgrade then
-								table.insert(events, "websocketkey " .. vim.inspect(websocketkey))
-								table.insert(events, "http_data " .. vim.inspect(http_data))
 								local decoded = base64.decode(websocketkey)
 								local hashed = base64.encode(sha1(decoded))
 								

@@ -138,12 +138,7 @@ websocketkey = string.match(line, nocase("Sec%-WebSocket%-Key") .. ": ([=/+%w]+)
 local base64 = require("instant.base64")
 local sha1 = require("instant.sha1")
 
-@variables+=
-events = {}
-
 @compute_key_sha1+=
-table.insert(events, "websocketkey " .. vim.inspect(websocketkey))
-table.insert(events, "http_data " .. vim.inspect(http_data))
 local decoded = base64.decode(websocketkey)
 local hashed = base64.encode(sha1(decoded))
 
