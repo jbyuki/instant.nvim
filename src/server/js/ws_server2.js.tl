@@ -1,4 +1,4 @@
-@../server/ws_server.js=
+@../../../server/ws_server.js=
 @requires
 @messages_types
 @script_variables

@@ -1,4 +1,5 @@
-@../lua/instant/websocket_server.lua=
+##websocket_server
+@../../../lua/instant/websocket_server.lua=
 @requires
 @script_variables
 
@@ -115,7 +116,8 @@ if callbacks.on_connect then
 	callbacks.on_connect(conn)
 end
 
-@declare_functions+0
+@declare_functions+=
+local nocase
 
 @functions+=
 function nocase (s)

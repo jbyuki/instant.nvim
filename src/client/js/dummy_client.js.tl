@@ -1,4 +1,4 @@
-@../server/dummy_client.js=
+@../../../server/dummy_client.js=
 @requires
 @messages_types
 @operation_types

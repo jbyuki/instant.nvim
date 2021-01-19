@@ -1,4 +1,4 @@
-@../plugin/instant.vim=
+@../../plugin/instant.vim=
 @header
 @save_line_continuation
 @plugin_load_guard

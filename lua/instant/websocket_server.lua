@@ -8,6 +8,8 @@ local conn_id = 100
 local max_before_frag = 8192
 
 
+local nocase
+
 local unmask_text
 
 local convert_bytes_to_string
@@ -236,7 +238,6 @@ local function WebSocketServer(opt)
 			
 				callbacks.on_connect(conn)
 			end
-			
 			
 			sock:read_start(function(err, chunk)
 				if chunk then

@@ -1,4 +1,4 @@
-@../lua/instant/sha1.lua=
+@../../lua/instant/sha1.lua=
 @requires
 @functions
 

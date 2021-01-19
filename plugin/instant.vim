@@ -1,3 +1,4 @@
+" Generated from instant.vim.tl using ntangle.nvim
 " Vim global plugin for remote collaborative editing
 " Creation Date: 2020 Sep 3
 " Maintainer:  jbyuki

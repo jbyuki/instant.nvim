@@ -1,4 +1,4 @@
-@../lua/instant/utf8.lua=
+@../../lua/instant/utf8.lua=
 @requires
 @script_variables
 local M = {}

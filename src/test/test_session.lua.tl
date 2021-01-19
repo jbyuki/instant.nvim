@@ -1,4 +1,4 @@
-@../test/session.lua=
+@../../test/session.lua=
 @script_variables
 @create_window_test
 @declare_functions
@@ -27,7 +27,7 @@ handle, pid = vim.loop.spawn("node",
 	{
 		stdio = {stdin, stdout, stderr},
 		args = { "ws_server.js" },
-		cwd = "../server"
+		cwd = "../../server"
 	}, function(code, signal)
 		vim.schedule(function()
 			log("exit code" .. code)
@@ -35,7 +35,6 @@ handle, pid = vim.loop.spawn("node",
 			@terminate_socket_connection_to_vim
 		end)
 	end)
-
 
 @create_pipes+=
 stdin = vim.loop.new_pipe(false)
@@ -70,8 +69,8 @@ end
 @script_variables+=
 local client1, client2
 local nodejs = true
-local client1pipe = [[\\.\\pipe\nvim-14324-0]]
-local client2pipe = [[\\.\\pipe\nvim-29556-0]]
+local client1pipe = [[\\.\\pipe\nvim-5824-0]]
+local client2pipe = [[\\.\\pipe\nvim-19768-0]]
 
 @initiate_socket_connection_to_vim+=
 client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })

@@ -1,3 +1,4 @@
+-- Generated from base64.lua.tl using ntangle.nvim
 local bit = require("bit")
 
 local b64enc = {}

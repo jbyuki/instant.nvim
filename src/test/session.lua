@@ -1,8 +1,8 @@
 -- Generated from test_session.lua.tl using ntangle.nvim
 local client1, client2
 local nodejs = true
-local client1pipe = [[\\.\\pipe\nvim-5824-0]]
-local client2pipe = [[\\.\\pipe\nvim-19768-0]]
+local client1pipe = [[\\.\\pipe\nvim-20468-0]]
+local client2pipe = [[\\.\\pipe\nvim-3108-0]]
 
 local num_connected = 0
 
@@ -67,7 +67,7 @@ if nodejs then
 		{
 			stdio = {stdin, stdout, stderr},
 			args = { "ws_server.js" },
-			cwd = "../../server"
+			cwd = "../server"
 		}, function(code, signal)
 			vim.schedule(function()
 				log("exit code" .. code)
@@ -77,6 +77,7 @@ if nodejs then
 				
 			end)
 		end)
+	
 	
 	stdout:read_start(function(err, data)
 		assert(not err, err)

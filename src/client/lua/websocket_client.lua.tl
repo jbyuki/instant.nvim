@@ -1,4 +1,4 @@
-@../lua/instant/websocket_client.lua=
+@../../../lua/instant/websocket_client.lua=
 @requires
 @script_variables
 @fill_base64_table

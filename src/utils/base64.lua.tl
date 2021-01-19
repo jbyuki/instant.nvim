@@ -1,4 +1,4 @@
-@../lua/instant/base64.lua=
+@../../lua/instant/base64.lua=
 @requires
 @script_variables
 @fill_base64_encode_table
