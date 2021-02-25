@@ -65,10 +65,10 @@ The collaborative editing plugin works with a server which connects together the
 
 For a localhost or LAN network, you can simple use the built-in server included in the plugin.
 
-* Start it with `:InstantStartServer`
+* Start it with `:InstantStartServer [host] [port]`
 * When done stop it with `:InstantStopServer`
 
-For a more advanced (remote server) overview see [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
+The default is to serve localhost only, on port 8080. For a more advanced (remote server) overview see [Deploy a server](https://github.com/jbyuki/instant.nvim/wiki/Deploy-a-server)
 
 ### Client (Neovim)
 
