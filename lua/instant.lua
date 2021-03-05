@@ -2811,6 +2811,11 @@ local function undo(buf)
 		return
 	end
 	local ops = undostack[buf][undosp[buf]]
+	local rev_ops = {}
+	for i=#ops,1,-1 do
+	  table.insert(rev_ops, ops[i])
+	end
+	ops = rev_ops
 	
 	-- quick hack to avoid bug when first line is
 	-- restored. The newlines are stored at
@@ -2819,7 +2824,18 @@ local function undo(buf)
 	-- character are entered before any newline
 	-- which will error. To avoid the last op is 
 	-- swapped with first
-	ops[#ops], ops[1] = ops[1], ops[#ops]
+	local lowest = nil
+	local firstpid = allpids[buf][2][1]
+	for i,op in ipairs(ops) do
+	  if op[1] == OP_TYPE.INS and isLowerOrEqual(op[3], firstpid) then
+	    lowest = i
+	    break
+	  end
+	end
+	
+	if lowest then
+	  ops[lowest], ops[1] = ops[1], ops[lowest]
+	end
 	
 	undosp[buf] = undosp[buf] - 1
 	
@@ -3049,6 +3065,11 @@ local function redo(buf)
 		return
 	end
 	local ops = undostack[buf][undosp[buf]]
+	local rev_ops = {}
+	for i=#ops,1,-1 do
+	  table.insert(rev_ops, ops[i])
+	end
+	ops = rev_ops
 	
 	-- quick hack to avoid bug when first line is
 	-- restored. The newlines are stored at
@@ -3057,7 +3078,18 @@ local function redo(buf)
 	-- character are entered before any newline
 	-- which will error. To avoid the last op is 
 	-- swapped with first
-	ops[#ops], ops[1] = ops[1], ops[#ops]
+	local lowest = nil
+	local firstpid = allpids[buf][2][1]
+	for i,op in ipairs(ops) do
+	  if op[1] == OP_TYPE.INS and isLowerOrEqual(op[3], firstpid) then
+	    lowest = i
+	    break
+	  end
+	end
+	
+	if lowest then
+	  ops[lowest], ops[1] = ops[1], ops[lowest]
+	end
 	
 	local other_rem, other_agent = loc2rem[buf], agent
 	disable_undo = true
