@@ -48,6 +48,15 @@ if undosp[buf] == 0 then
 end
 local ops = undostack[buf][undosp[buf]]
 
+-- quick hack to avoid bug when first line is
+-- restored. The newlines are stored at
+-- the beginning. Because the undo will reverse
+-- the inserted character, it can happen that
+-- character are entered before any newline
+-- which will error. To avoid the last op is 
+-- swapped with first
+ops[#ops], ops[1] = ops[1], ops[#ops]
+
 @move_undo_stack_pointer_down+=
 undosp[buf] = undosp[buf] - 1
 
@@ -152,7 +161,7 @@ if not autocmd_init then
   vim.api.nvim_command("autocmd!")
   vim.api.nvim_command([[autocmd InsertLeave * lua require"instant".leave_insert()]])
   vim.api.nvim_command("augroup end")
-  autocmd_init = false
+  autocmd_init = true
 end
 
 @check_if_in_insert_mode+=

@@ -2602,7 +2602,7 @@ local function Start(host, port)
     vim.api.nvim_command("autocmd!")
     vim.api.nvim_command([[autocmd InsertLeave * lua require"instant".leave_insert()]])
     vim.api.nvim_command("augroup end")
-    autocmd_init = false
+    autocmd_init = true
   end
   
 
@@ -2625,7 +2625,7 @@ local function Join(host, port)
     vim.api.nvim_command("autocmd!")
     vim.api.nvim_command([[autocmd InsertLeave * lua require"instant".leave_insert()]])
     vim.api.nvim_command("augroup end")
-    autocmd_init = false
+    autocmd_init = true
   end
   
 
@@ -2654,7 +2654,7 @@ local function StartSession(host, port)
     vim.api.nvim_command("autocmd!")
     vim.api.nvim_command([[autocmd InsertLeave * lua require"instant".leave_insert()]])
     vim.api.nvim_command("augroup end")
-    autocmd_init = false
+    autocmd_init = true
   end
   
 
@@ -2674,7 +2674,7 @@ local function JoinSession(host, port)
     vim.api.nvim_command("autocmd!")
     vim.api.nvim_command([[autocmd InsertLeave * lua require"instant".leave_insert()]])
     vim.api.nvim_command("augroup end")
-    autocmd_init = false
+    autocmd_init = true
   end
   
 
@@ -2805,6 +2805,15 @@ local function undo(buf)
 		return
 	end
 	local ops = undostack[buf][undosp[buf]]
+	
+	-- quick hack to avoid bug when first line is
+	-- restored. The newlines are stored at
+	-- the beginning. Because the undo will reverse
+	-- the inserted character, it can happen that
+	-- character are entered before any newline
+	-- which will error. To avoid the last op is 
+	-- swapped with first
+	ops[#ops], ops[1] = ops[1], ops[#ops]
 	
 	undosp[buf] = undosp[buf] - 1
 	
@@ -3034,6 +3043,15 @@ local function redo(buf)
 		return
 	end
 	local ops = undostack[buf][undosp[buf]]
+	
+	-- quick hack to avoid bug when first line is
+	-- restored. The newlines are stored at
+	-- the beginning. Because the undo will reverse
+	-- the inserted character, it can happen that
+	-- character are entered before any newline
+	-- which will error. To avoid the last op is 
+	-- swapped with first
+	ops[#ops], ops[1] = ops[1], ops[#ops]
 	
 	local other_rem, other_agent = loc2rem[buf], agent
 	disable_undo = true
