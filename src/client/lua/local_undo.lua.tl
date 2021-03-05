@@ -5,6 +5,9 @@ vim.api.nvim_buf_set_keymap(buf, 'n', 'u', '<cmd>lua require("instant").undo(' .
 @export_symbols+=
 undo = undo,
 
+@o+=
+local a
+
 @script_variables+=
 local disable_undo = false
 
@@ -40,7 +43,7 @@ end
 
 @get_operations_on_top_of_undo_stack+=
 if undosp[buf] == 0 then
-	print("Already at oldest change")
+	print("Already at oldest change.")
 	return
 end
 local ops = undostack[buf][undosp[buf]]
@@ -139,3 +142,35 @@ if client_hl_group[remove_id] ~= 5 then -- 5 means default hl group (there are f
 	hl_group[client_hl_group[remove_id]] = nil
 end
 client_hl_group[remove_id] = nil
+
+@script_variables+=
+local autocmd_init = false
+
+@register_autocommands_if_not_not_done+=
+if not autocmd_init then
+  vim.api.nvim_command("augroup instantUndo")
+  vim.api.nvim_command("autocmd!")
+  vim.api.nvim_command([[autocmd InsertLeave * lua require"instant".leave_insert()]])
+  vim.api.nvim_command("augroup end")
+  autocmd_init = false
+end
+
+@check_if_in_insert_mode+=
+local mode = vim.api.nvim_call_function("mode", {})
+local insert_mode = mode == "i"
+
+@functions+=
+function leave_insert()
+  @save_all_non_empty_undo_slices
+end
+
+@export_symbols+=
+leave_insert = leave_insert,
+
+@o+=
+local a
+
+@save_all_non_empty_undo_slices+=
+for buf,_ in pairs(undoslice) do
+  @push_on_undo_stack
+end

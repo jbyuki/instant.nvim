@@ -15,7 +15,11 @@ if not attached[buf] then
 			@if_there_is_text_to_delete_delete_it
 			@if_there_is_text_to_insert_insert_it
 			@set_context_for_current_buffer
-			@push_on_undo_stack
+
+      @check_if_in_insert_mode
+      if not insert_mode then
+        @push_on_undo_stack
+      end
 
 		end,
 		on_detach = function(_, buf)

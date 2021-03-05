@@ -70,6 +70,8 @@ local undoslice = {}
 local hl_group = {}
 local client_hl_group = {}
 
+local autocmd_init = false
+
 local author2id = {}
 local id2author = {}
 
@@ -453,15 +455,21 @@ function instantOpenOrCreateBuffer(buf)
 						
 						allprev[buf] = prev
 						allpids[buf] = pids
-						if #undoslice[buf] > 0 then
-							while undosp[buf] < #undostack[buf] do
-								table.remove(undostack[buf]) -- remove last element
-							end
-							table.insert(undostack[buf], undoslice[buf])
-							undosp[buf] = undosp[buf] + 1
-							undoslice[buf] = {}
-						end
-						
+			
+			      local mode = vim.api.nvim_call_function("mode", {})
+			      local insert_mode = mode == "i"
+			      
+			      if not insert_mode then
+			        if #undoslice[buf] > 0 then
+			        	while undosp[buf] < #undostack[buf] do
+			        		table.remove(undostack[buf]) -- remove last element
+			        	end
+			        	table.insert(undostack[buf], undoslice[buf])
+			        	undosp[buf] = undosp[buf] + 1
+			        	undoslice[buf] = {}
+			        end
+			        
+			      end
 			
 					end,
 					on_detach = function(_, buf)
@@ -485,6 +493,20 @@ function instantOpenOrCreateBuffer(buf)
 			
 		end
 	end
+end
+
+function leave_insert()
+  for buf,_ in pairs(undoslice) do
+    if #undoslice[buf] > 0 then
+    	while undosp[buf] < #undostack[buf] do
+    		table.remove(undostack[buf]) -- remove last element
+    	end
+    	table.insert(undostack[buf], undoslice[buf])
+    	undosp[buf] = undosp[buf] + 1
+    	undoslice[buf] = {}
+    end
+    
+  end
 end
 
 function findCharPositionBefore(opid)
@@ -1242,15 +1264,21 @@ local function StartClient(first, appuri, port)
 										
 										allprev[buf] = prev
 										allpids[buf] = pids
-										if #undoslice[buf] > 0 then
-											while undosp[buf] < #undostack[buf] do
-												table.remove(undostack[buf]) -- remove last element
-											end
-											table.insert(undostack[buf], undoslice[buf])
-											undosp[buf] = undosp[buf] + 1
-											undoslice[buf] = {}
-										end
-										
+							
+							      local mode = vim.api.nvim_call_function("mode", {})
+							      local insert_mode = mode == "i"
+							      
+							      if not insert_mode then
+							        if #undoslice[buf] > 0 then
+							        	while undosp[buf] < #undostack[buf] do
+							        		table.remove(undostack[buf]) -- remove last element
+							        	end
+							        	table.insert(undostack[buf], undoslice[buf])
+							        	undosp[buf] = undosp[buf] + 1
+							        	undoslice[buf] = {}
+							        end
+							        
+							      end
 							
 									end,
 									on_detach = function(_, buf)
@@ -1618,15 +1646,21 @@ local function StartClient(first, appuri, port)
 											
 											allprev[buf] = prev
 											allpids[buf] = pids
-											if #undoslice[buf] > 0 then
-												while undosp[buf] < #undostack[buf] do
-													table.remove(undostack[buf]) -- remove last element
-												end
-												table.insert(undostack[buf], undoslice[buf])
-												undosp[buf] = undosp[buf] + 1
-												undoslice[buf] = {}
-											end
-											
+								
+								      local mode = vim.api.nvim_call_function("mode", {})
+								      local insert_mode = mode == "i"
+								      
+								      if not insert_mode then
+								        if #undoslice[buf] > 0 then
+								        	while undosp[buf] < #undostack[buf] do
+								        		table.remove(undostack[buf]) -- remove last element
+								        	end
+								        	table.insert(undostack[buf], undoslice[buf])
+								        	undosp[buf] = undosp[buf] + 1
+								        	undoslice[buf] = {}
+								        end
+								        
+								      end
 								
 										end,
 										on_detach = function(_, buf)
@@ -1945,15 +1979,21 @@ local function StartClient(first, appuri, port)
 										
 										allprev[buf] = prev
 										allpids[buf] = pids
-										if #undoslice[buf] > 0 then
-											while undosp[buf] < #undostack[buf] do
-												table.remove(undostack[buf]) -- remove last element
-											end
-											table.insert(undostack[buf], undoslice[buf])
-											undosp[buf] = undosp[buf] + 1
-											undoslice[buf] = {}
-										end
-										
+							
+							      local mode = vim.api.nvim_call_function("mode", {})
+							      local insert_mode = mode == "i"
+							      
+							      if not insert_mode then
+							        if #undoslice[buf] > 0 then
+							        	while undosp[buf] < #undostack[buf] do
+							        		table.remove(undostack[buf]) -- remove last element
+							        	end
+							        	table.insert(undostack[buf], undoslice[buf])
+							        	undosp[buf] = undosp[buf] + 1
+							        	undoslice[buf] = {}
+							        end
+							        
+							      end
 							
 									end,
 									on_detach = function(_, buf)
@@ -2320,15 +2360,21 @@ local function StartClient(first, appuri, port)
 											
 											allprev[buf] = prev
 											allpids[buf] = pids
-											if #undoslice[buf] > 0 then
-												while undosp[buf] < #undostack[buf] do
-													table.remove(undostack[buf]) -- remove last element
-												end
-												table.insert(undostack[buf], undoslice[buf])
-												undosp[buf] = undosp[buf] + 1
-												undoslice[buf] = {}
-											end
-											
+								
+								      local mode = vim.api.nvim_call_function("mode", {})
+								      local insert_mode = mode == "i"
+								      
+								      if not insert_mode then
+								        if #undoslice[buf] > 0 then
+								        	while undosp[buf] < #undostack[buf] do
+								        		table.remove(undostack[buf]) -- remove last element
+								        	end
+								        	table.insert(undostack[buf], undoslice[buf])
+								        	undosp[buf] = undosp[buf] + 1
+								        	undoslice[buf] = {}
+								        end
+								        
+								      end
 								
 										end,
 										on_detach = function(_, buf)
@@ -2472,6 +2518,7 @@ local function StartClient(first, appuri, port)
 							hl_group[client_hl_group[remove_id]] = nil
 						end
 						client_hl_group[remove_id] = nil
+						
 						for _, o in pairs(api_attach) do
 							if o.on_clientdisconnected then
 								o.on_clientdisconnected(aut)
@@ -2550,6 +2597,14 @@ local function Start(host, port)
 		error("Client is already connected. Use InstantStop first to disconnect.")
 	end
 	
+  if not autocmd_init then
+    vim.api.nvim_command("augroup instantUndo")
+    vim.api.nvim_command("autocmd!")
+    vim.api.nvim_command([[autocmd InsertLeave * lua require"instant".leave_insert()]])
+    vim.api.nvim_command("augroup end")
+    autocmd_init = false
+  end
+  
 
 	local buf = vim.api.nvim_get_current_buf()
 	singlebuf = buf
@@ -2565,6 +2620,14 @@ local function Join(host, port)
 		error("Client is already connected. Use InstantStop first to disconnect.")
 	end
 	
+  if not autocmd_init then
+    vim.api.nvim_command("augroup instantUndo")
+    vim.api.nvim_command("autocmd!")
+    vim.api.nvim_command([[autocmd InsertLeave * lua require"instant".leave_insert()]])
+    vim.api.nvim_command("augroup end")
+    autocmd_init = false
+  end
+  
 
 	local buf = vim.api.nvim_get_current_buf()
 	singlebuf = buf
@@ -2586,6 +2649,14 @@ local function StartSession(host, port)
 		error("Client is already connected. Use InstantStop first to disconnect.")
 	end
 	
+  if not autocmd_init then
+    vim.api.nvim_command("augroup instantUndo")
+    vim.api.nvim_command("autocmd!")
+    vim.api.nvim_command([[autocmd InsertLeave * lua require"instant".leave_insert()]])
+    vim.api.nvim_command("augroup end")
+    autocmd_init = false
+  end
+  
 
 	local first = true
 	sessionshare = true
@@ -2598,6 +2669,14 @@ local function JoinSession(host, port)
 		error("Client is already connected. Use InstantStop first to disconnect.")
 	end
 	
+  if not autocmd_init then
+    vim.api.nvim_command("augroup instantUndo")
+    vim.api.nvim_command("autocmd!")
+    vim.api.nvim_command([[autocmd InsertLeave * lua require"instant".leave_insert()]])
+    vim.api.nvim_command("augroup end")
+    autocmd_init = false
+  end
+  
 
 	local first = false
 	sessionshare = true
@@ -2722,7 +2801,7 @@ end
 
 local function undo(buf)
 	if undosp[buf] == 0 then
-		print("Already at oldest change")
+		print("Already at oldest change.")
 		return
 	end
 	local ops = undostack[buf][undosp[buf]]
@@ -2951,7 +3030,7 @@ local function redo(buf)
 	undosp[buf] = undosp[buf]+1
 	
 	if undosp[buf] == 0 then
-		print("Already at oldest change")
+		print("Already at oldest change.")
 		return
 	end
 	local ops = undostack[buf][undosp[buf]]
@@ -3249,6 +3328,8 @@ JoinSession = JoinSession,
 undo = undo,
 
 redo = redo,
+
+leave_insert = leave_insert,
 
 SaveBuffers = SaveBuffers,
 

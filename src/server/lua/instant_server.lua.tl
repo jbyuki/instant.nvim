@@ -1,4 +1,4 @@
-@../lua/instant/server.lua=
+@../../../lua/instant/server.lua=
 @requires
 @script_variables
 local MSG_TYPE = {

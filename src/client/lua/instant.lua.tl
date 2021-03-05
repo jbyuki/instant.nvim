@@ -72,6 +72,7 @@ local singlebuf
 @start_function+=
 local function Start(host, port)
 	@check_if_client_is_not_connected
+  @register_autocommands_if_not_not_done
 
 	local buf = vim.api.nvim_get_current_buf()
 	singlebuf = buf
@@ -84,6 +85,7 @@ end
 @start_function+=
 local function Join(host, port)
 	@check_if_client_is_not_connected
+  @register_autocommands_if_not_not_done
 
 	local buf = vim.api.nvim_get_current_buf()
 	singlebuf = buf
@@ -118,6 +120,7 @@ local sessionshare = false
 @start_session_function+=
 local function StartSession(host, port)
 	@check_if_client_is_not_connected
+  @register_autocommands_if_not_not_done
 
 	local first = true
 	sessionshare = true
@@ -127,6 +130,7 @@ end
 @start_session_function+=
 local function JoinSession(host, port)
 	@check_if_client_is_not_connected
+  @register_autocommands_if_not_not_done
 
 	local first = false
 	sessionshare = true
