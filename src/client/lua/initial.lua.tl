@@ -44,6 +44,7 @@ if decoded[1] == MSG_TYPE.INITIAL then
 		if not sessionshare then
 			buf = singlebuf
 			@rename_buffer_to_initial
+			@detect_file_type
 		else
 			@create_new_buffer
 			@attach_to_current_buffer

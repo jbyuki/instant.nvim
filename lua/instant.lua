@@ -1026,6 +1026,12 @@ local function StartClient(first, appuri, port)
 							buf = singlebuf
 							vim.api.nvim_buf_set_name(buf, bufname)
 							
+							if vim.api.nvim_buf_call then
+								vim.api.nvim_buf_call(buf, function()
+									vim.api.nvim_command("filetype detect")
+								end)
+							end
+							
 						else
 							buf = vim.api.nvim_create_buf(true, true)
 							
