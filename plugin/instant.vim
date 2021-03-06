@@ -35,6 +35,10 @@ command! InstantOpenAll call luaeval('require("instant").OpenBuffers()')
 command! -nargs=* InstantStartServer call instant#StartServerWrapper(<f-args>)
 
 command! InstantStopServer call luaeval('require("instant.server").StopServer()')
+
+command! InstantMark lua require("instant").MarkRange()
+command! InstantMarkClear lua require("instant").MarkClear()
+
 let &cpo = s:save_cpo
 unlet s:save_cpo
 

@@ -19,6 +19,8 @@ CONNECT = 7,
 DISCONNECT = 8,
 DATA = 9,
 
+MARK = 10,
+
 }
 local function StartServer(host, port)
 	local host = host or "127.0.0.1"
@@ -103,6 +105,12 @@ local function StartServer(host, port)
 									end
 								end
 							
+			        elseif decoded[1] == MSG_TYPE.MARK then
+			        	for id, client in pairs(ws_server.conns) do
+			        		if id ~= conn.id then
+			        			client:send_text(wsdata)
+			        		end
+			        	end
 							else 
 								error("Unknown message " .. vim.inspect(decoded))
 							end
@@ -153,5 +161,6 @@ return {
 	StartServer = StartServer,
 	
 	StopServer = StopServer,
+	
 }
 

@@ -1,4 +1,4 @@
--- Generated from api.lua.tl, buf_attach.lua.tl, cursor.lua.tl, follow.lua.tl, initial.lua.tl, instant.lua.tl, local_undo.lua.tl, receive_op.lua.tl, save_open_all.lua.tl, send_op.lua.tl, status.lua.tl using ntangle.nvim
+-- Generated from api.lua.tl, buf_attach.lua.tl, cursor.lua.tl, follow.lua.tl, initial.lua.tl, instant.lua.tl, local_undo.lua.tl, mark.lua.tl, receive_op.lua.tl, save_open_all.lua.tl, send_op.lua.tl, status.lua.tl using ntangle.nvim
 local websocket_client = require("instant.websocket_client")
 
 local DetachFromBuffer
@@ -72,6 +72,8 @@ local client_hl_group = {}
 
 local autocmd_init = false
 
+local marks = {}
+
 local author2id = {}
 local id2author = {}
 
@@ -99,6 +101,8 @@ REQUEST = 3,
 INITIAL = 6,
 
 INFO = 5,
+
+MARK = 10,
 
 TEXT = 1,
 
@@ -507,6 +511,72 @@ function leave_insert()
     end
     
   end
+end
+
+local function MarkRange()
+  local _, snum, scol, _ = unpack(vim.api.nvim_call_function("getpos", { "'<" }))
+  local _, enum, ecol, _ = unpack(vim.api.nvim_call_function("getpos", { "'>" }))
+  
+  local curbuf = vim.api.nvim_get_current_buf()
+  local pids = allpids[curbuf]
+  
+  local bscol = vim.str_utfindex(prev[snum], scol-1)
+  local becol = vim.str_utfindex(prev[enum], ecol-1)
+  
+  local spid = pids[snum+1][bscol+1]
+  local epid
+  if #pids[enum+1] < becol+1 then
+    epid = pids[enum+2][1]
+  else
+    epid = pids[enum+1][becol+1]
+  end
+  
+  if marks[agent] then
+    vim.api.nvim_buf_clear_namespace(marks[agent].buf, marks[agent].ns_id, 0, -1)
+    marks[agent] = nil
+  end
+  
+  marks[agent] = {}
+  marks[agent].buf = curbuf
+  marks[agent].ns_id = vim.api.nvim_create_namespace("")
+  for y=snum-1,enum-1 do
+    local lscol
+    if y == snum-1 then lscol = scol-1
+    else lscol = 0 end
+  
+    local lecol
+    if y == enum-1 then lecol = ecol-1
+    else lecol = -1 end
+  
+    vim.api.nvim_buf_add_highlight(
+      marks[agent].buf, 
+      marks[agent].ns_id, 
+      "TermCursor", 
+      y, lscol, lecol)
+  end
+  
+  local rem = loc2rem[curbuf]
+  local obj = {
+  	MSG_TYPE.MARK,
+  	agent,
+    rem,
+    spid, epid,
+  }
+  
+  local encoded = vim.api.nvim_call_function("json_encode", { obj })
+  ws_client:send_text(encoded)
+  
+  
+  
+end
+
+local function MarkClear()
+  for _, mark in pairs(marks) do
+    vim.api.nvim_buf_clear_namespace(mark.buf, mark.ns_id, 0, -1)
+  end
+  
+  marks = {}
+  
 end
 
 function findCharPositionBefore(opid)
@@ -2543,6 +2613,60 @@ local function StartClient(first, appuri, port)
 					
 				end
 				
+			  if decoded[1] == MSG_TYPE.MARK then
+			  	local _, other_agent, rem, spid, epid = unpack(decoded)
+			    local ag, rembuf = unpack(rem)
+			    local buf = rem2loc[ag][rembuf]
+			    
+			    local sx, sy = findCharPositionExact(spid)
+			    local ex, ey = findCharPositionExact(epid)
+			    
+			    if marks[other_agent] then
+			      vim.api.nvim_buf_clear_namespace(marks[other_agent].buf, marks[other_agent].ns_id, 0, -1)
+			      marks[other_agent] = nil
+			    end
+			    
+			    marks[other_agent] = {}
+			    marks[other_agent].buf = buf
+			    marks[other_agent].ns_id = vim.api.nvim_create_namespace("")
+			    local scol = vim.str_byteindex(prev[sy-1], sx-1)
+			    local ecol = vim.str_byteindex(prev[ey-1], ex-1)
+			    
+			    for y=sy-1,ey-1 do
+			      local lscol
+			      if y == sy-1 then lscol = scol
+			      else lscol = 0 end
+			    
+			      local lecol
+			      if y == ey-1 then lecol = ecol
+			      else lecol = -1 end
+			    
+			      vim.api.nvim_buf_add_highlight(
+			        marks[other_agent].buf, 
+			        marks[other_agent].ns_id, 
+			        cursorGroup[client_hl_group[other_agent]],
+			        y-1, lscol, lecol)
+			    end
+			    
+			    local aut = id2author[other_agent]
+			    
+			    vim.api.nvim_buf_set_virtual_text(
+			      buf, marks[other_agent].ns_id, 
+			      sy-2, 
+			      {{ aut, vtextGroup[client_hl_group[other_agent]] }}, 
+			      {})
+			    
+			    if follow and follow_aut == aut then
+			    	local curbuf = vim.api.nvim_get_current_buf()
+			    	if curbuf ~= buf then
+			    		vim.api.nvim_set_current_buf(buf)
+			    	end
+			    	
+			      local y = sy
+			      vim.api.nvim_command("normal " .. (y-1) .. "gg")
+			    end
+			  end
+			  
 			else
 				error("Could not decode json " .. wsdata)
 			end
@@ -3386,6 +3510,10 @@ undo = undo,
 redo = redo,
 
 leave_insert = leave_insert,
+
+MarkRange = MarkRange,
+
+MarkClear = MarkClear,
 
 SaveBuffers = SaveBuffers,
 

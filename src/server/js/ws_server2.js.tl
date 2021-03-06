@@ -47,6 +47,7 @@ wss.on('request', (req) => {
 				@if_initial_broadcast_to_others
 				@if_available_send_response_back
 				@if_data_send_to_other_clients
+        @if_mark_send_to_other_clients
 			}
 		}
 	});
@@ -197,6 +198,18 @@ const MSG_DATA = 9;
 
 @if_data_send_to_other_clients+=
 if(decoded[0] == MSG_DATA) {
+	clients.forEach((client) => {
+		if(client != ws) {
+			client.sendUTF(msg.utf8Data);
+		}
+	});
+}
+
+@messages_types+=
+const MSG_MARK = 10;
+
+@if_mark_send_to_other_clients+=
+if(decoded[0] == MSG_MARK) {
 	clients.forEach((client) => {
 		if(client != ws) {
 			client.sendUTF(msg.utf8Data);

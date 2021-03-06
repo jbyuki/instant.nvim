@@ -288,6 +288,7 @@ if decoded then
 	@if_connect_save_client_id_and_username
 	@if_disconnect_remove_client_id_and_username
 	@if_data_send_to_callbacks
+  @if_mark_put_it_in_current_client
 else
 	error("Could not decode json " .. wsdata)
 end

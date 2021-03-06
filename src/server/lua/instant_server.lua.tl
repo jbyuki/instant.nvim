@@ -50,6 +50,7 @@ conn:attach {
 				@if_initial_broadcast_to_others
 				@if_available_send_response_back
 				@if_data_send_to_other_clients
+        @if_mark_send_to_other_clients
 				else 
 					error("Unknown message " .. vim.inspect(decoded))
 				end
@@ -195,3 +196,14 @@ end
 
 @export_symbols+=
 StopServer = StopServer,
+
+@message_types+=
+MARK = 10,
+
+@if_mark_send_to_other_clients+=
+elseif decoded[1] == MSG_TYPE.MARK then
+	for id, client in pairs(ws_server.conns) do
+		if id ~= conn.id then
+			client:send_text(wsdata)
+		end
+	end

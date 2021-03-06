@@ -12,6 +12,8 @@ const MSG_DISCONNECT = 8;
 
 const MSG_DATA = 9;
 
+const MSG_MARK = 10;
+
 var clients = [];
 
 let client_id = 100;
@@ -127,6 +129,14 @@ wss.on('request', (req) => {
 						}
 					});
 				}
+				
+        if(decoded[0] == MSG_MARK) {
+        	clients.forEach((client) => {
+        		if(client != ws) {
+        			client.sendUTF(msg.utf8Data);
+        		}
+        	});
+        }
 			}
 		}
 	});

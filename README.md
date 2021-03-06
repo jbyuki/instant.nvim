@@ -97,6 +97,8 @@ Additional useful sharing commands are:
 * `:InstantStopFollow`
 * `:InstantOpenAll` : Open all files in buffers in the current directory. Useful to share the whole directory in session sharing.
 * `:InstantSaveAll` : Save all opened buffers automatically. This will also create missing subdirectories.
+* `:InstantMark` : Visually mark a region
+* `:InstantMarkClear`
 
 ### Tips and Tricks
 
