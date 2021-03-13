@@ -1,0 +1,73 @@
+*instant.txt* Collaborative editing in Neovim
+
+Author: jbyuki
+License: MIT
+
+
+INTRODUCTION                            *instant*
+
+Have you ever wanted to collaborate in real time just like Google Docs?
+Now it's possible with instant.nvim in Neovim!
+
+                                        *instant-:InstantStartServer*
+ :InstantStartServer {host} {port}
+                        Start the built-in server. Optionnally you can specify
+                        the {host} and {port}. By default the server will
+                        start on 127.0.0.1 on port 8080.
+
+                                        *instant-:InstantStopServer*
+ :InstantStopServer     Stop the built-in server along with all its 
+                        connections.
+                                        *instant-:InstantStartSingle*
+ :InstantStartSingle {host} {port}
+                        Join the server. The first client to connect should
+                        use this command. Subsequent clients should use
+                        |:InstantJoinSingle|. This avoids unfortunate
+                        buffer overwriting. It only shares the current buffer.
+
+                                        *instant-:InstantJoinSingle*
+ :InstantJoinSingle {host} {port}
+                        Like |:InstantStartSingle| to join the server if there
+                        are already connected client(s).
+
+                                        *instant-:InstantStatus*
+ :InstantStatus         Show the connection status.
+
+                                        *instant-:InstantFollow*
+ :InstantFollow {username}
+                        Follow a user modifications specified by its
+                        {username}. To stop following use |:InstantStopFollow|
+
+                                        *instant-:InstantStopFollow*
+ :InstantStopFollow     Stop following a user.
+
+                                        *instant-:InstantStartSession*
+ :InstantStartSession {host} {port}
+                        Similar to |:InstantStartSingle| except it shares all
+                        buffers and newly opened buffers.
+
+                                        *instant-:InstantJoinSession*
+ :InstantJoinSession {host} {port}
+                        Join a session started with |:InstantStartSession| by 
+                        a another client.
+
+                                        *instant-:InstantMark*
+ :InstantMark           Mark a visually selected region. It sends the
+                        mark to other connected clients. If there are 
+                        following clients , they will be transported to 
+                        the mark.  It is useful to point out code regions 
+                        to other clients.
+
+                                        *instant-:InstantMarkClear*
+ :InstantMarkClear      Clears all marks.
+
+                                        *instant-:InstantOpenAll*
+ :InstantOpenAll        Open all files in the current working directory. This
+                        can be used with |:InstantStartSingle| to share the
+                        whole directory.
+
+                                        *instant-:InstantSaveAll*
+ :InstantSaveAll        Save all opened buffers. Unlike |:wall|, it also
+                        creates missing subdirectories.
+
+ vim:tw=78:et:ft=help:norl:
