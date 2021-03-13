@@ -1,13 +1,18 @@
 *instant.txt* Collaborative editing in Neovim
 
-Author: jbyuki
-License: MIT
-
-
+==============================================================================
 INTRODUCTION                            *instant*
 
-Have you ever wanted to collaborate in real time just like Google Docs?
-Now it's possible with instant.nvim in Neovim!
+`instant.nvim` implements a client and server for collaborative text editing.
+
+CONFIGURATION                           *instant-config*
+
+Specify your username in your configuration file.
+>
+ let g:instant_username = "USERNAME"
+<
+
+COMMANDS                                *instant-commands*
 
                                         *instant-:InstantStartServer*
  :InstantStartServer {host} {port}
