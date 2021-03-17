@@ -1101,7 +1101,7 @@ local function StartClient(first, appuri, port)
 							
 							if vim.api.nvim_buf_call then
 								vim.api.nvim_buf_call(buf, function()
-									vim.api.nvim_command("filetype detect")
+									vim.api.nvim_command("doautocmd BufRead " .. vim.api.nvim_buf_get_name(buf))
 								end)
 							end
 							
@@ -1383,7 +1383,7 @@ local function StartClient(first, appuri, port)
 							
 							if vim.api.nvim_buf_call then
 								vim.api.nvim_buf_call(buf, function()
-									vim.api.nvim_command("filetype detect")
+									vim.api.nvim_command("doautocmd BufRead " .. vim.api.nvim_buf_get_name(buf))
 								end)
 							end
 							
@@ -1465,7 +1465,7 @@ local function StartClient(first, appuri, port)
 						
 						if vim.api.nvim_buf_call then
 							vim.api.nvim_buf_call(buf, function()
-								vim.api.nvim_command("filetype detect")
+								vim.api.nvim_command("doautocmd BufRead " .. vim.api.nvim_buf_get_name(buf))
 							end)
 						end
 						
