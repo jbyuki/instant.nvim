@@ -47,6 +47,7 @@ if decoded[1] == MSG_TYPE.INITIAL then
 			@detect_file_type
 		else
 			@create_new_buffer
+      @mark_buffer_as_received
 			@attach_to_current_buffer
 			@rename_buffer_to_initial
 			@detect_file_type
@@ -351,7 +352,7 @@ only_share_cwd = getConfig("g:instant_only_cwd", true)
 
 @functions+=
 function instantOpenOrCreateBuffer(buf)
-	if sessionshare or buf == singlebuf then
+	if (sessionshare and not received[buf]) or buf == singlebuf then
 		@get_buf_name_relative_to_cwd_or_just_tail
 
 		if cwdname ~= fullname or not only_share_cwd then
@@ -395,3 +396,9 @@ if vim.api.nvim_buf_set_extmark then
 		vim.api.nvim_buf_set_extmark(
 			buf, cursors[aut].id, y-2, bx, {})
 end
+
+@script_variables+=
+local received = {}
+
+@mark_buffer_as_received+=
+received[buf] = true

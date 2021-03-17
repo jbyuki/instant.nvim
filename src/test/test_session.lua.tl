@@ -1,6 +1,5 @@
 @../../test/session.lua=
 @script_variables
-@create_window_test
 @declare_functions
 @functions
 @initiate_socket_connection_to_vim
@@ -69,8 +68,8 @@ end
 @script_variables+=
 local client1, client2
 local nodejs = false
-local client1pipe = [[\\.\pipe\nvim-15532-0]]
-local client2pipe = [[\\.\pipe\nvim-24364-0]]
+local client1pipe = [[\\.\pipe\nvim-5588-0]]
+local client2pipe = [[\\.\pipe\nvim-2908-0]]
 
 @initiate_socket_connection_to_vim+=
 client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })
@@ -219,3 +218,25 @@ vim.wait(1000)
 vim.wait(1000)
 vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStopServer", false)
 vim.wait(1000)
+
+@do_tests+=
+vim.fn.rpcrequest(client1, 'nvim_exec', "new test123", false)
+vim.fn.rpcrequest(client1, 'nvim_buf_set_lines', 0, 0, -1, true, { "AAA" } )
+
+vim.wait(100)
+
+vim.fn.rpcrequest(client2, 'nvim_exec', "b test123", false)
+local content2 = vim.fn.rpcrequest(client2, 'nvim_buf_get_lines', 0, 0, -1, true)
+assertEq(#content2, 1)
+assertEq(content2[1], "AAA")
+
+vim.wait(100)
+
+vim.fn.rpcrequest(client2, 'nvim_buf_set_lines', 0, -1, -1, true, { "BBB" } )
+
+vim.wait(100)
+
+local content1 = vim.fn.rpcrequest(client1, 'nvim_buf_get_lines', 0, 0, -1, true)
+assertEq(#content1, 2)
+assertEq(content1[1], "AAA")
+assertEq(content1[2], "BBB")

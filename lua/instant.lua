@@ -54,6 +54,8 @@ local rem2loc = {}
 
 local only_share_cwd
 
+local received = {}
+
 local ws_client
 
 local singlebuf
@@ -134,7 +136,7 @@ function getConfig(varname, default)
 end
 
 function instantOpenOrCreateBuffer(buf)
-	if sessionshare or buf == singlebuf then
+	if (sessionshare and not received[buf]) or buf == singlebuf then
 		local fullname = vim.api.nvim_buf_get_name(buf)
 		local cwdname = vim.api.nvim_call_function("fnamemodify",
 			{ fullname, ":." })
@@ -984,6 +986,7 @@ local function StartClient(first, appuri, port)
 										vim.api.nvim_buf_set_extmark(
 											buf, cursors[aut].id, y-2, bx, {})
 								end
+								
 							end
 							
 						end
@@ -1108,6 +1111,7 @@ local function StartClient(first, appuri, port)
 						else
 							buf = vim.api.nvim_create_buf(true, true)
 							
+				      received[buf] = true
 							detach[buf] = nil
 							
 							undostack[buf] = {}
@@ -3142,6 +3146,7 @@ local function undo(buf)
 							vim.api.nvim_buf_set_extmark(
 								buf, cursors[aut].id, y-2, bx, {})
 					end
+					
 				end
 				
 			end
@@ -3385,6 +3390,7 @@ local function redo(buf)
 							vim.api.nvim_buf_set_extmark(
 								buf, cursors[aut].id, y-2, bx, {})
 					end
+					
 				end
 				
 			end
