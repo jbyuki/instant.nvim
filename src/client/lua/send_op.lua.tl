@@ -210,7 +210,7 @@ end
 
 @script_variables+=
 -- pos = [(num, site)]
-local MAXINT = 2^20 -- can be adjusted
+local MAXINT = 1e10 -- can be adjusted
 local startpos, endpos = {{0, 0}}, {{MAXINT, 0}}
 -- line = [pos]
 -- pids = [line]

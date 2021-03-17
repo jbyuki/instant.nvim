@@ -1,8 +1,9 @@
 -- Generated from test_single.lua.tl using ntangle.nvim
 local client1, client2
-local nodejs = false
-local client1pipe = [[\\.\pipe\nvim-24436-0]]
-local client2pipe = [[\\.\pipe\nvim-23696-0]]
+local nodejs = true
+local client1pipe = [[\\.\pipe\nvim-15532-0]]
+local client2pipe = [[\\.\pipe\nvim-24364-0]]
+
 
 local num_connected = 0
 
@@ -53,11 +54,18 @@ if nodejs then
 				
 			end)
 		end)
-	
+	if not handle then
+	  print(pid)
+	else
+	  print("started nodejs server " .. vim.inspect(pid))
+	end
 	
 	stdout:read_start(function(err, data)
 		assert(not err, err)
 		if data then
+	    vim.schedule(function()
+	      print("nodejs out " .. vim.inspect(data))
+	    end)
 			table.insert(events, data)
 			if vim.startswith(data, "Server is listening") then
 				vim.schedule(function()
@@ -381,6 +389,9 @@ if nodejs then
 	stderr:read_start(function(err, data)
 		assert(not err, err)
 		if data then
+	    vim.schedule(function()
+	      print("nodejs err " .. vim.inspect(data))
+	    end)
 			table.insert(events, data)
 		end
 	end)

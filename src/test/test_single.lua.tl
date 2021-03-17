@@ -34,7 +34,11 @@ handle, pid = vim.loop.spawn("node",
 			@terminate_socket_connection_to_vim
 		end)
 	end)
-
+if not handle then
+  print(pid)
+else
+  print("started nodejs server " .. vim.inspect(pid))
+end
 
 @create_pipes+=
 stdin = vim.loop.new_pipe(false)
@@ -46,6 +50,9 @@ stderr = vim.loop.new_pipe(false)
 stdout:read_start(function(err, data)
 	assert(not err, err)
 	if data then
+    vim.schedule(function()
+      print("nodejs out " .. vim.inspect(data))
+    end)
 		table.insert(events, data)
 		@read_stdout_server
 	end
@@ -54,6 +61,9 @@ end)
 stderr:read_start(function(err, data)
 	assert(not err, err)
 	if data then
+    vim.schedule(function()
+      print("nodejs err " .. vim.inspect(data))
+    end)
 		table.insert(events, data)
 	end
 end)
@@ -68,9 +78,10 @@ end
 
 @script_variables+=
 local client1, client2
-local nodejs = false
-local client1pipe = [[\\.\pipe\nvim-24436-0]]
-local client2pipe = [[\\.\pipe\nvim-23696-0]]
+local nodejs = true
+local client1pipe = [[\\.\pipe\nvim-15532-0]]
+local client2pipe = [[\\.\pipe\nvim-24364-0]]
+
 
 @initiate_socket_connection_to_vim+=
 client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })
