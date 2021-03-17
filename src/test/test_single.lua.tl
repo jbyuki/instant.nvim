@@ -1,6 +1,5 @@
 @../test/single_buffer.lua=
 @script_variables
-@create_window_test
 @declare_functions
 @functions
 @initiate_socket_connection_to_vim
@@ -69,9 +68,9 @@ end
 
 @script_variables+=
 local client1, client2
-local nodejs = true
-local client1pipe = [[\\.\\pipe\nvim-24648-0]]
-local client2pipe = [[\\.\\pipe\nvim-3068-0]]
+local nodejs = false
+local client1pipe = [[\\.\pipe\nvim-24436-0]]
+local client2pipe = [[\\.\pipe\nvim-23696-0]]
 
 @initiate_socket_connection_to_vim+=
 client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })
@@ -116,38 +115,12 @@ vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
 vim.fn.rpcrequest(client1, 'nvim_exec', "bufdo bwipeout! %", false)
 vim.fn.rpcrequest(client2, 'nvim_exec', "bufdo bwipeout! %", false)
 
-@script_variables+=
-local outputbuf
-local outputwin
-
-@create_window_test+=
-outputbuf = vim.api.nvim_create_buf(false, true)
-
-local curwidth = vim.api.nvim_win_get_width(0)
-local curheight = vim.api.nvim_win_get_height(0)
-
-local opts = {
-	relative =  'win', 
-	width =  curwidth-4, 
-	height = curheight-4, 
-	col = 2,
-	row = 2, 
-	style =  'minimal'
-}
-
-ouputwin = vim.api.nvim_open_win(outputbuf, 0, opts)
-
 @declare_functions+=
 local log
 
 @functions+=
 function log(str)
-	table.insert(events,str)
-	lines = {}
-	for line in vim.gsplit(str, "\n") do 
-		table.insert(lines, line)
-	end
-	vim.api.nvim_buf_set_lines(outputbuf, -1, -1, true, lines)
+  print(str)
 end
 
 @script_variables+=
