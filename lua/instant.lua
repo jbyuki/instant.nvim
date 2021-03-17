@@ -520,6 +520,8 @@ local function MarkRange()
   local curbuf = vim.api.nvim_get_current_buf()
   local pids = allpids[curbuf]
   
+  ecol = math.min(ecol, string.len(prev[enum])+1)
+  
   local bscol = vim.str_utfindex(prev[snum], scol-1)
   local becol = vim.str_utfindex(prev[enum], ecol-1)
   
