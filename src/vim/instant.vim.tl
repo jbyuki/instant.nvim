@@ -63,6 +63,6 @@ command! -nargs=* InstantStartServer call instant#StartServerWrapper(<f-args>)
 command! InstantStopServer call luaeval('require("instant.server").StopServer()')
 
 @register_commands+=
-command! InstantMark lua require("instant").MarkRange()
+command! -range InstantMark lua require("instant").MarkRange()
 command! InstantMarkClear lua require("instant").MarkClear()
 

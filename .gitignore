@@ -9,3 +9,4 @@ src/test3.lua.tl
 src/typernd.lua.tl
 lua/profiler.lua
 lua/instant/test_*
+tags
