@@ -21,6 +21,7 @@ local _, enum, ecol, _ = unpack(vim.api.nvim_call_function("getpos", { "'>" }))
 @get_pid_of_start_and_end+=
 local curbuf = vim.api.nvim_get_current_buf()
 local pids = allpids[curbuf]
+local prev = allprev[curbuf]
 
 ecol = math.min(ecol, string.len(prev[enum])+1)
 
