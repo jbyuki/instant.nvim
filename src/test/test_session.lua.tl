@@ -2,6 +2,8 @@
 @script_variables
 @declare_functions
 @functions
+@spawn_neovim_instances
+vim.wait(1000)
 @initiate_socket_connection_to_vim
 local stdin, stdout, stderr
 if nodejs then
@@ -9,6 +11,7 @@ if nodejs then
 	@spawn_process
 	@register_pipe_callbacks
   @wait_for_nodejs_to_finish
+  @close_neovim_instances
 else
 	vim.schedule(function()
 		@start_server_on_vim_client
@@ -19,6 +22,7 @@ else
 		@stop_server_on_vim_client
 		@terminate_socket_connection_to_vim
 		@display_final_result
+    @close_neovim_instances
 	end)
 end
 
@@ -70,8 +74,8 @@ end
 @script_variables+=
 local client1, client2
 local nodejs = true
-local client1pipe = [[\\.\pipe\nvim-21816-0]]
-local client2pipe = [[\\.\pipe\nvim-12280-0]]
+local client1pipe = [[\\.\pipe\nvim-12345-0]]
+local client2pipe = [[\\.\pipe\nvim-12346-0]]
 
 @initiate_socket_connection_to_vim+=
 client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })
@@ -253,3 +257,32 @@ node_finish = true
 while not node_finish do
   vim.wait(1000)
 end
+
+@spawn_neovim_instances+=
+local handle_nvim1, err = vim.loop.spawn("nvim",
+	{
+		args = {"--headless", "--listen", client1pipe },
+		cwd = ".",
+	}, function(code, signal)
+    vim.schedule(function()
+      print(client1pipe .. " exited!")
+    end)
+end)
+
+assert(handle_nvim1, err)
+
+local handle_nvim2, err = vim.loop.spawn("nvim",
+	{
+		args = {"--headless", "--listen", client2pipe },
+		cwd = ".",
+	}, function(code, signal)
+    vim.schedule(function()
+      print(client2pipe .. " exited!")
+    end)
+end)
+
+assert(handle_nvim2, err)
+
+@close_neovim_instances+=
+handle_nvim1:kill()
+handle_nvim2:kill()
