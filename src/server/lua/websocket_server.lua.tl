@@ -349,10 +349,11 @@ end
 function ws:close()
 	for _, conn in pairs(conns) do
 		@close_client_callbacks
-		@remove_client
 		conn.sock:shutdown()
 		conn.sock:close()
 	end
+
+  conns = {}
 
 	if server then
 		server:close()

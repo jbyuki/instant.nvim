@@ -1,3 +1,4 @@
+##instant_server
 @../../../lua/instant/server.lua=
 @requires
 @script_variables
@@ -45,7 +46,6 @@ conn:attach {
 		vim.schedule(function()
 			@decode_json
 			if decoded then
-        -- print("server " .. vim.inspect(decoded))
 				@if_text_broadcast_to_others
 				@if_request_send_to_first_client_in_list
 				@if_initial_broadcast_to_others
@@ -190,6 +190,7 @@ local function StopServer()
 	vim.schedule(function() 
 		ws_server:close()
 		num_connected = 0
+    usernames = {}
 		is_initialized = false
 		print("Server shutdown.") 
 	end)

@@ -2,6 +2,9 @@
 @script_variables+=
 local attached = {}
 
+@init_buffer_attach+=
+attached[buf] = nil
+
 @register_buf_change_callback+=
 if not attached[buf] then
 	local attach_success = vim.api.nvim_buf_attach(buf, false, {

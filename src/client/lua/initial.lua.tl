@@ -4,7 +4,12 @@ if decoded[1] == MSG_TYPE.REQUEST then
 	local encoded
 	if not sessionshare then
 		local buf = singlebuf
-		local rem = { agent, buf }
+    local rem
+    if loc2rem[buf] then
+      rem = loc2rem[buf]
+    else
+      rem = { agent, buf }
+    end
 		@get_buf_name_relative_to_cwd_or_just_tail
 		@encode_initial_content_single
 		@send_encoded
@@ -30,9 +35,11 @@ local obj = {
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
 
+@script_variables+=
+client_sent = {}
+
 @send_encoded+=
 ws_client:send_text(encoded)
-
 
 @if_initial_and_not_initialized_set_buffer_lines+=
 if decoded[1] == MSG_TYPE.INITIAL then
@@ -43,7 +50,6 @@ if decoded[1] == MSG_TYPE.INITIAL then
 		local buf
 		if not sessionshare then
 			buf = singlebuf
-      print("init new buffer!")
 			@rename_buffer_to_initial
 			@detect_file_type
 		else

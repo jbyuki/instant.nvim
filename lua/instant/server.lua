@@ -38,7 +38,6 @@ local function StartServer(host, port)
 						local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
 						
 						if decoded then
-			        -- print("server " .. vim.inspect(decoded))
 							if decoded[1] == MSG_TYPE.TEXT then
 								for id, client in pairs(ws_server.conns) do
 									if id ~= conn.id then
@@ -152,6 +151,7 @@ local function StopServer()
 	vim.schedule(function() 
 		ws_server:close()
 		num_connected = 0
+    usernames = {}
 		is_initialized = false
 		print("Server shutdown.") 
 	end)

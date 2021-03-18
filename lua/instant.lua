@@ -49,6 +49,8 @@ local cursorGroup
 local follow = false
 local follow_aut
 
+client_sent = {}
+
 local loc2rem = {}
 local rem2loc = {}
 
@@ -224,8 +226,9 @@ function instantOpenOrCreateBuffer(buf)
 			
 			ws_client:send_text(encoded)
 			
-			
 
+			attached[buf] = nil
+			
 			detach[buf] = nil
 			
 			undostack[buf] = {}
@@ -572,7 +575,6 @@ local function MarkRange()
   ws_client:send_text(encoded)
   
   
-  
 end
 
 local function MarkClear()
@@ -733,7 +735,6 @@ function SendOp(buf, op)
 	
 	ws_client:send_text(encoded)
 	
-	
 end
 
 function genPIDSeq(p, q, s, i, N)
@@ -807,7 +808,6 @@ local function StartClient(first, appuri, port)
 			ws_client:send_text(encoded)
 			
 			
-			
 			for _, o in pairs(api_attach) do
 				if o.on_connect then
 					o.on_connect()
@@ -820,7 +820,6 @@ local function StartClient(first, appuri, port)
 			local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
 			
 			if decoded then
-			  -- print(vim.inspect(decoded))
 				if decoded[1] == MSG_TYPE.TEXT then
 					local _, op, other_rem, other_agent = unpack(decoded)
 					local lastPID
@@ -1016,7 +1015,12 @@ local function StartClient(first, appuri, port)
 					local encoded
 					if not sessionshare then
 						local buf = singlebuf
-						local rem = { agent, buf }
+				    local rem
+				    if loc2rem[buf] then
+				      rem = loc2rem[buf]
+				    else
+				      rem = { agent, buf }
+				    end
 						local fullname = vim.api.nvim_buf_get_name(buf)
 						local cwdname = vim.api.nvim_call_function("fnamemodify",
 							{ fullname, ":." })
@@ -1044,7 +1048,6 @@ local function StartClient(first, appuri, port)
 						encoded = vim.api.nvim_call_function("json_encode", {  obj  })
 						
 						ws_client:send_text(encoded)
-						
 						
 					else
 						local allbufs = vim.api.nvim_list_bufs()
@@ -1087,7 +1090,6 @@ local function StartClient(first, appuri, port)
 							
 							ws_client:send_text(encoded)
 							
-							
 						end
 					end
 				end
@@ -1101,7 +1103,6 @@ local function StartClient(first, appuri, port)
 						local buf
 						if not sessionshare then
 							buf = singlebuf
-				      print("init new buffer!")
 							vim.api.nvim_buf_set_name(buf, bufname)
 							
 							if vim.api.nvim_buf_call then
@@ -1114,6 +1115,8 @@ local function StartClient(first, appuri, port)
 							buf = vim.api.nvim_create_buf(true, true)
 							
 				      received[buf] = true
+							attached[buf] = nil
+							
 							detach[buf] = nil
 							
 							undostack[buf] = {}
@@ -1496,6 +1499,8 @@ local function StartClient(first, appuri, port)
 							end
 							
 							for _, buf in ipairs(bufs) do
+								attached[buf] = nil
+								
 								detach[buf] = nil
 								
 								undostack[buf] = {}
@@ -1829,6 +1834,8 @@ local function StartClient(first, appuri, port)
 						else
 							local buf = singlebuf
 				
+							attached[buf] = nil
+							
 							detach[buf] = nil
 							
 							undostack[buf] = {}
@@ -2203,6 +2210,7 @@ local function StartClient(first, appuri, port)
 								end
 							end
 							
+							agent = 0
 						else
 							agent = client_id
 							
@@ -2210,6 +2218,8 @@ local function StartClient(first, appuri, port)
 							if not sessionshare then
 								local buf = singlebuf
 				
+								attached[buf] = nil
+								
 								detach[buf] = nil
 								
 								undostack[buf] = {}
@@ -2489,7 +2499,6 @@ local function StartClient(first, appuri, port)
 							ws_client:send_text(encoded)
 							
 							
-							
 							vim.api.nvim_command("augroup instantSession")
 							vim.api.nvim_command("autocmd!")
 							-- this is kind of messy
@@ -2533,6 +2542,7 @@ local function StartClient(first, appuri, port)
 							end
 						end
 						
+						agent = 0
 					elseif not is_first and first then
 						print("ERROR: Tried to start a server which is already busy")
 						for aut,_ in pairs(cursors) do
@@ -2567,6 +2577,7 @@ local function StartClient(first, appuri, port)
 							end
 						end
 						
+						agent = 0
 					end
 				end
 				
@@ -2714,6 +2725,7 @@ local function StartClient(first, appuri, port)
 				end
 			end
 			
+			agent = 0
 			for _, o in pairs(api_attach) do
 				if o.on_disconnect then
 					o.on_disconnect()
@@ -2745,7 +2757,7 @@ local function Start(host, port)
   end
   
 
-	local buf = vim.api.nvim_get_current_buf()
+  local buf = vim.api.nvim_get_current_buf()
 	singlebuf = buf
 	local first = true
 	sessionshare = false
@@ -2768,7 +2780,9 @@ local function Join(host, port)
   end
   
 
-	local buf = vim.api.nvim_get_current_buf()
+  local buf = vim.api.nvim_create_buf(true, false)
+  vim.api.nvim_win_set_buf(0, buf)
+  
 	singlebuf = buf
 	local first = false
 	sessionshare = false
@@ -3485,7 +3499,6 @@ local function send_data(data)
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 	ws_client:send_text(encoded)
 	
-	
 end
 
 local function get_connected_buf_list()
@@ -3516,6 +3529,7 @@ Stop = Stop,
 
 StartSession = StartSession,
 JoinSession = JoinSession,
+
 undo = undo,
 
 redo = redo,

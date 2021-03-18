@@ -303,12 +303,11 @@ local function WebSocketServer(opt)
 				conn.callbacks.on_disconnect()
 			end
 			
-			conns[conn.id] = nil
-			
-			
 			conn.sock:shutdown()
 			conn.sock:close()
 		end
+	
+	  conns = {}
 	
 		if server then
 			server:close()
