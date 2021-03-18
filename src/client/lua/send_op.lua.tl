@@ -281,6 +281,7 @@ local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @interpret_received_text+=
 @decode_json
 if decoded then
+  -- print(vim.inspect(decoded))
 	@if_text_do_actions
 	@if_request_send_all_lines
 	@if_initial_and_not_initialized_set_buffer_lines

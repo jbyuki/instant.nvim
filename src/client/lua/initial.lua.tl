@@ -43,6 +43,7 @@ if decoded[1] == MSG_TYPE.INITIAL then
 		local buf
 		if not sessionshare then
 			buf = singlebuf
+      print("init new buffer!")
 			@rename_buffer_to_initial
 			@detect_file_type
 		else

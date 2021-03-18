@@ -820,6 +820,7 @@ local function StartClient(first, appuri, port)
 			local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
 			
 			if decoded then
+			  -- print(vim.inspect(decoded))
 				if decoded[1] == MSG_TYPE.TEXT then
 					local _, op, other_rem, other_agent = unpack(decoded)
 					local lastPID
@@ -1100,6 +1101,7 @@ local function StartClient(first, appuri, port)
 						local buf
 						if not sessionshare then
 							buf = singlebuf
+				      print("init new buffer!")
 							vim.api.nvim_buf_set_name(buf, bufname)
 							
 							if vim.api.nvim_buf_call then

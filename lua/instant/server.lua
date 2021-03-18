@@ -38,6 +38,7 @@ local function StartServer(host, port)
 						local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
 						
 						if decoded then
+			        -- print("server " .. vim.inspect(decoded))
 							if decoded[1] == MSG_TYPE.TEXT then
 								for id, client in pairs(ws_server.conns) do
 									if id ~= conn.id then

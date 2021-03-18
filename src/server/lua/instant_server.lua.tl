@@ -45,6 +45,7 @@ conn:attach {
 		vim.schedule(function()
 			@decode_json
 			if decoded then
+        -- print("server " .. vim.inspect(decoded))
 				@if_text_broadcast_to_others
 				@if_request_send_to_first_client_in_list
 				@if_initial_broadcast_to_others
