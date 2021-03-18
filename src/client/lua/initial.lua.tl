@@ -35,9 +35,6 @@ local obj = {
 local encoded = vim.api.nvim_call_function("json_encode", { obj })
 @send_encoded
 
-@script_variables+=
-client_sent = {}
-
 @send_encoded+=
 ws_client:send_text(encoded)
 

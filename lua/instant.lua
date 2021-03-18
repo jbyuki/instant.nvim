@@ -49,8 +49,6 @@ local cursorGroup
 local follow = false
 local follow_aut
 
-client_sent = {}
-
 local loc2rem = {}
 local rem2loc = {}
 
