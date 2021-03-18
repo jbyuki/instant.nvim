@@ -1,8 +1,8 @@
 -- Generated from test_session.lua.tl using ntangle.nvim
 local client1, client2
-local nodejs = false
-local client1pipe = [[\\.\pipe\nvim-5588-0]]
-local client2pipe = [[\\.\pipe\nvim-2908-0]]
+local nodejs = true
+local client1pipe = [[\\.\pipe\nvim-21816-0]]
+local client2pipe = [[\\.\pipe\nvim-12280-0]]
 
 local num_connected = 0
 
@@ -10,6 +10,8 @@ events = {}
 
 local test_passed = 0
 local test_failed = 0
+
+local node_finish = false
 
 local log
 
@@ -46,6 +48,8 @@ if nodejs then
 			cwd = "../../server"
 		}, function(code, signal)
 			vim.schedule(function()
+	      node_finish = true
+	      
 				log("exit code" .. code)
 				log("exit signal" .. signal)
 				vim.fn.chanclose(client2)
@@ -141,6 +145,7 @@ if nodejs then
 						assertEq(#content1, 2)
 						assertEq(content1[1], "AAA")
 						assertEq(content1[2], "BBB")
+						
 						vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
 						vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
 						vim.fn.rpcrequest(client1, 'nvim_exec', "bufdo bwipeout! %", false)
@@ -177,6 +182,9 @@ if nodejs then
 	end)
 	
 	
+  while not node_finish do
+    vim.wait(1000)
+  end
 else
 	vim.schedule(function()
 		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartServer", false)
@@ -254,6 +262,7 @@ else
 		assertEq(#content1, 2)
 		assertEq(content1[1], "AAA")
 		assertEq(content1[2], "BBB")
+		
 		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
 		vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
 		vim.fn.rpcrequest(client1, 'nvim_exec', "bufdo bwipeout! %", false)

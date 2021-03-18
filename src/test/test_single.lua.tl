@@ -8,6 +8,7 @@ if nodejs then
 	@create_pipes
 	@spawn_process
 	@register_pipe_callbacks
+  @wait_for_nodejs_to_finish
 else
 	vim.schedule(function()
 		@start_server_on_vim_client
@@ -29,6 +30,7 @@ handle, pid = vim.loop.spawn("node",
 		cwd = "../../server"
 	}, function(code, signal)
 		vim.schedule(function()
+      @set_nodejs_as_finished
 			log("exit code" .. code)
 			log("exit signal" .. signal)
 			@terminate_socket_connection_to_vim
@@ -78,9 +80,9 @@ end
 
 @script_variables+=
 local client1, client2
-local nodejs = false
-local client1pipe = [[\\.\pipe\nvim-5588-0]]
-local client2pipe = [[\\.\pipe\nvim-2908-0]]
+local nodejs = true
+local client1pipe = [[\\.\pipe\nvim-21816-0]]
+local client2pipe = [[\\.\pipe\nvim-12280-0]]
 
 
 @initiate_socket_connection_to_vim+=
@@ -462,3 +464,14 @@ vim.wait(1000)
 local content1 = vim.fn.rpcrequest(client1, 'nvim_buf_get_lines', 0, 0, -1, true)
 assertEq(#content1, 1)
 assertEq(content1[1], "")
+
+@script_variables+=
+local node_finish = false
+
+@set_nodejs_as_finished+=
+node_finish = true
+
+@wait_for_nodejs_to_finish+=
+while not node_finish do
+  vim.wait(1000)
+end
