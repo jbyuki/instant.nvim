@@ -32,7 +32,9 @@ local function StartServer(host, port)
 	ws_server:listen {
 		on_connect = function(conn) 
 			num_connected = num_connected + 1
-			print("Peer connected! " .. num_connected .. " connected.")
+      vim.schedule(function()
+        print("Peer connected! " .. num_connected .. " connected.")
+      end)
 			@notify_peer_connected
 			@client_connected
 		end

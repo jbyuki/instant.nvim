@@ -1,3 +1,4 @@
+##ws_server
 @../../../server/ws_server.js=
 @requires
 @messages_types

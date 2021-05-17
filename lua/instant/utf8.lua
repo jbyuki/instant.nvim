@@ -1,4 +1,4 @@
--- Generated from utf8.lua.tl using ntangle.nvim
+-- Generated using ntangle.nvim
 local M = {}
 function M.len(str)
 	return vim.str_utfindex(str)

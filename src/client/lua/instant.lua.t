@@ -49,7 +49,7 @@ local function StartClient(first, appuri, port)
 		on_connect = function()
 			@handshake_finished
 			@call_connect_callbacks
-			print("Connected!")
+      vim.schedule(function() print("Connected!") end)
 		end,
 		on_text = function(wsdata)
 			@interpret_received_text

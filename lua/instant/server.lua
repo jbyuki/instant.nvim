@@ -1,4 +1,4 @@
--- Generated from instant_server.lua.tl using ntangle.nvim
+-- Generated using ntangle.nvim
 local websocket_server = require("instant.websocket_server")
 
 local num_connected = 0
@@ -31,7 +31,9 @@ local function StartServer(host, port)
 	ws_server:listen {
 		on_connect = function(conn) 
 			num_connected = num_connected + 1
-			print("Peer connected! " .. num_connected .. " connected.")
+      vim.schedule(function()
+        print("Peer connected! " .. num_connected .. " connected.")
+      end)
 			conn:attach {
 				on_text = function(wsdata)
 					vim.schedule(function()

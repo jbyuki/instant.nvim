@@ -1,3 +1,4 @@
+##test-single
 @../test/single_buffer.lua=
 @script_variables
 @declare_functions

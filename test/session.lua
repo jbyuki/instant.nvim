@@ -1,4 +1,4 @@
--- Generated from test_session.lua.tl using ntangle.nvim
+-- Generated using ntangle.nvim
 local client1, client2
 local nodejs = true
 local client1pipe = [[\\.\pipe\nvim-12345-0]]

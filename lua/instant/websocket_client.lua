@@ -1,4 +1,4 @@
--- Generated from websocket_client.lua.tl using ntangle.nvim
+-- Generated using ntangle.nvim
 local base64 = require("instant.base64")
 
 local bit = require("bit")

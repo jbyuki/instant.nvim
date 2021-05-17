@@ -1,4 +1,4 @@
--- Generated from api.lua.tl, buf_attach.lua.tl, cursor.lua.tl, follow.lua.tl, initial.lua.tl, instant.lua.tl, local_undo.lua.tl, mark.lua.tl, receive_op.lua.tl, save_open_all.lua.tl, send_op.lua.tl, status.lua.tl using ntangle.nvim
+-- Generated using ntangle.nvim
 local websocket_client = require("instant.websocket_client")
 
 local DetachFromBuffer
@@ -812,7 +812,7 @@ local function StartClient(first, appuri, port)
 				end
 			end
 			
-			print("Connected!")
+      vim.schedule(function() print("Connected!") end)
 		end,
 		on_text = function(wsdata)
 			local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
