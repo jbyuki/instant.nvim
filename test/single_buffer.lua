@@ -1,46 +1,22 @@
--- Generated from test_single.lua.tl using ntangle.nvim
+-- Generated using ntangle.nvim
 local client1, client2
 local nodejs = false
-local client1pipe = [[\\.\\pipe\nvim-7816-0]]
-local client2pipe = [[\\.\\pipe\nvim-17676-0]]
 
 local num_connected = 0
 
 events = {}
 
-local outputbuf
-local outputwin
-
 local test_passed = 0
 local test_failed = 0
 
-outputbuf = vim.api.nvim_create_buf(false, true)
-
-local curwidth = vim.api.nvim_win_get_width(0)
-local curheight = vim.api.nvim_win_get_height(0)
-
-local opts = {
-	relative =  'win', 
-	width =  curwidth-4, 
-	height = curheight-4, 
-	col = 2,
-	row = 2, 
-	style =  'minimal'
-}
-
-ouputwin = vim.api.nvim_open_win(outputbuf, 0, opts)
+local node_finish = false
 
 local log
 
 local assertEq
 
 function log(str)
-	table.insert(events,str)
-	lines = {}
-	for line in vim.gsplit(str, "\n") do 
-		table.insert(lines, line)
-	end
-	vim.api.nvim_buf_set_lines(outputbuf, -1, -1, true, lines)
+  print(str)
 end
 
 function assertEq(val1, val2)
@@ -53,8 +29,8 @@ function assertEq(val1, val2)
 	end
 end
 
-client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })
-client2 = vim.fn.sockconnect("pipe", client2pipe, { rpc = true })
+local client1 = vim.fn.jobstart({vim.v.progpath, '--embed', '--headless'}, {rpc = true})
+local client2 = vim.fn.jobstart({vim.v.progpath, '--embed', '--headless'}, {rpc = true})
 
 local stdin, stdout, stderr
 if nodejs then
@@ -67,21 +43,27 @@ if nodejs then
 		{
 			stdio = {stdin, stdout, stderr},
 			args = { "ws_server.js" },
-			cwd = "../server"
+			cwd = "../../server"
 		}, function(code, signal)
 			vim.schedule(function()
+	      node_finish = true
+	      
 				log("exit code" .. code)
 				log("exit signal" .. signal)
-				vim.fn.chanclose(client2)
-				vim.fn.chanclose(client1)
-				
 			end)
 		end)
-	
+	if not handle then
+	  print(pid)
+	else
+	  print("started nodejs server " .. vim.inspect(pid))
+	end
 	
 	stdout:read_start(function(err, data)
 		assert(not err, err)
 		if data then
+	    vim.schedule(function()
+	      print("nodejs out " .. vim.inspect(data))
+	    end)
 			table.insert(events, data)
 			if vim.startswith(data, "Server is listening") then
 				vim.schedule(function()
@@ -373,6 +355,7 @@ if nodejs then
 						local content1 = vim.fn.rpcrequest(client1, 'nvim_buf_get_lines', 0, 0, -1, true)
 						assertEq(#content1, 1)
 						assertEq(content1[1], "")
+						
 						vim.wait(1000)
 						vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
 						vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
@@ -388,12 +371,6 @@ if nodejs then
 					num_connected = num_connected - 1
 					log("Peer disconnected " .. num_connected)
 					if num_connected == 0 then
-						log("")
-						log("PASSED " .. test_passed)
-						log("")
-						log("FAILED " .. test_failed)
-						log("")
-						
 						handle:kill()
 					end
 				end)
@@ -405,11 +382,21 @@ if nodejs then
 	stderr:read_start(function(err, data)
 		assert(not err, err)
 		if data then
+	    vim.schedule(function()
+	      print("nodejs err " .. vim.inspect(data))
+	    end)
 			table.insert(events, data)
 		end
 	end)
 	
 	
+  while not node_finish do
+    vim.wait(1000)
+  end
+  
+  vim.fn.jobstop(client1)
+  vim.fn.jobstop(client2)
+  
 else
 	vim.schedule(function()
 		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartServer", false)
@@ -694,6 +681,7 @@ else
 		local content1 = vim.fn.rpcrequest(client1, 'nvim_buf_get_lines', 0, 0, -1, true)
 		assertEq(#content1, 1)
 		assertEq(content1[1], "")
+		
 		vim.wait(1000)
 		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
 		vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
@@ -704,15 +692,21 @@ else
 		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStopServer", false)
 		vim.wait(1000)
 		
-		vim.fn.chanclose(client2)
-		vim.fn.chanclose(client1)
-		
 		log("")
 		log("PASSED " .. test_passed)
 		log("")
 		log("FAILED " .. test_failed)
 		log("")
 		
+    vim.fn.jobstop(client1)
+    vim.fn.jobstop(client2)
+    
+    if test_failed == 0 then
+      local f = io.open("result.txt")
+      f:write("OK")
+      f:close()
+      print("OK!")
+    end
 	end)
 end
 
