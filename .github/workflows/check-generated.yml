@@ -1,0 +1,33 @@
+name: Test that lua files are generated from ntangle file
+on: [push]
+jobs:
+  Check-generated:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
+      - name: Prepare
+        run: |
+          sudo apt install fd-find
+          test -d build || {
+            mkdir -p build
+            wget https://github.com/neovim/neovim/releases/download/nightly/nvim.appimage
+            chmod +x nvim.appimage
+            mv nvim.appimage ./build/nvim
+          }
+          mkdir -p ~/.local/share/nvim/site/pack/vendor/start
+          git clone --depth 1 https://github.com/jbyuki/ntangle.nvim ~/.local/share/nvim/site/pack/vendor/start/ntnagle.nvim
+      - run: echo "Neovim has been installed."
+      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
+      - name: List files in the repository
+        run: |
+          ls ${{ github.workspace }}
+      - name: Generate and diff
+        run: |
+          ./build/nvim --headless -c "lua require'ntangle'.tangle_all()" -c "exit"
+          git diff --exit-code -- lua
+      - run: echo "🍏 This job's status is ${{ job.status }}."
