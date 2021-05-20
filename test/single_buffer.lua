@@ -700,7 +700,7 @@ else
     vim.fn.jobstop(client2)
     
     if test_failed == 0 then
-      local f = io.open("result.txt")
+      local f = io.open("result.txt", "w")
       f:write("OK")
       f:close()
       print("OK!")
