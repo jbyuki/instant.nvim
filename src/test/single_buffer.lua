@@ -1,9 +1,6 @@
 -- Generated using ntangle.nvim
 local client1, client2
 local nodejs = false
-local client1pipe = [[\\.\pipe\nvim-12345-0]]
-local client2pipe = [[\\.\pipe\nvim-12346-0]]
-
 
 local num_connected = 0
 
@@ -32,33 +29,8 @@ function assertEq(val1, val2)
 	end
 end
 
-local handle_nvim1, err = vim.loop.spawn("nvim",
-	{
-		args = {"--headless", "--listen", client1pipe },
-		cwd = ".",
-	}, function(code, signal)
-    vim.schedule(function()
-      print(client1pipe .. " exited!")
-    end)
-end)
-
-assert(handle_nvim1, err)
-
-local handle_nvim2, err = vim.loop.spawn("nvim",
-	{
-		args = {"--headless", "--listen", client2pipe },
-		cwd = ".",
-	}, function(code, signal)
-    vim.schedule(function()
-      print(client2pipe .. " exited!")
-    end)
-end)
-
-assert(handle_nvim2, err)
-
-vim.wait(1000)
-client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })
-client2 = vim.fn.sockconnect("pipe", client2pipe, { rpc = true })
+local client1 = vim.fn.jobstart({vim.v.progpath, '--embed', '--headless'}, {rpc = true})
+local client2 = vim.fn.jobstart({vim.v.progpath, '--embed', '--headless'}, {rpc = true})
 
 local stdin, stdout, stderr
 if nodejs then
@@ -78,9 +50,6 @@ if nodejs then
 	      
 				log("exit code" .. code)
 				log("exit signal" .. signal)
-				vim.fn.chanclose(client2)
-				vim.fn.chanclose(client1)
-				
 			end)
 		end)
 	if not handle then
@@ -402,12 +371,6 @@ if nodejs then
 					num_connected = num_connected - 1
 					log("Peer disconnected " .. num_connected)
 					if num_connected == 0 then
-						log("")
-						log("PASSED " .. test_passed)
-						log("")
-						log("FAILED " .. test_failed)
-						log("")
-						
 						handle:kill()
 					end
 				end)
@@ -431,8 +394,9 @@ if nodejs then
     vim.wait(1000)
   end
   
-  handle_nvim1:kill()
-  handle_nvim2:kill()
+  vim.fn.jobstop(client1)
+  vim.fn.jobstop(client2)
+  
 else
 	vim.schedule(function()
 		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStartServer", false)
@@ -728,17 +692,21 @@ else
 		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStopServer", false)
 		vim.wait(1000)
 		
-		vim.fn.chanclose(client2)
-		vim.fn.chanclose(client1)
-		
 		log("")
 		log("PASSED " .. test_passed)
 		log("")
 		log("FAILED " .. test_failed)
 		log("")
 		
-    handle_nvim1:kill()
-    handle_nvim2:kill()
+    vim.fn.jobstop(client1)
+    vim.fn.jobstop(client2)
+    
+    if test_failed == 0 then
+      local f = io.open("result.txt")
+      f:write("OK")
+      f:close()
+      print("OK!")
+    end
 	end)
 end
 

@@ -4,8 +4,6 @@
 @declare_functions
 @functions
 @spawn_neovim_instances
-vim.wait(1000)
-@initiate_socket_connection_to_vim
 local stdin, stdout, stderr
 if nodejs then
 	@create_pipes
@@ -20,9 +18,9 @@ else
 		@do_tests
 		@stop_both_clients
 		@stop_server_on_vim_client
-		@terminate_socket_connection_to_vim
 		@display_final_result
     @close_neovim_instances
+    @output_result_txt
 	end)
 end
 
@@ -38,7 +36,6 @@ handle, pid = vim.loop.spawn("node",
       @set_nodejs_as_finished
 			log("exit code" .. code)
 			log("exit signal" .. signal)
-			@terminate_socket_connection_to_vim
 		end)
 	end)
 if not handle then
@@ -86,17 +83,6 @@ end
 @script_variables+=
 local client1, client2
 local nodejs = false
-local client1pipe = [[\\.\pipe\nvim-12345-0]]
-local client2pipe = [[\\.\pipe\nvim-12346-0]]
-
-
-@initiate_socket_connection_to_vim+=
-client1 = vim.fn.sockconnect("pipe", client1pipe, { rpc = true })
-client2 = vim.fn.sockconnect("pipe", client2pipe, { rpc = true })
-
-@terminate_socket_connection_to_vim+=
-vim.fn.chanclose(client2)
-vim.fn.chanclose(client1)
 
 @start_connection_on_vim_clients+=
 vim.fn.rpcrequest(client1, 'nvim_exec', "new", false)
@@ -180,7 +166,6 @@ if vim.startswith(data, "Peer disconnected") then
 		num_connected = num_connected - 1
 		log("Peer disconnected " .. num_connected)
 		if num_connected == 0 then
-			@display_final_result
 			handle:kill()
 		end
 	end)
@@ -482,30 +467,17 @@ while not node_finish do
 end
 
 @spawn_neovim_instances+=
-local handle_nvim1, err = vim.loop.spawn("nvim",
-	{
-		args = {"--headless", "--listen", client1pipe },
-		cwd = ".",
-	}, function(code, signal)
-    vim.schedule(function()
-      print(client1pipe .. " exited!")
-    end)
-end)
-
-assert(handle_nvim1, err)
-
-local handle_nvim2, err = vim.loop.spawn("nvim",
-	{
-		args = {"--headless", "--listen", client2pipe },
-		cwd = ".",
-	}, function(code, signal)
-    vim.schedule(function()
-      print(client2pipe .. " exited!")
-    end)
-end)
-
-assert(handle_nvim2, err)
+local client1 = vim.fn.jobstart({vim.v.progpath, '--embed', '--headless'}, {rpc = true})
+local client2 = vim.fn.jobstart({vim.v.progpath, '--embed', '--headless'}, {rpc = true})
 
 @close_neovim_instances+=
-handle_nvim1:kill()
-handle_nvim2:kill()
+vim.fn.jobstop(client1)
+vim.fn.jobstop(client2)
+
+@output_result_txt+=
+if test_failed == 0 then
+  local f = io.open("result.txt")
+  f:write("OK")
+  f:close()
+  print("OK!")
+end
