@@ -361,8 +361,6 @@ if nodejs then
 						vim.wait(1000)
 						vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
 						vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
-						vim.fn.rpcrequest(client1, 'nvim_exec', "bufdo bwipeout! %", false)
-						vim.fn.rpcrequest(client2, 'nvim_exec', "bufdo bwipeout! %", false)
 						
 					end
 				end)
@@ -687,8 +685,6 @@ else
 		vim.wait(1000)
 		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
 		vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
-		vim.fn.rpcrequest(client1, 'nvim_exec', "bufdo bwipeout! %", false)
-		vim.fn.rpcrequest(client2, 'nvim_exec', "bufdo bwipeout! %", false)
 		
 		vim.wait(1000)
 		vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStopServer", false)

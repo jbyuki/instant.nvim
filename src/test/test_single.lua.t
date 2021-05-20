@@ -117,8 +117,6 @@ table.insert(events, "Both clients connected and it's all fine")
 vim.wait(1000)
 vim.fn.rpcrequest(client1, 'nvim_exec', "InstantStop", false)
 vim.fn.rpcrequest(client2, 'nvim_exec', "InstantStop", false)
-vim.fn.rpcrequest(client1, 'nvim_exec', "bufdo bwipeout! %", false)
-vim.fn.rpcrequest(client2, 'nvim_exec', "bufdo bwipeout! %", false)
 
 @declare_functions+=
 local log
