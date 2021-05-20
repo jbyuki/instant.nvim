@@ -32,6 +32,8 @@ end
 local client1 = vim.fn.jobstart({vim.v.progpath, '--embed', '--headless'}, {rpc = true})
 local client2 = vim.fn.jobstart({vim.v.progpath, '--embed', '--headless'}, {rpc = true})
 
+vim.fn.rpcrequest(client1, 'nvim_exec', [[let g:instant_username = "test"]], false)
+vim.fn.rpcrequest(client2, 'nvim_exec', [[let g:instant_username = "test"]], false)
 local stdin, stdout, stderr
 if nodejs then
 	stdin = vim.loop.new_pipe(false)
@@ -707,6 +709,7 @@ else
       f:close()
       print("OK!")
     end
+    
 	end)
 end
 

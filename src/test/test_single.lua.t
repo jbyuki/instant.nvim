@@ -4,6 +4,7 @@
 @declare_functions
 @functions
 @spawn_neovim_instances
+@set_neovim_username
 local stdin, stdout, stderr
 if nodejs then
 	@create_pipes
@@ -481,3 +482,7 @@ if test_failed == 0 then
   f:close()
   print("OK!")
 end
+
+@set_neovim_username+=
+vim.fn.rpcrequest(client1, 'nvim_exec', [[let g:instant_username = "test"]], false)
+vim.fn.rpcrequest(client2, 'nvim_exec', [[let g:instant_username = "test"]], false)
