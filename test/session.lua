@@ -1,8 +1,8 @@
 -- Generated using ntangle.nvim
 local client1, client2
 local nodejs = true
-local client1pipe = [[\\.\pipe\nvim-12345-0]]
-local client2pipe = [[\\.\pipe\nvim-12346-0]]
+local client1pipe = [[\\.\pipe\nvim-16712-0]]
+local client2pipe = [[\\.\pipe\nvim-6056-0]]
 
 local num_connected = 0
 
