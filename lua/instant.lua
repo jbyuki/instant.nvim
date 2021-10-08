@@ -143,7 +143,7 @@ function getConfig(varname, default)
 end
 
 function instantOpenOrCreateBuffer(buf)
-	if (sessionshare and not received[buf]) or buf == singlebuf then
+	if (sessionshare and not received[buf]) then
 		local fullname = vim.api.nvim_buf_get_name(buf)
 		local cwdname = vim.api.nvim_call_function("fnamemodify",
 			{ fullname, ":." })

@@ -356,7 +356,7 @@ only_share_cwd = getConfig("g:instant_only_cwd", true)
 
 @functions+=
 function instantOpenOrCreateBuffer(buf)
-	if (sessionshare and not received[buf]) or buf == singlebuf then
+	if (sessionshare and not received[buf]) then
 		@get_buf_name_relative_to_cwd_or_just_tail
 
 		if cwdname ~= fullname or not only_share_cwd then
