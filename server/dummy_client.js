@@ -33,14 +33,14 @@ function findCharPositionBefore(opid)
 		if(ym == y1) {
 			break;
 		}
-	
+
 		if(isLowerOrEqual(pids[ym][0], opid)) {
 			y1 = ym
 		} else {
 			y2 = ym
 		}
 	}
-	
+
 	let px = 0;
 	let py = 0;
 
@@ -93,26 +93,26 @@ function findCharPositionExact(opid)
 		if(ym == y1) {
 			break;
 		}
-	
+
 		if(isLowerOrEqual(pids[ym][0], opid)) {
 			y1 = ym
 		} else {
 			y2 = ym
 		}
 	}
-	
+
 	let y = y1;
 	for(var x = 0; x < pids[y].length; ++x) {
 		let pid = pids[y][x];
 		if(isPIDEqual(pid, opid)) {
 			return [x, y];
 		}
-	
+
 		if(!isLowerOrEqual(pid, opid)) {
 			return [-1, -1];
 		}
 	}
-	
+
 	return [-1, -1];
 }
 
@@ -180,7 +180,7 @@ client.on('connect', (ws) => {
 	ws.on('message', (msg) => {
 		if(msg.type == "utf8") {
 			const decoded = JSON.parse(msg.utf8Data);
-			
+
 			if(decoded !== undefined) {
 				console.log(decoded);
 				if(decoded[0] == MSG_AVAILABLE) {
@@ -190,27 +190,27 @@ client.on('connect', (ws) => {
 						console.error("Client: session_share " + session_share);
 						process.exit(1);
 					}
-					
+
 					client_id = decoded[2];
-					
+
 					if(decoded[1]) { // check if first
 						let startpos = [[0, 0]], endpos = [[MAXINT, 0]]
 						let middlepos = [[Math.floor(MAXINT/2), client_id]]
-						
+
 						pids = [
 							[ startpos ],
 							[ middlepos ],
 							[ endpos ],
 						];
-						
+
 						let remote = [client_id, 1];
 						let bufname = ""
 						allprev[remote] = prev
 						allpids[remote] = pids
-						
+
 						allbufname[remote] = bufname
-						
-						
+
+
 					} else {
 						if(decoded[1] == false) {
 							const request = [
@@ -218,27 +218,27 @@ client.on('connect', (ws) => {
 							];
 							ws.sendUTF(JSON.stringify(request));
 						}
-						
+
 					}
 				}
-				
+
 				if(decoded[0] == MSG_INITIAL) {
 					const [, bufname, remote, pidslist, content] = decoded;
 					const [ag, bufid] = remote
-				
+
 					if(!session_share)  {
 						remote = 1; // ignore remote buffer id
 					}
-				
+
 					prev = content
-					
+
 					let pidindex = 0;
 					pids = [];
-					
+
 					pids.push([[[ pidslist[pidindex], 0 ]]])
-					
+
 					pidindex++;
-					
+
 					for(let line of content) {
 						let lpid = [];
 						for(let i=0; i<line.length; ++i) {
@@ -247,29 +247,29 @@ client.on('connect', (ws) => {
 						}
 						pids.push(lpid);
 					}
-					
+
 					pids.push([ [ [ pidslist[pidindex], 0 ] ] ])
-					
+
 					allbufname[remote] = bufname
-					
-				
+
+
 					allprev[remote] = prev
 					allpids[remote] = pids
-					
+
 				}
-				
-				
+
+
 				if(decoded[0] == MSG_TEXT) {
 					const [, op, remote, other_agent] = decoded
-				
+
 					pids = allpids[remote];
 					prev = allprev[remote];
-					
-				
+
+
 					if(op[0] == OP_INS) {
 						const [x, y] = findCharPositionBefore(op[2]);
 						console.log("char position: " + JSON.stringify([x,y]));
-						
+
 						if(op[1] == "\n") {
 							const [py, py1] = splitAt(pids[y], x+1)
 							pids[y] = py
@@ -278,7 +278,7 @@ client.on('connect', (ws) => {
 						} else {
 							pids[y].splice(x+1, 0, op[2]);
 						}
-						
+
 						if(op[1] == "\n") {
 							if(y-1 >= 0) {
 								const [l, r] = splitAt(prev[y-1], x)
@@ -290,11 +290,11 @@ client.on('connect', (ws) => {
 						} else {
 							prev[y-1] = stringInsertAt(prev[y-1], x, op[1])
 						}
-						
-						
+
+
 					} else if(op[0] == OP_DEL) {
 						const [sx, sy] = findCharPositionExact(op[1])
-						
+
 						if(sx != -1) {
 							if(sx == 0) {
 								if(sy-2 >= 0) {
@@ -306,7 +306,7 @@ client.on('connect', (ws) => {
 									prev[sy-1] = stringRemoveAt(prev[sy-1], sx-1);
 								}
 							}
-							
+
 							if(sx == 0) {
 								for(var i = 0; i < pids[sy].length; ++i) {
 									let pid = pids[sy][i];
@@ -319,7 +319,7 @@ client.on('connect', (ws) => {
 								pids[sy].splice(sx, 1);
 							}
 						}
-						
+
 					}
 					console.log(prev);
 					for(let lpid of pids) {
@@ -327,24 +327,24 @@ client.on('connect', (ws) => {
 					}
 					allprev[remote] = prev
 					allpids[remote] = pids
-					
+
 				}
-				
+
 				if(decoded[0] == MSG_REQUEST) {
 					for(let rem in allprev) {
 						prev = allprev[rem]
 						pids = allpids[rem]
 						bufname = allbufname[rem]
-				
+
 						let pidslist = [];
 						for(let lpid of pids) {
 							for(let pid of lpid) {
 								pidslist.push(pid[0][0])
 							}
 						}
-						
+
 						const [ag, bufid] = rem.split(",");
-						
+
 						let initial = [
 							MSG_INITIAL,
 							bufname,
@@ -352,11 +352,11 @@ client.on('connect', (ws) => {
 							pidslist,
 							prev,
 						];
-						
+
 						ws.sendUTF(JSON.stringify(initial));
 					}
 				}
-				
+
 			}
 		}
 	});
@@ -365,9 +365,9 @@ client.on('connect', (ws) => {
 		session_share,
 		"BUFFER_KEEPER",
 	];
-	
+
 	ws.sendUTF(JSON.stringify(info));
-	
+
 });
 
 client.connect(`${host}:${port}`);

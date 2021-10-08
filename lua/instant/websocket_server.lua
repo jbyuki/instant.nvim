@@ -60,15 +60,15 @@ function conn_proto:send_text(str)
 		local fin
 		if remain == 0 then fin = 0x80
 		else fin = 0 end
-		
+
 		local opcode
 		if sent == 0 then opcode = 1
 		else opcode = 0 end
-		
+
 		local frame = {
 			fin+opcode, 0x80
 		}
-		
+
 		if send <= 125 then
 			frame[2] = frame[2] + send
 		elseif send < math.pow(2, 16) then
@@ -84,14 +84,14 @@ function conn_proto:send_text(str)
 				table.insert(frame, b)
 			end
 		end
-		
-		
+
+
 		local control = convert_bytes_to_string(frame)
 		local tosend = control .. string.sub(str, 1, send)
 		str = string.sub(str, send+1)
-		
+
 		conns[self.id].sock:write(tosend)
-		
+
 		sent = sent + send
 	end
 end
@@ -104,16 +104,16 @@ end
 
 local function WebSocketServer(opt)
 	local host = opt.host or "127.0.0.1"
-	
+
 	local port = opt.port or 8080
-	
+
 	local server = vim.loop.new_tcp()
 	server:bind(host, port)
-	
+
 
 	local ws = {}
 	ws.conns = conns
-	
+
 	function ws:listen(callbacks)
 		local ret, err = server:listen(128, function(err)
 			local sock = vim.loop.new_tcp()
@@ -122,7 +122,7 @@ local function WebSocketServer(opt)
 			local upgraded = false
 			local http_data = ""
 			local chunk_buffer = ""
-			
+
 			local function getdata(amount)
 				while string.len(chunk_buffer) < amount do
 					coroutine.yield()
@@ -131,18 +131,18 @@ local function WebSocketServer(opt)
 				chunk_buffer = string.sub(chunk_buffer, amount+1)
 				return retrieved
 			end
-			
+
 			local wsread_co = coroutine.create(function()
 				while true do
 					local wsdata = ""
 					local fin
-			
+
 					local rec = getdata(2) 
 					local b1 = string.byte(string.sub(rec,1,1))
 					local b2 = string.byte(string.sub(rec,2,2))
 					local opcode = bit.band(b1, 0xF)
 					fin = bit.rshift(b1, 7)
-					
+
 					local paylen = bit.band(b2, 0x7F)
 					if paylen == 126 then -- 16 bits length
 						local rec = getdata(2)
@@ -157,27 +157,27 @@ local function WebSocketServer(opt)
 							paylen = paylen + string.byte(string.sub(rec,i,i))
 						end
 					end
-					
+
 					local mask = {}
 					local rec = getdata(4)
 					for i=1,4 do
 						table.insert(mask, string.byte(string.sub(rec, i, i)))
 					end
-					
+
 					local data = getdata(paylen)
-					
+
 					local unmasked = unmask_text(data, mask)
 					data = convert_bytes_to_string(unmasked)
-					
-			
+
+
 					wsdata = data
-			
+
 					while fin == 0 do
 						local rec = getdata(2) 
 						local b1 = string.byte(string.sub(rec,1,1))
 						local b2 = string.byte(string.sub(rec,2,2))
 						fin = bit.rshift(b1, 7)
-						
+
 						local paylen = bit.band(b2, 0x7F)
 						if paylen == 126 then -- 16 bits length
 							local rec = getdata(2)
@@ -192,53 +192,53 @@ local function WebSocketServer(opt)
 								paylen = paylen + string.byte(string.sub(rec,i,i))
 							end
 						end
-						
+
 						local mask = {}
 						local rec = getdata(4)
 						for i=1,4 do
 							table.insert(mask, string.byte(string.sub(rec, i, i)))
 						end
-						
+
 						local data = getdata(paylen)
-						
+
 						local unmasked = unmask_text(data, mask)
 						data = convert_bytes_to_string(unmasked)
-						
-			
+
+
 						wsdata = wsdata .. data
 					end
-			
+
 					if opcode == 0x1 then -- TEXT
 						if conn and conn.callbacks.on_text then
 							conn.callbacks.on_text(wsdata)
 						end
-						
+
 					end
-					
+
 					if opcode == 0x8 then -- CLOSE
 						if conn and conn.callbacks.on_disconnect then
 							conn.callbacks.on_disconnect()
 						end
-						
+
 						conns[conn.id] = nil
-						
-						
+
+
 						conn.sock:close()
 						break
 					end
 				end
 			end)
-			
+
 			if callbacks.on_connect then
 				conn = setmetatable(
 					{ id = conn_id, sock = sock }, 
 					{ __index = conn_proto })
 				conns[conn_id] = conn
 				conn_id = conn_id + 1
-			
+
 				callbacks.on_connect(conn)
 			end
-			
+
 			sock:read_start(function(err, chunk)
 				if chunk then
 					if not upgraded then
@@ -251,70 +251,70 @@ local function WebSocketServer(opt)
 									has_upgrade = true
 								elseif string.match(line, nocase("Sec%-WebSocket%-Key")) then
 									websocketkey = string.match(line, nocase("Sec%-WebSocket%-Key") .. ": ([=/+%w]+)")
-									
+
 								end
 							end
-							
+
 							if has_upgrade then
 								local decoded = base64.decode(websocketkey)
 								local hashed = base64.encode(sha1(decoded))
-								
+
 								sock:write("HTTP/1.1 101 Switching Protocols\r\n")
 								sock:write("Upgrade: websocket\r\n")
 								sock:write("Connection: Upgrade\r\n")
 								sock:write("Sec-WebSocket-Accept: " .. hashed .. "\r\n")
 								sock:write("Sec-WebSocket-Protocol: chat\r\n")
 								sock:write("\r\n")
-								
+
 								upgraded = true
 							end
-							
+
 							http_data = ""
 						end
 					else
 						chunk_buffer = chunk_buffer .. chunk
 						coroutine.resume(wsread_co)
 					end
-					
-					
+
+
 				else
 					if conn and conn.callbacks.on_disconnect then
 						conn.callbacks.on_disconnect()
 					end
-					
+
 					conns[conn.id] = nil
-					
-					
+
+
 					sock:shutdown()
 					sock:close()
 				end
 			end)
-			
+
 		end)
-	
+
 		if not ret then
 			error(err)
 		end
 	end
-	
+
 	function ws:close()
 		for _, conn in pairs(conns) do
 			if conn and conn.callbacks.on_disconnect then
 				conn.callbacks.on_disconnect()
 			end
-			
+
 			conn.sock:shutdown()
 			conn.sock:close()
 		end
-	
+
 	  conns = {}
-	
+
 		if server then
 			server:close()
 			server = nil
 		end
 	end
-	
+
 
 	return setmetatable({}, { __index = ws})
 end

@@ -9,6 +9,11 @@ local session_share = false
 
 local usernames = {}
 
+local log_filename
+if vim.g.debug_instant then
+  log_filename = vim.fn.stdpath('data') .. "/instant.log"
+end
+
 local MSG_TYPE = {
 TEXT = 1,
 AVAILABLE = 2,
@@ -22,6 +27,8 @@ DATA = 9,
 MARK = 10,
 
 }
+local log
+
 local function StartServer(host, port)
 	local host = host or "127.0.0.1"
 	local port = port or 8080
@@ -38,7 +45,7 @@ local function StartServer(host, port)
 				on_text = function(wsdata)
 					vim.schedule(function()
 						local decoded = vim.api.nvim_call_function("json_decode", {  wsdata })
-						
+
 						if decoded then
 							if decoded[1] == MSG_TYPE.TEXT then
 								for id, client in pairs(ws_server.conns) do
@@ -46,7 +53,7 @@ local function StartServer(host, port)
 										client:send_text(wsdata)
 									end
 								end
-							
+
 							elseif decoded[1] == MSG_TYPE.REQUEST then
 								if num_connected > 1 then
 									-- only send request to one other client
@@ -57,56 +64,56 @@ local function StartServer(host, port)
 										end
 									end
 								end
-							
+
 							elseif decoded[1] == MSG_TYPE.INITIAL then
 								for id, client in pairs(ws_server.conns) do
 									if id ~= conn.id then
 										client:send_text(wsdata)
 									end
 								end
-							
+
 							elseif decoded[1] == MSG_TYPE.INFO then
 								if not is_initialized then
 									session_share = decoded[2]
 									is_initialized = true
 								end
-							
+
 								local response = {
 									MSG_TYPE.AVAILABLE,
 									num_connected == 1,
 									conn.id,
 									session_share
 								}
-							
+
 								for id, name in pairs(usernames) do
 									local connect = { MSG_TYPE.CONNECT, id, name }
 									conn:send_json(connect);
 								end
-								
+
 								connect = {
 									MSG_TYPE.CONNECT,
 									conn.id,
 									decoded[3],
 								}
-								
+
 								for id, client in pairs(ws_server.conns) do
 									if id ~= conn.id then
 										client:send_json(connect)
 									end
 								end
-								
+
 								usernames[conn.id] = decoded[3]
-								
-							
+
+
 								conn:send_json(response);
-							
+
 							elseif decoded[1] == MSG_TYPE.DATA then
 								for id, client in pairs(ws_server.conns) do
 									if id ~= conn.id then
 										client:send_text(wsdata)
 									end
 								end
-							
+
 			        elseif decoded[1] == MSG_TYPE.MARK then
 			        	for id, client in pairs(ws_server.conns) do
 			        		if id ~= conn.id then
@@ -126,24 +133,24 @@ local function StartServer(host, port)
 						if num_connected  == 0 then
 							is_initialized = false
 						end
-						
+
 						usernames[conn.id] = nil
-						
+
 						local disconnect = {
 							MSG_TYPE.DISCONNECT,
 							conn.id,
 						}
-						
+
 						for id, client in pairs(ws_server.conns) do
 							if id ~= conn.id then
 								client:send_json(disconnect)
 							end
 						end
-						
+
 					end)
 				end,
 			}
-			
+
 		end
 	}
 	print("Server is listening on port " .. port .. "...")
@@ -159,11 +166,30 @@ local function StopServer()
 	end)
 end
 
+function log(...)
+  if log_filename then
+    vim.schedule(function()
+      local elems = { ... }
+      for i=1,#elems do
+        elems[i] = tostring(elems[i])
+      end
+
+      local line table.concat(elems, " ")
+        local f = io.open(log_filename, "a")
+        if f then
+          f:write(line .. "\n")
+          f:close()
+        end
+      end
+    end)
+  end
+end
+
 
 return {
 	StartServer = StartServer,
-	
+
 	StopServer = StopServer,
-	
+
 }
 

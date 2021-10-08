@@ -19,7 +19,7 @@ function GenerateWebSocketKey()
 	for i =0,15 do
 		table.insert(key, math.random(0, 255))
 	end
-	
+
 	return key
 end
 
@@ -62,37 +62,37 @@ local function WebSocketClient(opt)
 		return
 	end
 	local ipentry = iptable[1]
-	
+
 	local port = opt.port or 80
-	
+
 	local client = vim.loop.new_tcp()
-	
+
 
 	local websocketkey
 	local handshake_sent = false
-	
+
 	local chunk_buffer = ""
 	local upgraded = false
 	local http_chunk = ""
-	
+
 	local on_disconnect
-	
+
 	local max_before_frag = opt.max_before_frag or 8192
-	
+
 	local ws = {}
 	function ws:connect(callbacks)
 		local ret, err = client:connect(ipentry.addr, port, vim.schedule_wrap(function(err) 
 			on_disconnect = callbacks.on_disconnect
-			
+
 			if err then
 				if on_disconnect then
 					on_disconnect()
 				end
-				
+
 				error("There was an error during connection: " .. err)
 				return
 			end
-			
+
 			local function getdata(amount)
 				while string.len(chunk_buffer) < amount do
 					coroutine.yield()
@@ -101,19 +101,19 @@ local function WebSocketClient(opt)
 				chunk_buffer = string.sub(chunk_buffer, amount+1)
 				return retrieved
 			end
-			
+
 			local wsread_co = coroutine.create(function()
 				while true do
 					local wsdata = ""
 					local fin
-			
+
 					local rec = getdata(2) 
 					local b1 = string.byte(string.sub(rec,1,1))
 					local b2 = string.byte(string.sub(rec,2,2))
 					local opcode = bit.band(b1, 0xF)
 					local copy_opcode = opcode
 					fin = bit.rshift(b1, 7)
-					
+
 					local paylen = bit.band(b2, 0x7F)
 					if paylen == 126 then -- 16 bits length
 						local rec = getdata(2)
@@ -128,18 +128,18 @@ local function WebSocketClient(opt)
 							paylen = paylen + string.byte(string.sub(rec,i,i))
 						end
 					end
-					
+
 					local data = getdata(paylen)
-					
+
 					
 					wsdata = data
-			
+
 					while fin == 0 do
 						local rec = getdata(2) 
 						local b1 = string.byte(string.sub(rec,1,1))
 						local b2 = string.byte(string.sub(rec,2,2))
 						fin = bit.rshift(b1, 7)
-						
+
 						local paylen = bit.band(b2, 0x7F)
 						if paylen == 126 then -- 16 bits length
 							local rec = getdata(2)
@@ -154,20 +154,20 @@ local function WebSocketClient(opt)
 								paylen = paylen + string.byte(string.sub(rec,i,i))
 							end
 						end
-						
+
 						local data = getdata(paylen)
-						
-			
+
+
 						wsdata = wsdata .. data
 					end
-			
+
 					if opcode == 0x1 then -- TEXT
 						if callbacks.on_text then
 							callbacks.on_text(wsdata)
 						end
-						
+
 					end
-					
+
 					if opcode == 0x9 then -- PING
 						local paylen = bit.band(b2, 0x7F)
 						if paylen == 126 then -- 16 bits length
@@ -183,12 +183,12 @@ local function WebSocketClient(opt)
 								paylen = paylen + string.byte(string.sub(rec,i,i))
 							end
 						end
-						
+
 						local mask = {}
 						for i=1,4 do
 							table.insert(mask, math.random(0, 255))
 						end
-						
+
 						local frame = {
 							0x8A, 0x80,
 						}
@@ -196,25 +196,25 @@ local function WebSocketClient(opt)
 							table.insert(frame, mask[i])
 						end
 						local s = convert_bytes_to_string(frame)
-						
+
 						client:write(s)
-						
-						
+
+
 					end
-					
+
 				end
 			end)
-			
+
 			client:read_start(vim.schedule_wrap(function(err, chunk)
 				if err then
 					if on_disconnect then
 						on_disconnect()
 					end
-					
+
 					error("There was an error during connection: " .. err)
 					return
 				end
-				
+
 				if chunk then
 					if not upgraded then
 						http_chunk = http_chunk .. chunk
@@ -225,7 +225,7 @@ local function WebSocketClient(opt)
 									if callbacks.on_connect then
 										callbacks.on_connect()
 									end
-									
+
 									upgraded = true
 								end
 							end
@@ -235,7 +235,7 @@ local function WebSocketClient(opt)
 						chunk_buffer = chunk_buffer .. chunk
 						coroutine.resume(wsread_co)
 					end
-					
+
 				end
 			end))
 			client:write("GET / HTTP/1.1\r\n")
@@ -246,20 +246,20 @@ local function WebSocketClient(opt)
 			client:write("Sec-WebSocket-Key: " .. websocketkey .. "\r\n")
 			client:write("Sec-WebSocket-Version: 13\r\n")
 			client:write("\r\n")
-			
+
 		end))
-	
+
 		if not ret then
 			error(err)
 		end
 	end
-	
+
 	function ws:disconnect()
 		local mask = {}
 		for i=1,4 do
 			table.insert(mask, math.random(0, 255))
 		end
-		
+
 		local frame = {
 			0x88, 0x80,
 		}
@@ -267,28 +267,28 @@ local function WebSocketClient(opt)
 			table.insert(frame, mask[i])
 		end
 		local s = convert_bytes_to_string(frame)
-		
+
 		client:write(s)
-		
-		
+
+
 		client:close()
 		client = nil
-		
+
 		if on_disconnect then
 			on_disconnect()
 		end
-		
+
 	end
-	
+
 	function ws:send_text(str)
 		local mask = {}
 		for i=1,4 do
 			table.insert(mask, math.random(0, 255))
 		end
-		
+
 		local masked = maskText(str, mask)
-		
-	
+
+
 		local remain = #masked
 		local sent = 0
 		while remain > 0 do
@@ -297,16 +297,16 @@ local function WebSocketClient(opt)
 			local fin
 			if remain == 0 then fin = 0x80
 			else fin = 0 end
-			
+
 			local opcode
 			if sent == 0 then opcode = 1
 			else opcode = 0 end
-			
-			
+
+
 			local frame = {
 				fin+opcode, 0x80
 			}
-			
+
 			if send <= 125 then
 				frame[2] = frame[2] + send
 			elseif send < math.pow(2, 16) then
@@ -322,25 +322,25 @@ local function WebSocketClient(opt)
 					table.insert(frame, b)
 				end
 			end
-			
-			
+
+
 			for i=1,4 do
 				table.insert(frame, mask[i])
 			end
-			
+
 			for i=sent+1,sent+1+(send-1) do
 				table.insert(frame, masked[i])
 			end
-			
+
 			local s = convert_bytes_to_string(frame)
-			
+
 			client:write(s)
-			
+
 			sent = sent + send
 		end
 	end
-	
-	
+
+
 	function ws:is_active()
 		return client and client:is_active()
 	end

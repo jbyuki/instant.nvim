@@ -47,29 +47,29 @@ local function encode(array)
 	local rest = #array * 8 - #str * 6
 	if rest == 8 then
 		local b1 = array[#array]
-	
+
 		local c1 = bit.rshift(b1, 2)
 		local c2 = bit.lshift(bit.band(b1, 0x3), 4)
-	
+
 		str = str .. b64enc[c1]
 		str = str .. b64enc[c2]
 		str = str .. "="
 		str = str .. "="
-	
+
 	elseif rest == 16 then
 		local b1 = array[#array-1]
 		local b2 = array[#array]
-	
+
 		local c1 = bit.rshift(b1, 2)
 		local c2 = bit.lshift(bit.band(b1, 0x3), 4)+bit.rshift(b2, 4)
 		local c3 = bit.lshift(bit.band(b2, 0xF), 2)
-	
+
 		str = str .. b64enc[c1]
 		str = str .. b64enc[c2]
 		str = str .. b64enc[c3]
 		str = str .. "="
 	end
-	
+
 
 	return str
 end
@@ -108,8 +108,8 @@ end
 
 return {
 	encode = encode,
-	
+
 	decode = decode,
-	
+
 }
 
