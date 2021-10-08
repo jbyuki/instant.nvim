@@ -9,11 +9,6 @@ local session_share = false
 
 local usernames = {}
 
-local log_filename
-if vim.g.debug_instant then
-  log_filename = vim.fn.stdpath('data') .. "/instant.log"
-end
-
 local MSG_TYPE = {
 TEXT = 1,
 AVAILABLE = 2,
@@ -27,8 +22,6 @@ DATA = 9,
 MARK = 10,
 
 }
-local log
-
 local function StartServer(host, port)
 	local host = host or "127.0.0.1"
 	local port = port or 8080
@@ -164,25 +157,6 @@ local function StopServer()
 		is_initialized = false
 		print("Server shutdown.") 
 	end)
-end
-
-function log(...)
-  if log_filename then
-    vim.schedule(function()
-      local elems = { ... }
-      for i=1,#elems do
-        elems[i] = tostring(elems[i])
-      end
-
-      local line table.concat(elems, " ")
-        local f = io.open(log_filename, "a")
-        if f then
-          f:write(line .. "\n")
-          f:close()
-        end
-      end
-    end)
-  end
 end
 
 
