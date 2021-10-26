@@ -108,4 +108,8 @@ Additional useful sharing commands are:
 ### Help
 
 * If you encounter any problem, please don't hesitate to open an [Issue](https://github.com/jbyuki/instant.nvim/issues)
+### Contributions
+
+See [here](https://github.com/jbyuki/ntangle.nvim/wiki/How-to-use-ntangle.nvim).
+
 * All contributions are welcome
