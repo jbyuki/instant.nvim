@@ -23,7 +23,7 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             git clone --depth 1 https://github.com/jbyuki/instant.nvim ~/.local/share/nvim/site/pack/vendor/start/instant.nvim
             cd ~/.local/share/nvim/site/pack/vendor/start/instant.nvim
-            git fetch origin ${GITHUB_REF}:pr-branch
+            git fetch origin pull/${GITHUB_PR_NUMBER}/head:pr-branch
             git checkout pr-branch
             cd
           else
