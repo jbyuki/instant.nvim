@@ -82,7 +82,6 @@ vim.api.nvim_buf_set_extmark(
   }
 )
 
-
 @script_variables+=
 local cursors = {}
 local cursorGroup

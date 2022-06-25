@@ -997,7 +997,6 @@ local function StartClient(first, appuri, port)
 							  }
 							)
 
-
 							if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
 								local bx = vim.str_byteindex(prev[y-1], x-2)
 								cursors[aut] = {
@@ -3190,7 +3189,6 @@ local function undo(buf)
 				  }
 				)
 
-
 				if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
 					local bx = vim.str_byteindex(prev[y-1], x-2)
 					cursors[aut] = {
@@ -3440,7 +3438,6 @@ local function redo(buf)
 				    virt_text_pos = "right_align"
 				  }
 				)
-
 
 				if prev[y-1] and x-2 >= 0 and x-2 <= utf8len(prev[y-1]) then
 					local bx = vim.str_byteindex(prev[y-1], x-2)
