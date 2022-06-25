@@ -36,7 +36,7 @@ jobs:
           ls ${{ github.workspace }}
       - name: Run tests
         run: |
-          cat test/single_buffer.lua
+          echo lua/instant.lua
           ./build/nvim --headless -c "luafile test/single_buffer.lua" -c "exit"
           echo "Done"
           cat result.txt
