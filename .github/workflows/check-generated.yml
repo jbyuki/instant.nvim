@@ -20,8 +20,9 @@ jobs:
             mv nvim.appimage ./build/nvim
           }
           mkdir -p ~/.local/share/nvim/site/pack/vendor/start
-          echo ${GITHUB_REF##*/}
-          git clone --branch ${GITHUB_REF##*/} --depth 1 https://github.com/jbyuki/ntangle.nvim ~/.local/share/nvim/site/pack/vendor/start/ntangle.nvim
+      - uses: actions/checkout@v3
+        with:
+          path: '~/.local/share/nvim/site/pack/vendor/start/instant.nvim'
       - run: echo "Neovim has been installed."
       - run: echo "🖥️ The workflow is now ready to test your code on the runner."
       - name: List files in the repository
