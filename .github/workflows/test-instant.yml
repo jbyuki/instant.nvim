@@ -1,5 +1,5 @@
 name: Test instant
-on: [push]
+on: [push,pull_request]
 jobs:
   Test-instant:
     runs-on: ubuntu-latest

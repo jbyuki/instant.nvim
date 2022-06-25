@@ -1,5 +1,5 @@
 name: Test that lua files are generated from ntangle file
-on: [push]
+on: [push,pull_request]
 jobs:
   Check-generated:
     runs-on: ubuntu-latest
