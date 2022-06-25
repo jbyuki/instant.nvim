@@ -82,16 +82,6 @@ vim.api.nvim_buf_set_extmark(
   }
 )
 
-vim.api.nvim_buf_set_extmark(
-  buf,
-  marks[other_agent].ns_id,
-  sy - 2,
-  0,
-  {
-    virt_text = {{  aut, vtextGroup[client_hl_group[other_agent]] } },
-    virt_text_pos = "right_align"
-})
-
 @script_variables+=
 local cursors = {}
 local cursorGroup
