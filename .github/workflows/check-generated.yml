@@ -1,5 +1,5 @@
 name: Test that lua files are generated from ntangle file
-on: [push]
+on: [push,pull_request]
 jobs:
   Check-generated:
     runs-on: ubuntu-latest
@@ -15,7 +15,7 @@ jobs:
           sudo apt install fd-find
           test -d build || {
             mkdir -p build
-            wget https://github.com/neovim/neovim/releases/download/v0.5.1/nvim.appimage
+            wget https://github.com/neovim/neovim/releases/download/v0.7.0/nvim.appimage
             chmod +x nvim.appimage
             mv nvim.appimage ./build/nvim
           }
