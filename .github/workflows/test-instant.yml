@@ -20,7 +20,17 @@ jobs:
             mv nvim.appimage ./build/nvim
           }
           mkdir -p ~/.local/share/nvim/site/pack/vendor/start
-          git clone --depth 1 https://github.com/jbyuki/instant.nvim ~/.local/share/nvim/site/pack/vendor/start/instant.nvim
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git clone --depth 1 https://github.com/jbyuki/instant.nvim ~/.local/share/nvim/site/pack/vendor/start/instant.nvim
+            cd ~/.local/share/nvim/site/pack/vendor/start/instant.nvim
+            # https://github.com/actions/checkout/issues/58
+            PR_NUMBER=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
+            git fetch origin pull/${PR_NUMBER}/head:pr-branch
+            git checkout pr-branch
+            cd
+          else
+            git clone --depth 1 https://github.com/jbyuki/instant.nvim ~/.local/share/nvim/site/pack/vendor/start/instant.nvim
+          fi
       - run: echo "Neovim has been installed."
       - run: echo "🖥️ The workflow is now ready to test your code on the runner."
       - name: List files in the repository
@@ -28,7 +38,7 @@ jobs:
           ls ${{ github.workspace }}
       - name: Run tests
         run: |
-          cat test/single_buffer.lua
+          cat lua/instant.lua
           ./build/nvim --headless -c "luafile test/single_buffer.lua" -c "exit"
           echo "Done"
           cat result.txt

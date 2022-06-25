@@ -151,11 +151,21 @@ for y=sy-1,ey-1 do
 end
 
 @put_virtual_text_with_username_for_mark+=
-vim.api.nvim_buf_set_virtual_text(
-  buf, marks[other_agent].ns_id, 
-  sy-2, 
-  {{ aut, vtextGroup[client_hl_group[other_agent]] }}, 
-  {})
+old_namespace[aut] = {
+  id = vim.api.nvim_create_namespace(aut),
+  buf = buf,
+}
+
+vim.api.nvim_buf_set_extmark(
+  buf,
+  marks[other_agent].ns_id,
+  sy - 2,
+  0,
+  {
+    virt_text = {{  aut, vtextGroup[client_hl_group[other_agent]] } },
+    virt_text_pos = "right_align"
+  }
+)
 
 @focus_mark_if_follow_other_agent+=
 if follow and follow_aut == aut then

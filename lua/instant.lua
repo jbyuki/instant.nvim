@@ -986,6 +986,16 @@ local function StartClient(first, appuri, port)
 							  id = vim.api.nvim_create_namespace(aut),
 							  buf = buf,
 							}
+							vim.api.nvim_buf_set_extmark(
+							  buf,
+							  old_namespace[aut].id,
+							  math.max(y - 2, 0),
+							  0,
+							  {
+							    virt_text = {{  aut, vtextGroup[client_hl_group[other_agent]] } },
+							    virt_text_pos = "right_align"
+							  }
+							)
 
 							vim.api.nvim_buf_set_extmark(
 							  buf,
@@ -2694,11 +2704,21 @@ local function StartClient(first, appuri, port)
 
 			    local aut = id2author[other_agent]
 
-			    vim.api.nvim_buf_set_virtual_text(
-			      buf, marks[other_agent].ns_id, 
-			      sy-2, 
-			      {{ aut, vtextGroup[client_hl_group[other_agent]] }}, 
-			      {})
+			    old_namespace[aut] = {
+			      id = vim.api.nvim_create_namespace(aut),
+			      buf = buf,
+			    }
+
+			    vim.api.nvim_buf_set_extmark(
+			      buf,
+			      marks[other_agent].ns_id,
+			      sy - 2,
+			      0,
+			      {
+			        virt_text = {{  aut, vtextGroup[client_hl_group[other_agent]] } },
+			        virt_text_pos = "right_align"
+			      }
+			    )
 
 			    if follow and follow_aut == aut then
 			    	local curbuf = vim.api.nvim_get_current_buf()
@@ -3168,6 +3188,16 @@ local function undo(buf)
 				  id = vim.api.nvim_create_namespace(aut),
 				  buf = buf,
 				}
+				vim.api.nvim_buf_set_extmark(
+				  buf,
+				  old_namespace[aut].id,
+				  math.max(y - 2, 0),
+				  0,
+				  {
+				    virt_text = {{  aut, vtextGroup[client_hl_group[other_agent]] } },
+				    virt_text_pos = "right_align"
+				  }
+				)
 
 				vim.api.nvim_buf_set_extmark(
 				  buf,
@@ -3418,6 +3448,16 @@ local function redo(buf)
 				  id = vim.api.nvim_create_namespace(aut),
 				  buf = buf,
 				}
+				vim.api.nvim_buf_set_extmark(
+				  buf,
+				  old_namespace[aut].id,
+				  math.max(y - 2, 0),
+				  0,
+				  {
+				    virt_text = {{  aut, vtextGroup[client_hl_group[other_agent]] } },
+				    virt_text_pos = "right_align"
+				  }
+				)
 
 				vim.api.nvim_buf_set_extmark(
 				  buf,

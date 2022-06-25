@@ -20,7 +20,16 @@ jobs:
             mv nvim.appimage ./build/nvim
           }
           mkdir -p ~/.local/share/nvim/site/pack/vendor/start
-          git clone --depth 1 https://github.com/jbyuki/ntangle.nvim ~/.local/share/nvim/site/pack/vendor/start/ntangle.nvim
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git clone --depth 1 https://github.com/jbyuki/instant.nvim ~/.local/share/nvim/site/pack/vendor/start/instant.nvim
+            cd ~/.local/share/nvim/site/pack/vendor/start/instant.nvim
+            # https://github.com/actions/checkout/issues/58
+            git fetch origin pull/${{github.event.number}}/head:pr-branch
+            git checkout pr-branch
+            cd
+          else
+            git clone --depth 1 https://github.com/jbyuki/instant.nvim ~/.local/share/nvim/site/pack/vendor/start/instant.nvim
+          fi
       - run: echo "Neovim has been installed."
       - run: echo "🖥️ The workflow is now ready to test your code on the runner."
       - name: List files in the repository
