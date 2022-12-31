@@ -1461,6 +1461,7 @@ local function StartClient(first, appuri, port)
 
 						allprev[buf] = prev
 						allpids[buf] = pids
+						vim.api.nvim_buf_set_option(buf, "modified", false)
 					else
 						local buf = rem2loc[ag][bufid]
 
@@ -1501,6 +1502,7 @@ local function StartClient(first, appuri, port)
 								vim.api.nvim_command("doautocmd BufRead " .. vim.api.nvim_buf_get_name(buf))
 							end)
 						end
+						vim.api.nvim_buf_set_option(buf, "modified", false)
 
 					end
 				end
