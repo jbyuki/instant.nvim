@@ -781,6 +781,12 @@ end
 
 local function StartClient(first, appuri, port)
 	local v, username = pcall(function() return vim.api.nvim_get_var("instant_username") end)
+	local work_from_buffer = pcall(function() return vim.api.nvim_get_var("instant_work_from_buffer") end)
+
+	if not work_from_buffer then
+		work_from_buffer = 0
+	end
+
 	if not v then
 		error("Please specify a username in g:instant_username")
 	end
@@ -1419,8 +1425,9 @@ local function StartClient(first, appuri, port)
 									vim.api.nvim_command("doautocmd BufRead " .. vim.api.nvim_buf_get_name(buf))
 								end)
 							end
-
-							vim.api.nvim_buf_set_option(buf, "buftype", "")
+							if not work_from_buffer then
+								vim.api.nvim_buf_set_option(buf, "buftype", "")
+							end
 
 						end
 
@@ -2813,8 +2820,18 @@ local function Join(host, port)
     autocmd_init = true
   end
 
+  local work_from_buffer = pcall(function() return vim.api.nvim_get_var("instant_work_from_buffer") end)
+
+   if not work_from_buffer then
+	work_from_buffer = 0
+   end
 
   local buf = vim.api.nvim_create_buf(true, false)
+
+  if work_from_buffer then
+	vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+  end
+
   vim.api.nvim_win_set_buf(0, buf)
 
 	singlebuf = buf
